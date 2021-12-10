@@ -1,5 +1,5 @@
 [package]
-name = "fireSeqSearch_app"
+name = "fire_seq_search"
 version = "0.1.0"
 edition = "2018"
 
