@@ -12,7 +12,9 @@
 
   "content_scripts": [
     {
-      "matches": ["*://*.baidu.com/*"],
+      "matches": ["*://*.baidu.com/*",
+        "*://*.bing.com/*",
+        "*://*.google.com/*"],
       "js": ["main.js"]
     }
   ]
