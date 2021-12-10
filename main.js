@@ -47,6 +47,7 @@ function performSearchAgainstLogseq(keywords) {
 
 
 (function() {
+    const fireSeqSearchDomId = "fireSeqSearchDom";
 
     document.body.style.border = "5px solid red";
 
@@ -59,6 +60,7 @@ function performSearchAgainstLogseq(keywords) {
         console.log(searchResult);
     }
 
+    /*
 
     function getSearchEngineResultBody() {
         //bing
@@ -67,24 +69,33 @@ function performSearchAgainstLogseq(keywords) {
         return bing;
     }
 
+    let contentDom = getSearchEngineResultBody();
+*/
 
 
-    function insertFireSeqDomToWebpage(contentDom) {
+    function insertFireSeqDomToWebpage() {
         let div = document.createElement("div");
         div.innerHTML = "Paragraph changed!";
         div.setAttribute("id", "fireSeqSearchDom");
-        console.log(div);
-        console.log(contentDom.firstChild);
-        contentDom.insertBefore(div, contentDom.firstChild);
+        // console.log(div);
+        // console.log(contentDom.firstChild);
+
+        document.body.insertBefore(div, document.body.firstChild);
         console.log("inserted");
         return div;
     }
 
 
-    let contentDom = getSearchEngineResultBody();
 
+    function getFireSeqDomToWebpage() {
+        let fireDom = document.getElementById(fireSeqSearchDomId);
+        if (fireDom == null) {
+            fireDom = insertFireSeqDomToWebpage();
+        }
+        return fireDom;
+    }
 
-    let fireSeqDom = insertFireSeqDomToWebpage(contentDom);
+    let fireSeqDom = getFireSeqDomToWebpage();
 
     const searchParameter = getSearchParameterFromCurrentPagg();
 
@@ -92,6 +103,7 @@ function performSearchAgainstLogseq(keywords) {
     const searchResult = performSearchAgainstLogseq(searchParameter);
 
 
+    fireSeqDom.innerHTML += searchResult;
     writeResult(searchResult);
 
 
