@@ -1,3 +1,7 @@
+.idea
+
+
+# ==== GitHub ignore list for node ====
 # Logs
 logs
 *.log
