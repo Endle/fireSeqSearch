@@ -115,7 +115,7 @@ function performSearchAgainstLogseq(keywords) {
     // browser.permissions.getAll();
 
     //
-    let port = browser.runtime.connectNative("fire_seq_search");
+    let port = browser.runtime.connectNative("fire_seq_search_server");
     console.log(port);
     // port.onMessage.addListener((response) => {
     //     console.log("Received: " + response);
