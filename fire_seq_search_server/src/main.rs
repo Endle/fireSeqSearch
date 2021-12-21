@@ -7,7 +7,7 @@ use tantivy::query::QueryParser;
 use tantivy::schema::*;
 use tantivy::Index;
 use tantivy::ReloadPolicy;
-use tempfile::TempDir;
+
 
 
 use log::{info};
@@ -24,7 +24,7 @@ async fn main() {
 
     let logseq_path = "/home/lizhenbo/src/logseq_notebook";
     let index = indexing_documents(logseq_path);
-    // let searcher = build_searcher(&index);
+    let searcher = build_searcher(&index);
 
     let search = warp::path!("query" / String)
         .map(|name| query(name) );
@@ -56,10 +56,10 @@ fn build_searcher(index: &tantivy::Index) -> i32 {
 fn indexing_documents(path: &str) -> tantivy::Index {
     // TODO remove these unwrap()
 
-    let index_path = TempDir::new().unwrap();
-    info!("Using temporary directory {:?}", index_path);
+    // let index_path = TempDir::new().unwrap();
+    // info!("Using temporary directory {:?}", index_path);
     let (schema, title,body) = build_schema_dev();
-    let index = Index::create_in_dir(&index_path, schema.clone()).unwrap();
+    let index = Index::create_in_ram(schema.clone());
 
     let mut index_writer = index.writer(50_000_000).unwrap();
 
