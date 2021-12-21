@@ -1,5 +1,5 @@
-fire_seq_search/Cargo.lock
-fire_seq_search/target
+fire_seq_search_server/Cargo.lock
+fire_seq_search_server/target
 
 # === https://github.com/rust-lang/rust/blob/master/.gitignore ===
 
