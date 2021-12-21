@@ -107,5 +107,20 @@ function performSearchAgainstLogseq(keywords) {
     writeResult(searchResult);
 
 
+
+    // browser.permissions.getAll().then((result) => {
+    //     console.log(result.permissions); // [ "webRequest", "tabs" ]
+    //     console.log(result.origins)      // [ "*://*.mozilla.org/*" ]
+    // });
+    // browser.permissions.getAll();
+
+    //
+    let port = browser.runtime.connectNative("fire_seq_search");
+    console.log(port);
+    // port.onMessage.addListener((response) => {
+    //     console.log("Received: " + response);
+    // });
+    // port.postMessage("searchResult");
+
     document.body.style.border = "5px solid blue";
 })();

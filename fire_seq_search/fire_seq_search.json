@@ -1,0 +1,7 @@
+{
+  "name": "fire_seq_search",
+  "description": "Example host for native messaging,  linked to ln -s $(pwd)/fire_seq_search.json /home/lizhenbo/.mozilla/native-messaging-hosts",
+  "path": "/home/lizhenbo/src/fireSeqSearch/fire_seq_search/target/debug/fire_seq_search",
+  "type": "stdio",
+  "allowed_extensions": [ "ping_pong@example.org" ]
+}

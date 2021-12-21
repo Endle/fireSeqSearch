@@ -17,6 +17,9 @@
         "*://*.google.com/*"],
       "js": ["main.js"]
     }
-  ]
+  ],
+
+  "permissions": ["nativeMessaging"]
+
 
 }
