@@ -6,7 +6,7 @@ use tantivy::schema::*;
 use tantivy::Index;
 use tantivy::ReloadPolicy;
 
-use std::{fs, io};
+use std::fs;
 
 use log::{info};
 use log::LevelFilter;
@@ -40,7 +40,7 @@ fn build_reader_parser(index: &tantivy::Index) -> (tantivy::IndexReader, tantivy
         .reader_builder()
         .reload_policy(ReloadPolicy::OnCommit)
         .try_into().unwrap();
-    let (schema, title,body) = build_schema_dev();
+    let (_schema, title,body) = build_schema_dev();
     let query_parser = tantivy::query::QueryParser::for_index(index, vec![title, body]);
     (reader, query_parser)
 }
