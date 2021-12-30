@@ -2,8 +2,6 @@ use warp::Filter;
 
 #[macro_use]
 extern crate tantivy;
-use tantivy::collector::TopDocs;
-use tantivy::query::QueryParser;
 use tantivy::schema::*;
 use tantivy::Index;
 use tantivy::ReloadPolicy;
@@ -24,7 +22,8 @@ async fn main() {
 
     let logseq_path = "/home/lizhenbo/src/logseq_notebook";
     let index = indexing_documents(logseq_path);
-    let searcher = build_searcher(&index);
+    let (reader, query_parser) = build_reader_parser(&index);
+    let _searcher = build_searcher(&reader, &query_parser);
 
     let search = warp::path!("query" / String)
         .map(|name| query(name) );
@@ -34,19 +33,28 @@ async fn main() {
         .await;
 }
 
-fn build_searcher(index: &tantivy::Index) -> i32 {
+
+fn build_reader_parser(index: &tantivy::Index) -> (tantivy::IndexReader, tantivy::query::QueryParser) {
     // TODO remove these unwrap()
     let reader = index
         .reader_builder()
         .reload_policy(ReloadPolicy::OnCommit)
         .try_into().unwrap();
-
-    let searcher = reader.searcher();
     let (schema, title,body) = build_schema_dev();
-    let query_parser = QueryParser::for_index(index, vec![title, body]);
-    let query = query_parser.parse_query("sea whale").unwrap();
-    let top_docs = searcher.search(&query, &TopDocs::with_limit(10)).unwrap();
+    let query_parser = tantivy::query::QueryParser::for_index(index, vec![title, body]);
+    (reader, query_parser)
+}
+
+fn build_searcher(reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser) -> i32 {
+    let searcher = reader.searcher();
+
+    let query = query_parser.parse_query("for").unwrap();
+    let top_docs = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(10))
+        .unwrap();
+    let (schema, _title, _body) = build_schema_dev();
     for (_score, doc_address) in top_docs {
+        // _score = 1;
+        println!("Found doc addr {:?}, score {}", &doc_address, &_score);
         let retrieved_doc = searcher.doc(doc_address).unwrap();
         println!("{}", schema.to_json(&retrieved_doc));
     }
@@ -70,7 +78,7 @@ fn indexing_documents(path: &str) -> tantivy::Index {
     old_man_doc.add_text(
         body,
         "He was an old man who fished alone in a skiff in the Gulf Stream and \
-         he had gone eighty-four days now without taking a fish.",
+         he had gone eighty-four days now without taking a fish. for for for",
     );
 
     index_writer.add_document(old_man_doc);
@@ -87,7 +95,7 @@ fn indexing_documents(path: &str) -> tantivy::Index {
     ));
 
     index_writer.add_document(doc!(
-    title => "Of Mice and Men",
+    title => "Of Mice and Men for",
     body => "A few miles south of Soledad, the Salinas River drops in close to the hillside \
             bank and runs deep and green. The water is warm too, for it has slipped twinkling \
             over the yellow sands in the sunlight before reaching the narrow pool. On one \
@@ -95,7 +103,7 @@ fn indexing_documents(path: &str) -> tantivy::Index {
             Gabilan Mountains, but on the valley side the water is lined with trees—willows \
             fresh and green with every spring, carrying in their lower leaf junctures the \
             debris of the winter’s flooding; and sycamores with mottled, white, recumbent \
-            limbs and branches that arch over the pool"
+            limbs and branches that arch over the pool for for"
     ));
 
     index_writer.commit().unwrap();
