@@ -119,15 +119,17 @@ fn query(term: String, reader: &tantivy::IndexReader, query_parser: &tantivy::qu
     info!("Searching {}", term);
     let searcher = reader.searcher();
 
-    let query = query_parser.parse_query("softmax").unwrap();
+    let query = query_parser.parse_query(&term).unwrap();
     let top_docs = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(10))
         .unwrap();
     let (schema, _title, _body) = build_schema_dev();
+    let mut result = Vec::new();
     for (_score, doc_address) in top_docs {
         // _score = 1;
-        println!("Found doc addr {:?}, score {}", &doc_address, &_score);
+        info!("Found doc addr {:?}, score {}", &doc_address, &_score);
         let retrieved_doc = searcher.doc(doc_address).unwrap();
-        println!("{}", schema.to_json(&retrieved_doc));
+        result.push(schema.to_json(&retrieved_doc));
+        // println!("{}", schema.to_json(&retrieved_doc));
     }
-    format!("Searching {}", term)
+    result.join(",")
 }
