@@ -6,7 +6,7 @@ use tantivy::schema::*;
 use tantivy::Index;
 use tantivy::ReloadPolicy;
 
-
+use std::{fs, io};
 
 use log::{info};
 use log::LevelFilter;
@@ -48,7 +48,7 @@ fn build_reader_parser(index: &tantivy::Index) -> (tantivy::IndexReader, tantivy
 fn build_searcher(reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser) -> i32 {
     let searcher = reader.searcher();
 
-    let query = query_parser.parse_query("for").unwrap();
+    let query = query_parser.parse_query("softmax").unwrap();
     let top_docs = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(10))
         .unwrap();
     let (schema, _title, _body) = build_schema_dev();
@@ -71,40 +71,28 @@ fn indexing_documents(path: &str) -> tantivy::Index {
 
     let mut index_writer = index.writer(50_000_000).unwrap();
 
+    // I should remove the unwrap and convert it into map
+    let path = path.to_owned() + "/pages";
+    let notebooks = fs::read_dir(path).unwrap();
 
 
-    let mut old_man_doc = Document::default();
-    old_man_doc.add_text(title, "The Old Man and the Sea");
-    old_man_doc.add_text(
-        body,
-        "He was an old man who fished alone in a skiff in the Gulf Stream and \
-         he had gone eighty-four days now without taking a fish. for for for",
-    );
 
-    index_writer.add_document(old_man_doc);
-    index_writer.add_document(doc!(
-    title => "Of Mice and Men",
-    body => "A few miles south of Soledad, the Salinas River drops in close to the hillside \
-            bank and runs deep and green. The water is warm too, for it has slipped twinkling \
-            over the yellow sands in the sunlight before reaching the narrow pool. On one \
-            side of the river the golden foothill slopes curve up to the strong and rocky \
-            Gabilan Mountains, but on the valley side the water is lined with trees—willows \
-            fresh and green with every spring, carrying in their lower leaf junctures the \
-            debris of the winter’s flooding; and sycamores with mottled, white, recumbent \
-            limbs and branches that arch over the pool"
-    ));
+    for note in notebooks {
+        let note:std::fs::DirEntry = note.unwrap();
+        let note = note.path();
+        // println!("{:?}", &note);
+        let note_title = note.file_stem().unwrap().to_str().unwrap();
+        info!("note title: {}", &note_title);
 
-    index_writer.add_document(doc!(
-    title => "Of Mice and Men for",
-    body => "A few miles south of Soledad, the Salinas River drops in close to the hillside \
-            bank and runs deep and green. The water is warm too, for it has slipped twinkling \
-            over the yellow sands in the sunlight before reaching the narrow pool. On one \
-            side of the river the golden foothill slopes curve up to the strong and rocky \
-            Gabilan Mountains, but on the valley side the water is lined with trees—willows \
-            fresh and green with every spring, carrying in their lower leaf junctures the \
-            debris of the winter’s flooding; and sycamores with mottled, white, recumbent \
-            limbs and branches that arch over the pool for for"
-    ));
+        let contents :String = fs::read_to_string(&note)
+            .expect("Something went wrong reading the file");
+        info!("Length: {}", contents.len());
+
+        let mut doc = Document::default();
+        doc.add_text(title, note_title);
+        doc.add_text(body, contents);
+        index_writer.add_document(doc);
+    }
 
     index_writer.commit().unwrap();
     index
