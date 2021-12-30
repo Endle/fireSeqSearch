@@ -26,7 +26,9 @@ async fn main() {
     let _searcher = build_searcher(&reader, &query_parser);
 
     let search = warp::path!("query" / String)
-        .map(|name| query(name) );
+        .map(move |name| query(name, &reader, &query_parser) );
+    // I admit I don't know why rust clousure asks me to use move.
+    // I know nothing about rust
 
     warp::serve(search)
         .run(([127, 0, 0, 1], 3030))
@@ -45,7 +47,9 @@ fn build_reader_parser(index: &tantivy::Index) -> (tantivy::IndexReader, tantivy
     (reader, query_parser)
 }
 
+
 fn build_searcher(reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser) -> i32 {
+    // looks that this is a hack function
     let searcher = reader.searcher();
 
     let query = query_parser.parse_query("softmax").unwrap();
@@ -110,6 +114,20 @@ fn build_schema_dev() -> (tantivy::schema::Schema, tantivy::schema::Field, tanti
     (schema, title, body)
 }
 
-fn query(term: String) -> String {
+// TODO No Chinese support yet
+fn query(term: String, reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser) -> String {
+    info!("Searching {}", term);
+    let searcher = reader.searcher();
+
+    let query = query_parser.parse_query("softmax").unwrap();
+    let top_docs = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(10))
+        .unwrap();
+    let (schema, _title, _body) = build_schema_dev();
+    for (_score, doc_address) in top_docs {
+        // _score = 1;
+        println!("Found doc addr {:?}, score {}", &doc_address, &_score);
+        let retrieved_doc = searcher.doc(doc_address).unwrap();
+        println!("{}", schema.to_json(&retrieved_doc));
+    }
     format!("Searching {}", term)
 }
