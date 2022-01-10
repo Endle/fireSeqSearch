@@ -132,5 +132,6 @@ fn query(term: String, reader: &tantivy::IndexReader, query_parser: &tantivy::qu
         // println!("{}", schema.to_json(&retrieved_doc));
     }
     //INVALID!
-    result.join(",")
+    // result.join(",")
+    result[0].clone()
 }

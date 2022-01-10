@@ -3,42 +3,22 @@
 
 
 function performSearchAgainstLogseq(keywords) {
+    const search_url = "http://127.0.0.1:3030/query/" + keywords;
 
-    const logseqPagesPath = "/home/lizhenbo/src/logseq_notebook/pages";
+    function reqListener () {
+        console.log(this);
+    }
 
-    const notename = "Softmax.md";
-
-    const filename = "file://" + logseqPagesPath + "/" + notename;
-
-    // https://matrix.to/#/!CuzZVoCbeoDHsxMCVJ:mozilla.org/$3VUaYExfxqsx3NpqUJYoIiSAtKtkASelWASTTPSJCSw?via=mozilla.org&via=matrix.org&via=privacytools.io
-    // https://stackoverflow.com/a/44516256/1166518
-    /*
-    let readFile = (_path) => {
-        return new Promise((resolve, reject) => {
-            fetch(_path, {mode:'same-origin'})
-                .then(function(_res) {
-                    return _res.blob();
-                })
-                .then(function(_blob) {
-                    var reader = new FileReader();
-
-                    reader.addEventListener("loadend", function() {
-                        resolve(this.result);
-                    });
-
-                    reader.readAsText(_blob);
-                })
-                .catch(error => {
-                    reject(error);
-                });
-        });
-    };
-
-    readFile.then(res => {
-        console.log(res);
-    });
-*/
-
+    // let oReq = new XMLHttpRequest();
+    // // oReq.addEventListener("load", reqListener);
+    // oReq.onreadystatechange = reqListener;
+    // oReq.open("GET", search_url);
+    // oReq.send();
+    console.log(search_url);
+    window.fetch(search_url)
+        // .then(response => console.log(response));
+        .then(response => response.json())
+        .then(data => console.log(data));
 
     return "<p>" + keywords + "</p>";
 }
@@ -52,6 +32,7 @@ function performSearchAgainstLogseq(keywords) {
     document.body.style.border = "5px solid red";
 
     function getSearchParameterFromCurrentPagg() {
+        //Hacky
         return "linear";
     }
 
@@ -115,8 +96,8 @@ function performSearchAgainstLogseq(keywords) {
     // browser.permissions.getAll();
 
     //
-    let port = browser.runtime.connectNative("fire_seq_search_server");
-    console.log(port);
+    // let port = browser.runtime.connectNative("fire_seq_search_server");
+    // console.log(port);
     // port.onMessage.addListener((response) => {
     //     console.log("Received: " + response);
     // });
