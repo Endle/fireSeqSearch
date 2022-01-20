@@ -20,8 +20,8 @@ function performSearchAgainstLogseq(keywords, outputDom) {
 
         dom.innerHTML += "<p>We found " + count.toString() + " results in your logseq notebook</p>";
 
-        for (let record in rawSearchResult) {
-            dom.innerHTML += "<p>" +  record.title[0] + "</p>";
+        for (let record of rawSearchResult) {
+            dom.innerHTML += "<p>" +  record + "</p>";
         }
     }
 
@@ -102,5 +102,5 @@ function performSearchAgainstLogseq(keywords, outputDom) {
     // writeResult(searchResult);
 
 
-    document.body.style.border = "5px solid blue";
+    // document.body.style.border = "5px solid blue";
 })();

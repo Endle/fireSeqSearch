@@ -133,5 +133,8 @@ fn query(term: String, reader: &tantivy::IndexReader, query_parser: &tantivy::qu
     }
     //INVALID!
     // result.join(",")
-    result[0].clone()
+    let json = serde_json::to_string(&result).unwrap();
+    info!("Search result {}", &json);
+    json
+    // result[0].clone()
 }
