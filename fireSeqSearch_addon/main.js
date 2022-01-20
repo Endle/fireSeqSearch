@@ -16,6 +16,13 @@ function performSearchAgainstLogseq(keywords, outputDom) {
     // oReq.send();
     console.log(search_url);
     function writeResult(rawSearchResult, dom) {
+
+        // Very hacky for google
+        if (window.location.toString().includes("google")) {
+            for (var i=0; i<6; ++i) {
+                dom.innerHTML += "<br/>";
+            }
+        }
         const count = rawSearchResult.length;
 
         dom.innerHTML += "<p>We found " + count.toString() + " results in your logseq notebook</p>";
@@ -45,7 +52,7 @@ function performSearchAgainstLogseq(keywords, outputDom) {
 (function() {
     const fireSeqSearchDomId = "fireSeqSearchDom";
 
-    document.body.style.border = "5px solid red";
+    // document.body.style.border = "5px solid red";
 
     function getSearchParameterFromCurrentPage() {
         // https://stackoverflow.com/a/901144/1166518
