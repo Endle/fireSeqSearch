@@ -7,7 +7,7 @@
   "description": "for logseq",
 
   "icons": {
-    "48": "icons/border-48.png"
+    "48": "icons/fire-48.png"
   },
 
   "content_scripts": [
