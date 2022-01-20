@@ -1,11 +1,9 @@
 {
-
   "manifest_version": 2,
   "name": "fireSeqSearch",
   "version": "0.0.1",
 
   "description": "Everytime you use the search engine, this plugin will search against your personal logseq notes. Before using this plugin, you need to run the search server, which will host all logseq pages on http://127.0.0.1:3030.",
-
 
   "icons": {
     "48": "icons/fire-48.png"
@@ -13,13 +11,10 @@
 
   "content_scripts": [
     {
-      "matches": ["*://*.bing.com/*",
-        "*://www.google.com/search*"],
+      "matches": ["*://*.bing.com/*", "*://www.google.com/search*"],
       "js": ["main.js"]
     }
   ],
 
   "permissions": ["*://127.0.0.1/*"]
-
-
 }
