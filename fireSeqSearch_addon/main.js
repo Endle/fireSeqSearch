@@ -31,9 +31,13 @@ function performSearchAgainstLogseq(keywords) {
 
     document.body.style.border = "5px solid red";
 
-    function getSearchParameterFromCurrentPagg() {
-        //Hacky
-        return "linear";
+    function getSearchParameterFromCurrentPage() {
+        // https://stackoverflow.com/a/901144/1166518
+        const urlParams = new URLSearchParams(window.location.search);
+        // console.log(urlParams);
+        const searchParam = urlParams.get('q');
+        // console.log(searchParam);
+        return searchParam;
     }
 
 
@@ -78,7 +82,7 @@ function performSearchAgainstLogseq(keywords) {
 
     let fireSeqDom = getFireSeqDomToWebpage();
 
-    const searchParameter = getSearchParameterFromCurrentPagg();
+    const searchParameter = getSearchParameterFromCurrentPage();
 
 
     const searchResult = performSearchAgainstLogseq(searchParameter);
@@ -87,21 +91,6 @@ function performSearchAgainstLogseq(keywords) {
     fireSeqDom.innerHTML += searchResult;
     writeResult(searchResult);
 
-
-
-    // browser.permissions.getAll().then((result) => {
-    //     console.log(result.permissions); // [ "webRequest", "tabs" ]
-    //     console.log(result.origins)      // [ "*://*.mozilla.org/*" ]
-    // });
-    // browser.permissions.getAll();
-
-    //
-    // let port = browser.runtime.connectNative("fire_seq_search_server");
-    // console.log(port);
-    // port.onMessage.addListener((response) => {
-    //     console.log("Received: " + response);
-    // });
-    // port.postMessage("searchResult");
 
     document.body.style.border = "5px solid blue";
 })();
