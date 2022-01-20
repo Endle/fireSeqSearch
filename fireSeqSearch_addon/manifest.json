@@ -14,7 +14,7 @@
   "content_scripts": [
     {
       "matches": ["*://*.bing.com/*",
-        "*://www.google.com/*"],
+        "*://www.google.com/search*"],
       "js": ["main.js"]
     }
   ],
