@@ -2,9 +2,10 @@
 
   "manifest_version": 2,
   "name": "firsSeqSearch",
-  "version": "0.1",
+  "version": "0.0.1",
 
-  "description": "for logseq",
+  "description": "Everytime you use the search engine, this plugin will search against your personal logseq notes. Before using this plugin, you need to run the search server, which will host all logseq pages on http://127.0.0.1:3030.",
+
 
   "icons": {
     "48": "icons/fire-48.png"
@@ -12,8 +13,7 @@
 
   "content_scripts": [
     {
-      "matches": ["*://*.baidu.com/*",
-        "*://*.bing.com/*",
+      "matches": ["*://*.bing.com/*",
         "*://*.google.com/*"],
       "js": ["main.js"]
     }
