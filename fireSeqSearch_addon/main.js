@@ -2,7 +2,7 @@
 // Copyright (c) 2021 Zhenbo Li
 
 
-function performSearchAgainstLogseq(keywords) {
+function performSearchAgainstLogseq(keywords, outputDom) {
     const search_url = "http://127.0.0.1:3030/query/" + keywords;
 
     function reqListener () {
@@ -15,12 +15,28 @@ function performSearchAgainstLogseq(keywords) {
     // oReq.open("GET", search_url);
     // oReq.send();
     console.log(search_url);
+    function writeResult(rawSearchResult, dom) {
+        const count = rawSearchResult.length;
+
+        dom.innerHTML += "<p>We found " + count.toString() + " results in your logseq notebook</p>";
+
+        for (let record in rawSearchResult) {
+            dom.innerHTML += "<p>" +  record.title[0] + "</p>";
+        }
+    }
+
     window.fetch(search_url)
         // .then(response => console.log(response));
         .then(response => response.json())
-        .then(data => console.log(data));
+        .then(data => {
+            console.log(data);
+            writeResult(data, outputDom)
+        });
 
-    return "<p>" + keywords + "</p>";
+
+
+
+    // writeResult(searchResult);
 }
 
 
@@ -41,19 +57,13 @@ function performSearchAgainstLogseq(keywords) {
     }
 
 
-    function writeResult(searchResult) {
-        console.log(searchResult);
-    }
-
     /*
-
     function getSearchEngineResultBody() {
         //bing
         let bing =  document.getElementById("b_content");
         console.log(bing);
         return bing;
     }
-
     let contentDom = getSearchEngineResultBody();
 */
 
@@ -85,11 +95,11 @@ function performSearchAgainstLogseq(keywords) {
     const searchParameter = getSearchParameterFromCurrentPage();
 
 
-    const searchResult = performSearchAgainstLogseq(searchParameter);
+    const searchResult = performSearchAgainstLogseq(searchParameter, fireSeqDom);
 
 
-    fireSeqDom.innerHTML += searchResult;
-    writeResult(searchResult);
+    // fireSeqDom.innerHTML += searchResult;
+    // writeResult(searchResult);
 
 
     document.body.style.border = "5px solid blue";
