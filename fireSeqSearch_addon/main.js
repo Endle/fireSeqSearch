@@ -14,25 +14,33 @@ function performSearchAgainstLogseq(keywords, outputDom) {
         console.log(this);
     }
 
+    function uglyExtraLine() {
+        let x = createElementWithText("br", "");
+        return x;
+    }
     console.log(search_url);
     function writeResult(rawSearchResult, dom) {
 
         // Very hacky for google
         if (window.location.toString().includes("google")) {
             for (var i=0; i<6; ++i) {
-                dom.innerHTML += "<br/>";
+                dom.appendChild(uglyExtraLine());
             }
         }
         const count = rawSearchResult.length;
 
-        const hitCount = createElementWithText("div",
+        let hitCount = createElementWithText("div",
             "We found " + count.toString() + " results in your logseq notebook");
+        hitCount.style.fontSize = "large";
         dom.appendChild(hitCount);
+        dom.appendChild(uglyExtraLine());
 
         let hitList = document.createElement("ul");
         for (let record of rawSearchResult) {
             // const e = document.createTextNode(record);
-            const e = createElementWithText("li", record);
+            let e = createElementWithText("li", record);
+            e.style.fontSize = "16px";
+            // e.style.
             hitList.appendChild(e);
             // dom.innerHTML += "<p>" +  record + "</p>";
         }
