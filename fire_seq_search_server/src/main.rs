@@ -1,7 +1,6 @@
 use warp::Filter;
 
-#[macro_use]
-extern crate tantivy;
+
 use tantivy::schema::*;
 use tantivy::Index;
 use tantivy::ReloadPolicy;
@@ -23,11 +22,10 @@ async fn main() {
     let logseq_path = "/home/lizhenbo/src/logseq_notebook";
     let index = indexing_documents(logseq_path);
     let (reader, query_parser) = build_reader_parser(&index);
-    let _searcher = build_searcher(&reader, &query_parser);
 
     let search = warp::path!("query" / String)
         .map(move |name| query(name, &reader, &query_parser) );
-    // I admit I don't know why rust clousure asks me to use move.
+    // I admit I don't know why rust closure asks me to use move.
     // I know nothing about rust
 
     warp::serve(search)
@@ -35,6 +33,36 @@ async fn main() {
         .await;
 }
 
+
+// TODO No Chinese support yet
+fn query(term: String, reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser) -> String {
+    // TODO HACKY CONVERT
+    let term = term.replace("%20", " ");
+
+    info!("Searching {}", term);
+    let searcher = reader.searcher();
+
+
+
+    let query = query_parser.parse_query(&term).unwrap();
+    let top_docs = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(10))
+        .unwrap();
+    let (schema, _title, _body) = build_schema_dev();
+    let mut result = Vec::new();
+    for (_score, doc_address) in top_docs {
+        // _score = 1;
+        info!("Found doc addr {:?}, score {}", &doc_address, &_score);
+        let retrieved_doc = searcher.doc(doc_address).unwrap();
+        result.push(schema.to_json(&retrieved_doc));
+        // println!("{}", schema.to_json(&retrieved_doc));
+    }
+    //INVALID!
+    // result.join(",")
+    let json = serde_json::to_string(&result).unwrap();
+    info!("Search result {}", &json);
+    json
+    // result[0].clone()
+}
 
 fn build_reader_parser(index: &tantivy::Index) -> (tantivy::IndexReader, tantivy::query::QueryParser) {
     // TODO remove these unwrap()
@@ -45,24 +73,6 @@ fn build_reader_parser(index: &tantivy::Index) -> (tantivy::IndexReader, tantivy
     let (_schema, title,body) = build_schema_dev();
     let query_parser = tantivy::query::QueryParser::for_index(index, vec![title, body]);
     (reader, query_parser)
-}
-
-
-fn build_searcher(reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser) -> i32 {
-    // looks that this is a hack function
-    let searcher = reader.searcher();
-
-    let query = query_parser.parse_query("softmax").unwrap();
-    let top_docs = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(10))
-        .unwrap();
-    let (schema, _title, _body) = build_schema_dev();
-    for (_score, doc_address) in top_docs {
-        // _score = 1;
-        println!("Found doc addr {:?}, score {}", &doc_address, &_score);
-        let retrieved_doc = searcher.doc(doc_address).unwrap();
-        println!("{}", schema.to_json(&retrieved_doc));
-    }
-    1
 }
 
 fn indexing_documents(path: &str) -> tantivy::Index {
@@ -112,29 +122,4 @@ fn build_schema_dev() -> (tantivy::schema::Schema, tantivy::schema::Field, tanti
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
     (schema, title, body)
-}
-
-// TODO No Chinese support yet
-fn query(term: String, reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser) -> String {
-    info!("Searching {}", term);
-    let searcher = reader.searcher();
-
-    let query = query_parser.parse_query(&term).unwrap();
-    let top_docs = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(10))
-        .unwrap();
-    let (schema, _title, _body) = build_schema_dev();
-    let mut result = Vec::new();
-    for (_score, doc_address) in top_docs {
-        // _score = 1;
-        info!("Found doc addr {:?}, score {}", &doc_address, &_score);
-        let retrieved_doc = searcher.doc(doc_address).unwrap();
-        result.push(schema.to_json(&retrieved_doc));
-        // println!("{}", schema.to_json(&retrieved_doc));
-    }
-    //INVALID!
-    // result.join(",")
-    let json = serde_json::to_string(&result).unwrap();
-    info!("Search result {}", &json);
-    json
-    // result[0].clone()
 }
