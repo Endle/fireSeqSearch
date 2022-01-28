@@ -1,6 +1,11 @@
 // MIT License
 // Copyright (c) 2021-2022 Zhenbo Li
 
+function createElementWithText(type, text) {
+    let x = document.createElement(type);
+    x.textContent = text;
+    return x;
+}
 
 function performSearchAgainstLogseq(keywords, outputDom) {
     const search_url = "http://127.0.0.1:3030/query/" + keywords;
@@ -9,11 +14,6 @@ function performSearchAgainstLogseq(keywords, outputDom) {
         console.log(this);
     }
 
-    // let oReq = new XMLHttpRequest();
-    // // oReq.addEventListener("load", reqListener);
-    // oReq.onreadystatechange = reqListener;
-    // oReq.open("GET", search_url);
-    // oReq.send();
     console.log(search_url);
     function writeResult(rawSearchResult, dom) {
 
@@ -25,11 +25,18 @@ function performSearchAgainstLogseq(keywords, outputDom) {
         }
         const count = rawSearchResult.length;
 
-        dom.innerHTML += "<p>We found " + count.toString() + " results in your logseq notebook</p>";
+        const hitCount = createElementWithText("div",
+            "We found " + count.toString() + " results in your logseq notebook");
+        dom.appendChild(hitCount);
 
+        let hitList = document.createElement("ul");
         for (let record of rawSearchResult) {
-            dom.innerHTML += "<p>" +  record + "</p>";
+            // const e = document.createTextNode(record);
+            const e = createElementWithText("li", record);
+            hitList.appendChild(e);
+            // dom.innerHTML += "<p>" +  record + "</p>";
         }
+        dom.appendChild(hitList);
     }
 
     window.fetch(search_url)
