@@ -1,5 +1,5 @@
 // MIT License
-// Copyright (c) 2021 Zhenbo Li
+// Copyright (c) 2021-2022 Zhenbo Li
 
 
 function performSearchAgainstLogseq(keywords, outputDom) {
@@ -50,6 +50,7 @@ function performSearchAgainstLogseq(keywords, outputDom) {
 
 
 (function() {
+
     const fireSeqSearchDomId = "fireSeqSearchDom";
 
     // document.body.style.border = "5px solid red";
@@ -77,8 +78,8 @@ function performSearchAgainstLogseq(keywords, outputDom) {
 
     function insertFireSeqDomToWebpage() {
         let div = document.createElement("div");
-        div.innerHTML = "Paragraph changed!";
-        div.setAttribute("id", "fireSeqSearchDom");
+        div.innerHTML = "<p>fireSeqSearch launched!</p>";
+        div.setAttribute("id", fireSeqSearchDomId);
         // console.log(div);
         // console.log(contentDom.firstChild);
 
