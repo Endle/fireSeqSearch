@@ -23,7 +23,7 @@ function performSearchAgainstLogseq(keywords, outputDom) {
 
         // Very hacky for google
         if (window.location.toString().includes("google")) {
-            for (var i=0; i<6; ++i) {
+            for (let i=0; i<6; ++i) {
                 dom.appendChild(uglyExtraLine());
             }
         }
@@ -42,7 +42,7 @@ function performSearchAgainstLogseq(keywords, outputDom) {
             e.style.fontSize = "16px";
             // e.style.
             hitList.appendChild(e);
-            // dom.innerHTML += "<p>" +  record + "</p>";
+
         }
         dom.appendChild(hitList);
     }
@@ -93,7 +93,7 @@ function performSearchAgainstLogseq(keywords, outputDom) {
 
     function insertFireSeqDomToWebpage() {
         let div = document.createElement("div");
-        div.innerHTML = "<p>fireSeqSearch launched!</p>";
+        div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
         div.setAttribute("id", fireSeqSearchDomId);
         // console.log(div);
         // console.log(contentDom.firstChild);
@@ -118,12 +118,6 @@ function performSearchAgainstLogseq(keywords, outputDom) {
     const searchParameter = getSearchParameterFromCurrentPage();
 
 
-    const searchResult = performSearchAgainstLogseq(searchParameter, fireSeqDom);
+    performSearchAgainstLogseq(searchParameter, fireSeqDom);
 
-
-    // fireSeqDom.innerHTML += searchResult;
-    // writeResult(searchResult);
-
-
-    // document.body.style.border = "5px solid blue";
 })();
