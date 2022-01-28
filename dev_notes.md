@@ -14,3 +14,9 @@ Why insert fireSeqSearchDom before document.body.firstChild
 ---------------------
 I struggle for <google.com>. I tried several dom elements, like `search`, `GyAeWb`, but `insertBefore()` failed.
 By naive frontend knowledge is not sufficient to solve it.   2022-Jan-28
+
+
+Rust version needed
+---------------------
+lz4_flex is using newly stabled features. tantivy depends on it.
+
