@@ -1,0 +1,120 @@
+name: Rust
+
+# Template Reference: https://www.infinyon.com/blog/2021/04/github-actions-best-practices/
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Cargo test  (${{ matrix.rust }}) (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        rust: [stable, 1.49, 1.52, 1.55, 1.58]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust ${{ matrix.rust }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+      - name: Cache cargo registry
+        uses: actions/cache@v2
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: rust-${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-build
+          restore-keys: |
+            rust-${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-
+            rust-${{ runner.os }}-cargo-${{ matrix.rust }}-
+            rust-${{ runner.os }}-cargo-
+            rust-
+
+# Real tests starts here
+      - name: Check version
+        run: rustup --version && rustc --version && cargo --version
+      - name: Install rustfmt
+        run: |
+          rustup component add rustfmt
+          which rustfmt && rustfmt --version
+      - name: Build
+        run: |
+          cd fire_seq_search_server
+          cargo build --verbose
+#      - name: Run tests
+#        run: cargo test --verbose
+      - name: Install
+        run: |
+          cd fire_seq_search_server
+          cargo install --path .
+      - name: Package
+        run: |
+          cd fire_seq_search_server
+          cargo package --verbose
+      - name: clippy
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd fire_seq_search_server
+          rustup component add clippy
+          cargo clippy
+        
+
+
+#  release:
+#    needs: build
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v2
+#      - name: Install Rust stable
+#        uses: actions-rs/toolchain@v1
+#        with:
+#          toolchain: stable
+#          profile: minimal
+#          override: true
+#      - name: Cache cargo registry
+#        uses: actions/cache@v2
+#        continue-on-error: false
+#        with:
+#          path: |
+#            ~/.cargo/registry
+#            ~/.cargo/git
+#          key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.toml') }}-release
+#          restore-keys: |
+#            ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.toml') }}-
+#            ${{ runner.os }}-cargo-stable-
+#            ${{ runner.os }}-cargo-
+
+      # End of rust template
+#      - name: Install toolkit
+#        run: cargo install cargo-bump
+#      - name: Bump version
+#        run: |
+#          git config --global user.name 'Endle'
+#          git config --global user.email 'Endle@users.noreply.github.com'
+#          git branch --show-current
+#          python3 --version
+#          python3 bump_version.py
+#      - name: Push to Github and crates
+#        env:
+#          CRATES_SECRET: ${{ secrets.CRATES_ENDLE }}
+#        run: |
+#          if [[ -f "created_new_commit.success" ]]; then
+#            cat created_new_commit.success
+#            rm created_new_commit.success
+#            echo "Following https://stackoverflow.com/a/58393457/1166518"
+#            git push origin master
+#            cargo login "$CRATES_SECRET"
+#            cargo publish -v
+#          fi
+
