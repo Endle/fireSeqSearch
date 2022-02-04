@@ -1,12 +1,33 @@
-This project is in **VERY EARLY** DEVELOPMENT! I'm just too happy to share my first milestone with you, while it's far away from the _first release_.
-
-Hello, I'm trying to develop a plugin for logseq - [fireSeqSearch](https://github.com/Endle/fireSeqSearch). It is inspired by [Evernote](https://evernote.com)'s browser extension - if we search something, for example, `softmax`, the extension will also do this search against the personal notebook.
-
-This is what [fireSeqSearch](https://github.com/Endle/fireSeqSearch) does on my logseq notebook. It has two parts:
-
-1. search server, which will host all logseq pages on http://127.0.0.1:3030
-2. Browser extension, which will attach hits in logseg, and append it to the web page.
-
-This screenshot is an example
+Introduction
+--------
+[fireSeqSearch](https://github.com/Endle/fireSeqSearch) is inspired by [Evernote](https://evernote.com)'s browser extension - if we search a term, for example, `softmax` in Google, the extension will also do this search against the personal notebook.
 
 ![screenshot for google](docs/screenshot_demo.png)
+
+
+
+How it works
+---------
+This is what [fireSeqSearch](https://github.com/Endle/fireSeqSearch) does on my logseq notebook. I had to split it into two parts because it has 
+
+It has two parts:
+
+### 1. search server
+It read all local loseq notebooks, and hosts logseq pages on http://127.0.0.1:3030
+
+It provides the API `http://127.0.0.1:3030/query/`
+
+
+### 2. Browser extension
+Every time we use search engine, it will fetch `http://127.0.0.1:3030/query/keywords`and append all hits to the web page.
+
+
+
+How to use it
+------------------
+This project is in **VERY EARLY** DEVELOPMENT! Please go ahead only if you'reprepared to share feedbacks.
+
+Don't panic. fireSeqSearch will only read your logseq notebooks, which is unlikely to cause data loss.
+
+1. `git clone https://github.com/Endle/fireSeqSearch`
+2. To be added...
