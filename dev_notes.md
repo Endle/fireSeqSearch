@@ -17,4 +17,4 @@ By naive frontend knowledge is not sufficient to solve it. 2022-Jan-28
 
 lz4_flex is using newly stabled features. tantivy depends on it.
 
-clap-rs even requires newer versions, so I'm only supporting 1.55+.  2022-Feb-05
+clap-rs even requires newer versions, so I'm only supporting 1.55+. 2022-Feb-05
