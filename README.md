@@ -30,4 +30,6 @@ This project is in **VERY EARLY** DEVELOPMENT! Please go ahead only if you'repre
 Don't panic. fireSeqSearch will only read your logseq notebooks, which is unlikely to cause data loss.
 
 1. `git clone https://github.com/Endle/fireSeqSearch`
-2. To be added...
+2. Edit `run_server.sh`, pointing it to your local logseq notebook path
+3. Execute `run_server.sh`
+4. Install web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>

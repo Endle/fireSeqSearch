@@ -10,6 +10,14 @@ use std::fs;
 use log::{info};
 use log::LevelFilter;
 
+use clap::Parser;
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    #[clap(short, long)]
+    notebook_path: String,
+}
+
 #[tokio::main]
 async fn main() {
     env_logger::builder()
@@ -18,9 +26,9 @@ async fn main() {
         .filter_level(LevelFilter::Info)
         .init();
 
-
-    let logseq_path = "/home/lizhenbo/src/logseq_notebook";
-    let index = indexing_documents(logseq_path);
+    let args = Args::parse();
+    let logseq_path = args.notebook_path;
+    let index = indexing_documents(&logseq_path);
     let (reader, query_parser) = build_reader_parser(&index);
 
     let search = warp::path!("query" / String)
