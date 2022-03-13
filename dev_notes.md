@@ -20,4 +20,5 @@ lz4_flex is using newly stabled features. tantivy depends on it.
 clap-rs even requires newer versions, so I'm only supporting 1.55+. 2022-Feb-05
 
 ## Match all Google regions
+
 In 0.0.4, I added one extra domain. I think I should find a more elegent way.
