@@ -11,9 +11,11 @@
 
   "content_scripts": [
     {
-      "matches": ["*://*.bing.com/*",
+      "matches": [
+        "*://*.bing.com/*",
         "*://www.google.com/search*",
-        "*://www.google.com.hk/search*"],
+        "*://www.google.com.hk/search*"
+      ],
       "js": ["main.js"]
     }
   ],
