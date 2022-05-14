@@ -2,12 +2,12 @@
 # rustfmt is licensed in MIT Copyright (c) 2016-2021 The Rust Project Developers https://github.com/rust-lang/rustfmt/blob/master/LICENSE-MIT
 
 
-name: windows release
+name: Windows
 on:
   push:
-    branches:
-      - master
-
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   test:

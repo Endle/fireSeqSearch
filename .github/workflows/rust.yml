@@ -1,4 +1,4 @@
-name: Rust
+name: Linux and macOS
 
 # Template Reference: https://www.infinyon.com/blog/2021/04/github-actions-best-practices/
 on:
@@ -71,50 +71,42 @@ jobs:
         
 
 
-#  release:
-#    needs: build
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v2
-#      - name: Install Rust stable
-#        uses: actions-rs/toolchain@v1
-#        with:
-#          toolchain: stable
-#          profile: minimal
-#          override: true
-#      - name: Cache cargo registry
-#        uses: actions/cache@v2
-#        continue-on-error: false
-#        with:
-#          path: |
-#            ~/.cargo/registry
-#            ~/.cargo/git
-#          key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.toml') }}-release
-#          restore-keys: |
-#            ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.toml') }}-
-#            ${{ runner.os }}-cargo-stable-
-#            ${{ runner.os }}-cargo-
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+      - name: Cache cargo registry
+        uses: actions/cache@v2
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.toml') }}-release
+          restore-keys: |
+            ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-cargo-stable-
+            ${{ runner.os }}-cargo-
+      - name: Build
+        run: |
+          cd fire_seq_search_server
+          cargo build --verbose
+      - name: Save Artifact
+        run: |
+          mkdir builds
+          mv fire_seq_search_server/target/debug/fire_seq_search_server builds
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: logseq-${{ runner.os }}-builds
+          path: builds
 
-      # End of rust template
-#      - name: Install toolkit
-#        run: cargo install cargo-bump
-#      - name: Bump version
-#        run: |
-#          git config --global user.name 'Endle'
-#          git config --global user.email 'Endle@users.noreply.github.com'
-#          git branch --show-current
-#          python3 --version
-#          python3 bump_version.py
-#      - name: Push to Github and crates
-#        env:
-#          CRATES_SECRET: ${{ secrets.CRATES_ENDLE }}
-#        run: |
-#          if [[ -f "created_new_commit.success" ]]; then
-#            cat created_new_commit.success
-#            rm created_new_commit.success
-#            echo "Following https://stackoverflow.com/a/58393457/1166518"
-#            git push origin master
-#            cargo login "$CRATES_SECRET"
-#            cargo publish -v
-#          fi
+
 
