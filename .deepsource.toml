@@ -8,14 +8,3 @@ enabled = true
 name = "rust"
 enabled = true
 
-[[transformers]]
-name = "rustfmt"
-enabled = true
-
-[[transformers]]
-name = "standardjs"
-enabled = true
-
-[[transformers]]
-name = "prettier"
-enabled = true
