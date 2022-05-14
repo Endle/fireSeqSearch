@@ -12,18 +12,12 @@ use serde::Serialize;
 use log::{info,debug};
 use log::LevelFilter;
 use clap::{Command,arg};
-// use clap::Parser;
-// #[derive(Parser, Debug)]
-// #[clap(author, version, about, long_about = None)]
-// struct Args {
-//     #[clap(short, long)]
-//     notebook_path: String,
-// }
-//
+
 
 #[derive(Debug, Clone, Serialize)]
 struct ServerInformation {
     notebook_path: String,
+    notebook_name: String,
 }
 
 #[tokio::main]
@@ -39,9 +33,9 @@ async fn main() {
         .author("Zhenbo Li")
         .about("Server for fireSeqSearch: hosting logseq notebooks at 127.0.0.1")
         .arg(arg!(--notebook_path <VALUE>))
+        .arg(arg!(--notebook_name <VALUE>).required(false))
         .get_matches();
 
-    // let args = Args::parse();
 
     let server_info: ServerInformation = build_server_info(&matches);
 
@@ -70,9 +64,18 @@ fn build_server_info(args: &clap::ArgMatches) -> ServerInformation {
         Some(x) => x.to_string(),
         None => panic!("notebook_path has to be specified!")
     };
-
+    let notebook_name = match args.value_of("notebook_name") {
+        Some(x) => x.to_string(),
+        None => {
+            let chunks: Vec<&str> = notebook_path.split("/").collect();
+            let guess: &str = *chunks.last().unwrap();
+            info!("fire_seq_search guess the notebook name is {}", guess);
+            String::from(guess)
+        }
+    };
     ServerInformation{
-        notebook_path
+        notebook_path,
+        notebook_name,
     }
 }
 
