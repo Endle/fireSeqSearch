@@ -6,6 +6,8 @@ use tantivy::Index;
 use tantivy::ReloadPolicy;
 
 use std::fs;
+use serde_json;
+use serde::Serialize;
 
 use log::{info,debug};
 use log::LevelFilter;
@@ -18,6 +20,11 @@ use clap::{Command,arg};
 //     notebook_path: String,
 // }
 //
+
+#[derive(Debug, Clone, Serialize)]
+struct ServerInformation {
+    notebook_path: String,
+}
 
 #[tokio::main]
 async fn main() {
@@ -35,8 +42,10 @@ async fn main() {
         .get_matches();
 
     // let args = Args::parse();
-    let logseq_path: &str = matches.value_of("notebook_path").unwrap();
-    let index = indexing_documents(&logseq_path);
+
+    let server_info: ServerInformation = build_server_info(&matches);
+
+    let index = indexing_documents(&server_info.notebook_path);
     let (reader, query_parser) = build_reader_parser(&index);
 
     let call_query = warp::path!("query" / String)
@@ -45,7 +54,7 @@ async fn main() {
     // I know nothing about rust
 
     let get_server_info = warp::path("server_info")
-        .map(|| server_info() );
+        .map(move || serde_json::to_string( &server_info ).unwrap() );
 
     let routes = warp::get().and(
         call_query
@@ -56,12 +65,18 @@ async fn main() {
         .await;
 }
 
-fn server_info() -> String {
-    info!("get_server_info called");
-    // let json = serde_json::to_string(&result).unwrap();
-    let json = String::from("server info stub");
-    json
+fn build_server_info(args: &clap::ArgMatches) -> ServerInformation {
+    let notebook_path = match args.value_of("notebook_path") {
+        Some(x) => x.to_string(),
+        None => panic!("notebook_path has to be specified!")
+    };
+
+    ServerInformation{
+        notebook_path
+    }
 }
+
+
 
 // TODO No Chinese support yet
 fn query(term: String, reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser)
