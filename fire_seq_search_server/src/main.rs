@@ -7,7 +7,7 @@ use tantivy::ReloadPolicy;
 
 use std::fs;
 
-use log::{info};
+use log::{info,debug};
 use log::LevelFilter;
 
 use clap::Parser;
@@ -104,11 +104,11 @@ fn indexing_documents(path: &str) -> tantivy::Index {
         let note = note.path();
         // println!("{:?}", &note);
         let note_title = note.file_stem().unwrap().to_str().unwrap();
-        info!("note title: {}", &note_title);
+        debug!("note title: {}", &note_title);
 
         let contents :String = fs::read_to_string(&note)
             .expect("Something went wrong reading the file");
-        info!("Length: {}", contents.len());
+        debug!("Length: {}", contents.len());
 
         let mut doc = Document::default();
         doc.add_text(title, note_title);
