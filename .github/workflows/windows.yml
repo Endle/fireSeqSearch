@@ -16,11 +16,6 @@ jobs:
     env:
       CFG_RELEASE_CHANNEL: ${{ matrix.cfg_release_channel }}
     strategy:
-      # https://help.github.com/en/actions/getting-started-with-github-actions/about-github-actions#usage-limits
-      # There's a limit of 60 concurrent jobs across all repos in the rust-lang organization.
-      # In order to prevent overusing too much of that 60 limit, we throttle the
-      # number of rustfmt jobs that will run concurrently.
-      max-parallel: 2
       fail-fast: false
       matrix:
         target: [
@@ -29,7 +24,7 @@ jobs:
           x86_64-pc-windows-gnu,
           x86_64-pc-windows-msvc,
         ]
-        cfg_release_channel: [nightly, stable]
+        cfg_release_channel: [stable]
 
     steps:
       # The Windows runners have autocrlf enabled by default
@@ -65,9 +60,18 @@ jobs:
         run: |
           rustc -Vv
           cargo -V
+          cd fire_seq_search_server
           cargo build
         shell: cmd
 
       - name: test
-        run: cargo test
+        run: |
+          cd fire_seq_search_server
+          cargo test
         shell: cmd
+      - name: Package
+        run: |
+          cd fire_seq_search_server
+          cargo package --verbose
+        shell: cmd
+
