@@ -9,14 +9,15 @@ use std::fs;
 
 use log::{info,debug};
 use log::LevelFilter;
-
-use clap::Parser;
-#[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
-struct Args {
-    #[clap(short, long)]
-    notebook_path: String,
-}
+use clap::{Command,arg};
+// use clap::Parser;
+// #[derive(Parser, Debug)]
+// #[clap(author, version, about, long_about = None)]
+// struct Args {
+//     #[clap(short, long)]
+//     notebook_path: String,
+// }
+//
 
 #[tokio::main]
 async fn main() {
@@ -26,24 +27,45 @@ async fn main() {
         .filter_level(LevelFilter::Info)
         .init();
 
-    let args = Args::parse();
-    let logseq_path = args.notebook_path;
+    let matches = Command::new("fire_seq_search_server")
+        .version("0.0.1")
+        .author("Zhenbo Li")
+        .about("Server for fireSeqSearch: hosting logseq notebooks at 127.0.0.1")
+        .arg(arg!(--notebook_path <VALUE>))
+        .get_matches();
+
+    // let args = Args::parse();
+    let logseq_path: &str = matches.value_of("notebook_path").unwrap();
     let index = indexing_documents(&logseq_path);
     let (reader, query_parser) = build_reader_parser(&index);
 
-    let search = warp::path!("query" / String)
+    let call_query = warp::path!("query" / String)
         .map(move |name| query(name, &reader, &query_parser) );
     // I admit I don't know why rust closure asks me to use move.
     // I know nothing about rust
 
-    warp::serve(search)
+    let get_server_info = warp::path("server_info")
+        .map(|| server_info() );
+
+    let routes = warp::get().and(
+        call_query
+            .or(get_server_info)
+    );
+    warp::serve(routes)
         .run(([127, 0, 0, 1], 3030))
         .await;
 }
 
+fn server_info() -> String {
+    info!("get_server_info called");
+    // let json = serde_json::to_string(&result).unwrap();
+    let json = String::from("server info stub");
+    json
+}
 
 // TODO No Chinese support yet
-fn query(term: String, reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser) -> String {
+fn query(term: String, reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser)
+    -> String {
     // TODO HACKY CONVERT
     let term = term.replace("%20", " ");
 

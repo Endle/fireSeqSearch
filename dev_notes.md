@@ -24,5 +24,5 @@ In 0.0.4, I added one extra domain. I think I should find a more elegent way.
 
 
 ## CLion's shell is confusing under Windows  
-I got `ld: cannot find -lntdll`. No idea why it happens. I had to use MSYS2 to compile it manually. Why this terrible OS is so popular?!
+I got `ld: cannot find -lntdll`. No idea why it happens. However, my previous clone is good. Why this terrible OS is so popular?!
 
