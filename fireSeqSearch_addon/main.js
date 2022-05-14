@@ -7,7 +7,33 @@ function createElementWithText(type, text) {
     return x;
 }
 
-function performSearchAgainstLogseq(keywords, outputDom) {
+function wrapRawRecordIntoElement(rawRecord, serverInfo) {
+    // rawRecord is String   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/typeof
+
+    const name = serverInfo.notebook_name;
+    console.log("wrapping " + String(rawRecord) + " to notebook " + name);
+    console.log(typeof rawRecord);
+
+    const record = JSON.parse(rawRecord);
+    console.log(typeof record);
+
+    const title = record.title;
+    const target = "logseq://graph/logseq_notebook?page=" + title;
+
+    let li =  createElementWithText("li", "");
+    li.style.fontSize = "16px";
+    let a = document.createElement('a');
+    let text = document.createTextNode(title);
+    a.appendChild(text);
+    a.title = title;
+    a.href = target;
+    console.log(a);
+    li.appendChild(a);
+    console.log(li);
+    return li;
+}
+
+function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
     const search_url = "http://127.0.0.1:3030/query/" + keywords;
 
     function reqListener () {
@@ -19,6 +45,7 @@ function performSearchAgainstLogseq(keywords, outputDom) {
         return x;
     }
     console.log(search_url);
+
     function writeResult(rawSearchResult, dom) {
 
         // Very hacky for google
@@ -36,14 +63,14 @@ function performSearchAgainstLogseq(keywords, outputDom) {
         dom.appendChild(uglyExtraLine());
 
         let hitList = document.createElement("ul");
-        for (let record of rawSearchResult) {
+        for (let rawRecord of rawSearchResult) {
             // const e = document.createTextNode(record);
-            let e = createElementWithText("li", record);
-            e.style.fontSize = "16px";
+            let e = wrapRawRecordIntoElement(rawRecord, serverInfo);
             // e.style.
             hitList.appendChild(e);
-
+            // console.log("Added an element to the list");
         }
+        hitList.style.lineHeight = "150%";
         dom.appendChild(hitList);
     }
 
@@ -118,6 +145,13 @@ function performSearchAgainstLogseq(keywords, outputDom) {
     const searchParameter = getSearchParameterFromCurrentPage();
 
 
-    performSearchAgainstLogseq(searchParameter, fireSeqDom);
+    window.fetch("http://127.0.0.1:3030/server_info")
+        // .then(response => console.log(response));
+        .then(response => response.json())
+        .then(serverInfo => {
+            console.log(serverInfo);
+            performSearchAgainstLogseq(searchParameter, fireSeqDom, serverInfo);
+        });
+
 
 })();
