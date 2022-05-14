@@ -33,3 +33,5 @@ Don't panic. fireSeqSearch will only read your logseq notebooks, which is unlike
 2. Edit `run_server.sh`, pointing it to your local logseq notebook path
 3. Execute `run_server.sh`
 4. Install web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>
+
+PowerShell:  .\fire_seq_search_server.exe  --notebook_path C:\Users\li\logseq_notebook
