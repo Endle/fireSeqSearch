@@ -21,6 +21,8 @@ jobs:
         target: [
           i686-pc-windows-msvc,
           x86_64-pc-windows-msvc,
+          i686-pc-windows-gnu,
+          x86_64-pc-windows-gnu,
         ]
         cfg_release_channel: [stable]
 
@@ -68,13 +70,22 @@ jobs:
   release:
     needs: build
     runs-on: windows-latest
+    name: Build for (${{ matrix.target }} with ${{ matrix.cfg_release_channel }})
+    env:
+      CFG_RELEASE_CHANNEL: ${{ matrix.cfg_release_channel }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [
+          i686-pc-windows-msvc,
+          x86_64-pc-windows-msvc,
+        ]
+        cfg_release_channel: [ stable ]
     steps:
       - name: disable git eol translation
         run: git config --global core.autocrlf false
       - name: checkout
         uses: actions/checkout@v3
-
-        # Run build
       - name: Install Rustup using win.rustup.rs
         run: |
           # Disable the download progress bar which can cause perf issues
@@ -84,7 +95,6 @@ jobs:
           del rustup-init.exe
           rustup target add ${{ matrix.target }}
         shell: powershell
-
       - name: build
         run: |
           rustc -Vv
@@ -92,7 +102,6 @@ jobs:
           cd fire_seq_search_server
           cargo build
         shell: cmd
-
       - name: test
         run: |
           cd fire_seq_search_server
