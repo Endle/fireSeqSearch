@@ -45,16 +45,7 @@ jobs:
           rustup target add ${{ matrix.target }}
         shell: powershell
 
-      - name: Add mingw32 to path for i686-gnu
-        run: |
-          echo "C:\msys64\mingw32\bin" >> $GITHUB_PATH
-        if: matrix.target == 'i686-pc-windows-gnu' && matrix.channel == 'nightly'
-        shell: bash
-
-      - name: Add mingw64 to path for x86_64-gnu
-        run: echo "C:\msys64\mingw64\bin" >> $GITHUB_PATH
-        if: matrix.target == 'x86_64-pc-windows-gnu' && matrix.channel == 'nightly'
-        shell: bash
+      # Nightly config has been removed
 
       - name: build
         run: |
@@ -74,4 +65,14 @@ jobs:
           cd fire_seq_search_server
           cargo package --verbose
         shell: cmd
+      - name: Save Artifact
+        run: |
+          mkdir builds
+          mv fire_seq_search_server/target/debug/fire_seq_search_server.exe builds
+        shell: cmd
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: logseq-${{ runner.os }}-builds
+          path: builds
 
