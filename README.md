@@ -33,9 +33,9 @@ Steps:
 
 How it works
 ---------
-This is what [fireSeqSearch](https://github.com/Endle/fireSeqSearch) does on my logseq notebook. I had to split it into two parts because it has 
+This is what [fireSeqSearch](https://github.com/Endle/fireSeqSearch) does on my logseq notebook. I had to split it into two parts because Firefox extensions are not allowed to access local files.
 
-It has two parts:
+fireSeqSearch has two parts:
 
 ### 1. search server
 It read all local loseq notebooks, and hosts logseq pages on http://127.0.0.1:3030
