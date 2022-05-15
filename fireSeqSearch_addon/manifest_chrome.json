@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "fireSeqSearch",
+  "version": "0.0.5",
+
+  "description": "Everytime you use the search engine, FireSeqSearch searches your personal logseq notes.",
+
+  "icons": {
+    "48": "icons/fire-48.png"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.bing.com/*",
+        "*://www.google.com/search*",
+        "*://www.google.com.hk/search*"
+      ],
+      "js": ["main.js"]
+    }
+  ],
+
+  "permissions": ["*://127.0.0.1/*"]
+}
