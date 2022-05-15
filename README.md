@@ -5,11 +5,17 @@ Introduction
 [fireSeqSearch](https://github.com/Endle/fireSeqSearch) is inspired by [Evernote](https://evernote.com)'s browser extension - if we search a term, for example, `softmax` in Google, [fireSeqSearch](https://github.com/Endle/fireSeqSearch) will also search in our personal notebook, and append the hits into Google results.
 
 
-![screenshot for google](docs/screenshot_demo.png)
+![screenshot_demo](https://user-images.githubusercontent.com/3221521/168455027-965da612-b783-4d92-83e2-4cd7b4830a43.png)
+
 
 With [logseq 0.6.6](https://discuss.logseq.com/t/done-deep-linking-or-url-scheme-allow-linking-to-logseq-pages-from-outside-the-app/3146/26?u=endle), [Logseq URL Protocol](http://discordapp.com/channels/725182569297215569/756886540038438992/965024044183339088) ,  it's time for [fireSeqSearch](https://github.com/Endle/fireSeqSearch) to support jumping into Logseq!
 
-<video src="https://user-images.githubusercontent.com/3221521/168454580-9ec9ac3d-6f75-4ef3-85ac-4ce1a2ba5482.mp4"></video>
+
+<video src="https://user-images.githubusercontent.com/3221521/168455012-e1183f62-4682-4230-84e7-8a461d8985a0.mp4"></video>
+
+
+
+
 
 
 
