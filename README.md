@@ -9,7 +9,11 @@ Introduction
 
 With [logseq 0.6.6](https://discuss.logseq.com/t/done-deep-linking-or-url-scheme-allow-linking-to-logseq-pages-from-outside-the-app/3146/26?u=endle), [Logseq URL Protocol](http://discordapp.com/channels/725182569297215569/756886540038438992/965024044183339088) ,  it's time for [fireSeqSearch](https://github.com/Endle/fireSeqSearch) to support jumping into Logseq!
 
-<video src="https://user-images.githubusercontent.com/3221521/168454580-9ec9ac3d-6f75-4ef3-85ac-4ce1a2ba5482.mp4"></video>
+<video src="https://user-images.githubusercontent.com/3221521/168454876-09a51bc1-6ef1-41ee-b6b8-b5e22ea9f065.mp4"></video>
+
+
+
+
 
 
 
