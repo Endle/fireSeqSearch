@@ -29,7 +29,7 @@ Steps:
 3. If you're using Msys2, run `./fire_seq_search_server --notebook_path /c/Users/li/logseq_notebook`
 4. Please remember to change the path to your notebook
 5. Install latest web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>
-
+6. Chrome extension is being reviewed. I FEEL UPSET that Google is charging me to upload a free extension and WASTING MY TIME by requiring "high-quality" resource files for my alpha release.
 
 How it works
 ---------
