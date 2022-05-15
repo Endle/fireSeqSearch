@@ -4,7 +4,31 @@ Introduction
 
 ![screenshot for google](docs/screenshot_demo.png)
 
-![demo](docs/screen_record_20220514.mkv)
+
+<video src="
+https://user-images.githubusercontent.com/3221521/168454580-9ec9ac3d-6f75-4ef3-85ac-4ce1a2ba5482.mp4"></video>
+
+
+
+
+
+
+
+
+How to use it
+------------------
+This project is in **VERY EARLY** DEVELOPMENT! Please go ahead only if you'reprepared to share feedbacks.
+
+Don't panic. fireSeqSearch will only read your logseq notebooks, which is unlikely to cause data loss.
+
+1. `git clone https://github.com/Endle/fireSeqSearch`
+2. Edit `run_server.sh`, pointing it to your local logseq notebook path
+3. Execute `run_server.sh`
+4. Install web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>
+
+PowerShell:  .\fire_seq_search_server.exe  --notebook_path C:\Users\li\logseq_notebook
+
+
 
 How it works
 ---------
@@ -21,17 +45,3 @@ It provides the API `http://127.0.0.1:3030/query/`
 ### 2. Browser extension
 Every time we use search engine, it will fetch `http://127.0.0.1:3030/query/keywords`and append all hits to the web page.
 
-
-
-How to use it
-------------------
-This project is in **VERY EARLY** DEVELOPMENT! Please go ahead only if you'reprepared to share feedbacks.
-
-Don't panic. fireSeqSearch will only read your logseq notebooks, which is unlikely to cause data loss.
-
-1. `git clone https://github.com/Endle/fireSeqSearch`
-2. Edit `run_server.sh`, pointing it to your local logseq notebook path
-3. Execute `run_server.sh`
-4. Install web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>
-
-PowerShell:  .\fire_seq_search_server.exe  --notebook_path C:\Users\li\logseq_notebook
