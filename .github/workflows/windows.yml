@@ -41,10 +41,10 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: rust-${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-build
+          key: rust-${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-build
           restore-keys: |
-            rust-${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-
-            rust-${{ runner.os }}-cargo-${{ matrix.rust }}-
+            rust-${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-
+            rust-${{ runner.os }}-cargo-${{ matrix.target }}-
             rust-${{ runner.os }}-cargo-
 
         # Run build
