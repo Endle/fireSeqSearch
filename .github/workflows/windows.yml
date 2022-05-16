@@ -99,6 +99,18 @@ jobs:
         run: git config --global core.autocrlf false
       - name: checkout
         uses: actions/checkout@v3
+      - name: Cache cargo registry
+        uses: actions/cache@v2
+        continue-on-error: true
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: rust-${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-release
+          restore-keys: |
+            rust-${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-
+            rust-${{ runner.os }}-cargo-${{ matrix.target }}-
+            rust-${{ runner.os }}-cargo-
       - name: Install Rustup using win.rustup.rs
         run: |
           # Disable the download progress bar which can cause perf issues
