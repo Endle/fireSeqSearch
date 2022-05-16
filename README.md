@@ -46,3 +46,7 @@ It provides the API `http://127.0.0.1:3030/query/`
 ### 2. Browser extension
 Every time we use search engine, it will fetch `http://127.0.0.1:3030/query/keywords`and append all hits to the web page.
 
+
+Similar Projects
+--------------
+* [karlicoss/promnesia](https://github.com/karlicoss/promnesia)  - [Promnesia](https://github.com/karlicoss/promnesia) is a mature and interesting project, aming a more ambitious goal. [fireSeqSearch](https://github.com/Endle/fireSeqSearch) only does one thing - append logseq hits to search engine results.
