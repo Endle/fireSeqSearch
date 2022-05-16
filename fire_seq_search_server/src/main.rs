@@ -28,9 +28,9 @@ async fn main() {
         .filter_level(LevelFilter::Info)
         .init();
 
-    let matches = Command::new("fire_seq_search_server")
-        .version("0.0.1")
-        .author("Zhenbo Li")
+    let matches = Command::new(env!("CARGO_PKG_NAME"))
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(env!("CARGO_PKG_AUTHORS"))
         .about("Server for fireSeqSearch: hosting logseq notebooks at 127.0.0.1")
         .arg(arg!(--notebook_path <VALUE>))
         .arg(arg!(--notebook_name <VALUE>).required(false))
