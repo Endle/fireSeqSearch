@@ -23,13 +23,25 @@ How to use it
 ------------------
 This project is in **VERY EARLY** DEVELOPMENT! But don't panic. fireSeqSearch will only read your logseq notebooks, which is unlikely to cause data loss.
 
+### Install Browser Extension  
+1. Install latest web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>
+2. Chrome extension is being reviewed. I FEEL UPSET that Google is charging me to upload a free extension and WASTING MY TIME by requiring "high-quality" resource files for my alpha release.
+
+### Install Local Server
+
+#### Windows
 Steps:  
 1. Download the latest release at <https://github.com/Endle/fireSeqSearch/releases>
 2. If you're using PowerShell, run `.\fire_seq_search_server.exe  --notebook_path C:\Users\li\logseq_notebook`
 3. If you're using Msys2, run `./fire_seq_search_server --notebook_path /c/Users/li/logseq_notebook`
 4. Please remember to change the path to your notebook
-5. Install latest web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>
-6. Chrome extension is being reviewed. I FEEL UPSET that Google is charging me to upload a free extension and WASTING MY TIME by requiring "high-quality" resource files for my alpha release.
+
+#### Linux and macOS
+1. Install rust. See https://doc.rust-lang.org/cargo/getting-started/installation.html
+2. `git clone https://github.com/Endle/fireSeqSearch`
+3. `cd fire_seq_search_server && cargo build`
+4. `target/debug/fire_seq_search_server /home/li/my_notebook`
+
 
 How it works
 ---------
