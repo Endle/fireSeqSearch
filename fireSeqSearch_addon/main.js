@@ -92,10 +92,7 @@ function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
 
 
 (function() {
-
     const fireSeqSearchDomId = "fireSeqSearchDom";
-
-    // document.body.style.border = "5px solid red";
 
     function getSearchParameterFromCurrentPage() {
         let searchParam;
@@ -121,17 +118,6 @@ function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
     }
 
 
-    /*
-    function getSearchEngineResultBody() {
-        //bing
-        let bing =  document.getElementById("b_content");
-        console.log(bing);
-        return bing;
-    }
-    let contentDom = getSearchEngineResultBody();
-*/
-
-
     function insertFireSeqDomToWebpage() {
         let div = document.createElement("div");
         div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
@@ -148,7 +134,7 @@ function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
 
     function getFireSeqDomToWebpage() {
         let fireDom = document.getElementById(fireSeqSearchDomId);
-        if (fireDom == null) {
+        if (fireDom === null) {
             fireDom = insertFireSeqDomToWebpage();
         }
         return fireDom;
