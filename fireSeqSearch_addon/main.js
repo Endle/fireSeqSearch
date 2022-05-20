@@ -98,11 +98,25 @@ function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
     // document.body.style.border = "5px solid red";
 
     function getSearchParameterFromCurrentPage() {
-        // https://stackoverflow.com/a/901144/1166518
-        const urlParams = new URLSearchParams(window.location.search);
-        // console.log(urlParams);
-        const searchParam = urlParams.get('q');
-        // console.log(searchParam);
+        let searchParam;
+
+        function getSearchParameterOfSearx() {
+            let inputBox = document.getElementById("q");
+            // console.log(inputBox);
+            return inputBox.value;
+        }
+
+        if (window.location.toString().includes("searx")) {
+            searchParam = getSearchParameterOfSearx();
+        } else {
+            // https://stackoverflow.com/a/901144/1166518
+            const urlParams = new URLSearchParams(window.location.search);
+            // console.log(urlParams);
+            searchParam = urlParams.get('q');
+        }
+
+        console.log("Got search param: ");
+        console.log(searchParam);
         return searchParam;
     }
 
