@@ -36,10 +36,6 @@ function wrapRawRecordIntoElement(rawRecord, serverInfo) {
 function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
     const search_url = "http://127.0.0.1:3030/query/" + keywords;
 
-    function reqListener () {
-        console.log(this);
-    }
-
     function uglyExtraLine() {
         let x = createElementWithText("br", "");
         return x;
