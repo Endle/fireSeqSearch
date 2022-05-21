@@ -18,7 +18,7 @@ function wrapRawRecordIntoElement(rawRecord, serverInfo) {
     console.log(typeof record);
 
     const title = record.title;
-    const target = "logseq://graph/logseq_notebook?page=" + title;
+    const target = "logseq://graph/" + name + "?page=" + title;
 
     let li =  createElementWithText("li", "");
     li.style.fontSize = "16px";
