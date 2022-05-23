@@ -20,5 +20,17 @@
     }
   ],
 
-  "permissions": ["*://127.0.0.1/*"]
+
+  "host_permissions": [
+    "*://127.0.0.1/*",
+    "*://*.bing.com/*",
+    "*://*.google.com/search*",
+    "*://*.google.com.hk/search*"
+  ],
+  "permissions": [
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
+    "*://127.0.0.1/*"
+  ]
+
 }
