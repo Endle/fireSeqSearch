@@ -44,12 +44,7 @@ function performSearchAgainstLogseq(keywords, serverInfo) {
 
     function appendResultToSearchResult(rawSearchResult, dom) {
 
-        // Very hacky for google
-        if (window.location.toString().includes("google")) {
-            for (let i=0; i<6; ++i) {
-                dom.appendChild(uglyExtraLine());
-            }
-        }
+
         const count = rawSearchResult.length;
 
         let hitCount = createElementWithText("div",
@@ -71,21 +66,24 @@ function performSearchAgainstLogseq(keywords, serverInfo) {
     }
 
     const fireSeqSearchDomId = "fireSeqSearchDom";
-    function insertFireSeqDomToWebpage() {
-        let div = document.createElement("div");
-        div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
-        div.setAttribute("id", fireSeqSearchDomId);
-        // console.log(div);
-        // console.log(contentDom.firstChild);
-
-        document.body.insertBefore(div, document.body.firstChild);
-        console.log("inserted");
-        return div;
-    }
-
-
 
     function getFireSeqDomToWebpage() {
+        function insertFireSeqDomToWebpage() {
+            let div = document.createElement("div");
+            div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
+            div.setAttribute("id", fireSeqSearchDomId);
+
+            document.body.insertBefore(div, document.body.firstChild);
+            console.log("inserted");
+            // Very hacky for google
+            if (window.location.toString().includes("google")) {
+                for (let i=0; i<6; ++i) {
+                    div.appendChild(uglyExtraLine());
+                }
+            }
+
+            return div;
+        }
         let fireDom = document.getElementById(fireSeqSearchDomId);
         if (fireDom === null) {
             fireDom = insertFireSeqDomToWebpage();
