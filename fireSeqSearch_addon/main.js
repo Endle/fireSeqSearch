@@ -33,7 +33,7 @@ function wrapRawRecordIntoElement(rawRecord, serverInfo) {
     return li;
 }
 
-function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
+function performSearchAgainstLogseq(keywords, serverInfo) {
     const search_url = "http://127.0.0.1:3030/query/" + keywords;
 
     function uglyExtraLine() {
@@ -42,7 +42,7 @@ function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
     }
     console.log(search_url);
 
-    function writeResult(rawSearchResult, dom) {
+    function appendResultToSearchResult(rawSearchResult, dom) {
 
         // Very hacky for google
         if (window.location.toString().includes("google")) {
@@ -70,25 +70,44 @@ function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
         dom.appendChild(hitList);
     }
 
+    const fireSeqSearchDomId = "fireSeqSearchDom";
+    function insertFireSeqDomToWebpage() {
+        let div = document.createElement("div");
+        div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
+        div.setAttribute("id", fireSeqSearchDomId);
+        // console.log(div);
+        // console.log(contentDom.firstChild);
+
+        document.body.insertBefore(div, document.body.firstChild);
+        console.log("inserted");
+        return div;
+    }
+
+
+
+    function getFireSeqDomToWebpage() {
+        let fireDom = document.getElementById(fireSeqSearchDomId);
+        if (fireDom === null) {
+            fireDom = insertFireSeqDomToWebpage();
+        }
+        return fireDom;
+    }
+
+    let fireSeqDom = getFireSeqDomToWebpage();
     window.fetch(search_url)
-        // .then(response => console.log(response));
         .then(response => response.json())
         .then(data => {
             console.log(data);
-            writeResult(data, outputDom)
+            appendResultToSearchResult(data, fireSeqDom)
         });
 
 
-
-
-    // writeResult(searchResult);
 }
 
 
 
 
 (function() {
-    const fireSeqSearchDomId = "fireSeqSearchDom";
 
     function getSearchParameterFromCurrentPage() {
         let searchParam;
@@ -114,30 +133,6 @@ function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
     }
 
 
-    function insertFireSeqDomToWebpage() {
-        let div = document.createElement("div");
-        div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
-        div.setAttribute("id", fireSeqSearchDomId);
-        // console.log(div);
-        // console.log(contentDom.firstChild);
-
-        document.body.insertBefore(div, document.body.firstChild);
-        console.log("inserted");
-        return div;
-    }
-
-
-
-    function getFireSeqDomToWebpage() {
-        let fireDom = document.getElementById(fireSeqSearchDomId);
-        if (fireDom === null) {
-            fireDom = insertFireSeqDomToWebpage();
-        }
-        return fireDom;
-    }
-
-    let fireSeqDom = getFireSeqDomToWebpage();
-
     const searchParameter = getSearchParameterFromCurrentPage();
 
 
@@ -146,7 +141,7 @@ function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
         .then(response => response.json())
         .then(serverInfo => {
             console.log(serverInfo);
-            performSearchAgainstLogseq(searchParameter, fireSeqDom, serverInfo);
+            performSearchAgainstLogseq(searchParameter, serverInfo);
         });
 
 
