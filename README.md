@@ -40,7 +40,7 @@ Steps:
 1. Install rust. See https://doc.rust-lang.org/cargo/getting-started/installation.html
 2. `git clone https://github.com/Endle/fireSeqSearch`
 3. `cd fire_seq_search_server && cargo build`
-4. `target/debug/fire_seq_search_server /home/li/my_notebook`
+4. `target/debug/fire_seq_search_server --notebook_path /home/li/my_notebook`
 
 
 How it works
