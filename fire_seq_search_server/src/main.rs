@@ -10,7 +10,7 @@ use serde_json;
 use serde::Serialize;
 
 use log::{info,debug};
-use log::LevelFilter;
+// use log::LevelFilter;
 use clap::{Command,arg};
 
 
@@ -25,7 +25,7 @@ async fn main() {
     env_logger::builder()
         .format_timestamp(None)
         .format_target(false)
-        .filter_level(LevelFilter::Info)
+        // .filter_level(LevelFilter::Info)
         .init();
 
     let matches = Command::new(env!("CARGO_PKG_NAME"))
