@@ -184,8 +184,18 @@ fn read_md_file(note: std::fs::DirEntry) -> Option<(String, String)> {
     };
     debug!("note title: {}", &note_title);
 
-    let contents : String = fs::read_to_string(&note_path)
-        .expect("Something went wrong reading the file");
+    let contents : String = match fs::read_to_string(&note_path) {
+        Ok(c) => c,
+        Err(e) => {
+            if note_title.to_lowercase() == ".ds_store" {
+                debug!("Ignore .DS_Store for mac");
+            } else {
+                error!("Error({:?}) when reading the file {:?}", e, note_path);
+            }
+            return None;
+        }
+    };
+
     Some((note_title.to_string(),contents))
 }
 
