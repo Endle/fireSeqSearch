@@ -18,7 +18,7 @@ function wrapRawRecordIntoElement(rawRecord, serverInfo) {
     console.log(typeof record);
 
     const title = record.title;
-    const target = "logseq://graph/logseq_notebook?page=" + title;
+    const target = "logseq://graph/" + name + "?page=" + title;
 
     let li =  createElementWithText("li", "");
     li.style.fontSize = "16px";
@@ -33,12 +33,8 @@ function wrapRawRecordIntoElement(rawRecord, serverInfo) {
     return li;
 }
 
-function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
+function performSearchAgainstLogseq(keywords, serverInfo) {
     const search_url = "http://127.0.0.1:3030/query/" + keywords;
-
-    function reqListener () {
-        console.log(this);
-    }
 
     function uglyExtraLine() {
         let x = createElementWithText("br", "");
@@ -46,14 +42,9 @@ function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
     }
     console.log(search_url);
 
-    function writeResult(rawSearchResult, dom) {
+    function appendResultToSearchResult(rawSearchResult, dom) {
 
-        // Very hacky for google
-        if (window.location.toString().includes("google")) {
-            for (let i=0; i<6; ++i) {
-                dom.appendChild(uglyExtraLine());
-            }
-        }
+
         const count = rawSearchResult.length;
 
         let hitCount = createElementWithText("div",
@@ -74,18 +65,41 @@ function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
         dom.appendChild(hitList);
     }
 
+    const fireSeqSearchDomId = "fireSeqSearchDom";
+
+    function getFireSeqDomToWebpage() {
+        function insertFireSeqDomToWebpage() {
+            let div = document.createElement("div");
+            div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
+            div.setAttribute("id", fireSeqSearchDomId);
+
+            document.body.insertBefore(div, document.body.firstChild);
+            console.log("inserted");
+            // Very hacky for google
+            if (window.location.toString().includes("google")) {
+                for (let i=0; i<6; ++i) {
+                    div.appendChild(uglyExtraLine());
+                }
+            }
+
+            return div;
+        }
+        let fireDom = document.getElementById(fireSeqSearchDomId);
+        if (fireDom === null) {
+            fireDom = insertFireSeqDomToWebpage();
+        }
+        return fireDom;
+    }
+
+    let fireSeqDom = getFireSeqDomToWebpage();
     window.fetch(search_url)
-        // .then(response => console.log(response));
         .then(response => response.json())
         .then(data => {
             console.log(data);
-            writeResult(data, outputDom)
+            appendResultToSearchResult(data, fireSeqDom)
         });
 
 
-
-
-    // writeResult(searchResult);
 }
 
 
@@ -93,54 +107,29 @@ function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
 
 (function() {
 
-    const fireSeqSearchDomId = "fireSeqSearchDom";
-
-    // document.body.style.border = "5px solid red";
-
     function getSearchParameterFromCurrentPage() {
-        // https://stackoverflow.com/a/901144/1166518
-        const urlParams = new URLSearchParams(window.location.search);
-        // console.log(urlParams);
-        const searchParam = urlParams.get('q');
-        // console.log(searchParam);
+        let searchParam;
+
+        function getSearchParameterOfSearx() {
+            let inputBox = document.getElementById("q");
+            // console.log(inputBox);
+            return inputBox.value;
+        }
+
+        if (window.location.toString().includes("searx")) {
+            searchParam = getSearchParameterOfSearx();
+        } else {
+            // https://stackoverflow.com/a/901144/1166518
+            const urlParams = new URLSearchParams(window.location.search);
+            // console.log(urlParams);
+            searchParam = urlParams.get('q');
+        }
+
+        console.log("Got search param: ");
+        console.log(searchParam);
         return searchParam;
     }
 
-
-    /*
-    function getSearchEngineResultBody() {
-        //bing
-        let bing =  document.getElementById("b_content");
-        console.log(bing);
-        return bing;
-    }
-    let contentDom = getSearchEngineResultBody();
-*/
-
-
-    function insertFireSeqDomToWebpage() {
-        let div = document.createElement("div");
-        div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
-        div.setAttribute("id", fireSeqSearchDomId);
-        // console.log(div);
-        // console.log(contentDom.firstChild);
-
-        document.body.insertBefore(div, document.body.firstChild);
-        console.log("inserted");
-        return div;
-    }
-
-
-
-    function getFireSeqDomToWebpage() {
-        let fireDom = document.getElementById(fireSeqSearchDomId);
-        if (fireDom == null) {
-            fireDom = insertFireSeqDomToWebpage();
-        }
-        return fireDom;
-    }
-
-    let fireSeqDom = getFireSeqDomToWebpage();
 
     const searchParameter = getSearchParameterFromCurrentPage();
 
@@ -150,7 +139,7 @@ function performSearchAgainstLogseq(keywords, outputDom, serverInfo) {
         .then(response => response.json())
         .then(serverInfo => {
             console.log(serverInfo);
-            performSearchAgainstLogseq(searchParameter, fireSeqDom, serverInfo);
+            performSearchAgainstLogseq(searchParameter, serverInfo);
         });
 
 

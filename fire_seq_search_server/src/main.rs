@@ -9,8 +9,8 @@ use std::fs;
 use serde_json;
 use serde::Serialize;
 
-use log::{info,debug};
-use log::LevelFilter;
+use log::{info,debug,warn,error};
+// use log::LevelFilter;
 use clap::{Command,arg};
 
 
@@ -25,12 +25,12 @@ async fn main() {
     env_logger::builder()
         .format_timestamp(None)
         .format_target(false)
-        .filter_level(LevelFilter::Info)
+        // .filter_level(LevelFilter::Info)
         .init();
 
-    let matches = Command::new("fire_seq_search_server")
-        .version("0.0.1")
-        .author("Zhenbo Li")
+    let matches = Command::new(env!("CARGO_PKG_NAME"))
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(env!("CARGO_PKG_AUTHORS"))
         .about("Server for fireSeqSearch: hosting logseq notebooks at 127.0.0.1")
         .arg(arg!(--notebook_path <VALUE>))
         .arg(arg!(--notebook_name <VALUE>).required(false))
@@ -140,24 +140,63 @@ fn indexing_documents(path: &str) -> tantivy::Index {
 
 
     for note in notebooks {
-        let note:std::fs::DirEntry = note.unwrap();
-        let note = note.path();
-        // println!("{:?}", &note);
-        let note_title = note.file_stem().unwrap().to_str().unwrap();
-        debug!("note title: {}", &note_title);
+        let note : std::fs::DirEntry = note.unwrap();
+        let note_option = read_md_file(note);
 
-        let contents :String = fs::read_to_string(&note)
-            .expect("Something went wrong reading the file");
-        debug!("Length: {}", contents.len());
+        match note_option {
+            Some((note_title, contents)) => {
+                debug!("Length: {}", contents.len());
 
-        let mut doc = Document::default();
-        doc.add_text(title, note_title);
-        doc.add_text(body, contents);
-        index_writer.add_document(doc);
+                let mut doc = Document::default();
+                doc.add_text(title, note_title);
+                doc.add_text(body, contents);
+                index_writer.add_document(doc);
+            },
+            None => ()
+        };
     }
 
     index_writer.commit().unwrap();
     index
+}
+
+fn read_md_file(note: std::fs::DirEntry) -> Option<(String, String)> {
+
+    if let Ok(file_type) = note.file_type() {
+        // Now let's show our entry's file type!
+        debug!("{:?}: {:?}", note.path(), file_type);
+        if file_type.is_dir() {
+            debug!("{:?} is a directory, skipping", note.path());
+            return None;
+        }
+    } else {
+        warn!("Couldn't get file type for {:?}", note.path());
+        return None;
+    }
+
+    let note_path = note.path();
+    let note_title = match note_path.file_stem() {
+        Some(osstr) => osstr.to_str().unwrap(),
+        None => {
+            error!("Couldn't get file_stem for {:?}", note.path());
+            return None;
+        }
+    };
+    debug!("note title: {}", &note_title);
+
+    let contents : String = match fs::read_to_string(&note_path) {
+        Ok(c) => c,
+        Err(e) => {
+            if note_title.to_lowercase() == ".ds_store" {
+                debug!("Ignore .DS_Store for mac");
+            } else {
+                error!("Error({:?}) when reading the file {:?}", e, note_path);
+            }
+            return None;
+        }
+    };
+
+    Some((note_title.to_string(),contents))
 }
 
 
