@@ -12,7 +12,7 @@ use serde::Serialize;
 use log::{info,debug,warn,error};
 // use log::LevelFilter;
 use clap::{Command,arg};
-
+use urlencoding::decode;
 
 #[derive(Debug, Clone, Serialize)]
 struct ServerInformation {
@@ -80,12 +80,27 @@ fn build_server_info(args: &clap::ArgMatches) -> ServerInformation {
 }
 
 
+fn decode_cjk_str(original: String) -> Vec<String> {
+    let mut result = Vec::new();
+    for s in original.split(' ') {
+        let t = decode(s).expect("UTF-8");
+        debug!("Decode {}  ->   {}", s, t);
+        result.push(String::from(t));
+    }
+
+    result
+}
+
 
 // TODO No Chinese support yet
 fn query(term: String, reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser)
     -> String {
-    // TODO HACKY CONVERT
+
+    debug!("Original Search term {}", term);
+
     let term = term.replace("%20", " ");
+    let term_vec = decode_cjk_str(term);
+    let term = term_vec.join(" ");
 
     info!("Searching {}", term);
     let searcher = reader.searcher();
