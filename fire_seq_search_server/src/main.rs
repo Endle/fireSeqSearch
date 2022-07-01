@@ -2,7 +2,6 @@ use warp::Filter;
 
 
 use tantivy::schema::*;
-use tantivy::Index;
 use tantivy::ReloadPolicy;
 
 use std::fs;
@@ -18,6 +17,7 @@ use clap::{Command,arg};
 struct ServerInformation {
     notebook_path: String,
     notebook_name: String,
+    schema: tantivy::schema::Schema,
 }
 
 #[tokio::main]
@@ -25,7 +25,6 @@ async fn main() {
     env_logger::builder()
         .format_timestamp(None)
         .format_target(false)
-        // .filter_level(LevelFilter::Info)
         .init();
 
     let matches = Command::new(env!("CARGO_PKG_NAME"))
@@ -38,8 +37,7 @@ async fn main() {
 
 
     let server_info: ServerInformation = build_server_info(&matches);
-
-    let index = indexing_documents(&server_info.notebook_path);
+    let index = indexing_documents(&server_info);
     let (reader, query_parser) = build_reader_parser(&index);
 
     let call_query = warp::path!("query" / String)
@@ -59,6 +57,14 @@ async fn main() {
         .await;
 }
 
+fn build_schema() -> tantivy::schema::Schema {
+    let mut schema_builder = Schema::builder();
+    schema_builder.add_text_field("title", TEXT | STORED);
+    schema_builder.add_text_field("body", TEXT);
+    let schema = schema_builder.build();
+    schema
+}
+
 fn build_server_info(args: &clap::ArgMatches) -> ServerInformation {
     let notebook_path = match args.value_of("notebook_path") {
         Some(x) => x.to_string(),
@@ -76,6 +82,7 @@ fn build_server_info(args: &clap::ArgMatches) -> ServerInformation {
     ServerInformation{
         notebook_path,
         notebook_name,
+        schema: build_schema()
     }
 }
 
@@ -123,13 +130,16 @@ fn build_reader_parser(index: &tantivy::Index) -> (tantivy::IndexReader, tantivy
     (reader, query_parser)
 }
 
-fn indexing_documents(path: &str) -> tantivy::Index {
+fn indexing_documents(server_info: &ServerInformation) -> tantivy::Index {
     // TODO remove these unwrap()
 
     // let index_path = TempDir::new().unwrap();
     // info!("Using temporary directory {:?}", index_path);
-    let (schema, title,body) = build_schema_dev();
-    let index = Index::create_in_ram(schema.clone());
+    // let (schema, title,body) = build_schema_dev();
+
+    let path: &str = &server_info.notebook_path;
+    let schema = &server_info.schema;
+    let index = tantivy::Index::create_in_ram(schema.clone());
 
     let mut index_writer = index.writer(50_000_000).unwrap();
 
@@ -137,13 +147,14 @@ fn indexing_documents(path: &str) -> tantivy::Index {
     let path = path.to_owned() + "/pages";
     let notebooks = fs::read_dir(path).unwrap();
 
-
+    let title = schema.get_field("title").unwrap();
+    let body = schema.get_field("body").unwrap();
 
     for note in notebooks {
         let note : std::fs::DirEntry = note.unwrap();
-        let note_option = read_md_file(note);
 
-        match note_option {
+
+        match read_md_file(&note) {
             Some((note_title, contents)) => {
                 debug!("Length: {}", contents.len());
 
@@ -152,7 +163,9 @@ fn indexing_documents(path: &str) -> tantivy::Index {
                 doc.add_text(body, contents);
                 index_writer.add_document(doc);
             },
-            None => ()
+            None => (
+                warn!("Skip file {:?}", note)
+                )
         };
     }
 
@@ -160,8 +173,7 @@ fn indexing_documents(path: &str) -> tantivy::Index {
     index
 }
 
-fn read_md_file(note: std::fs::DirEntry) -> Option<(String, String)> {
-
+fn read_md_file(note: &std::fs::DirEntry) -> Option<(String, String)> {
     if let Ok(file_type) = note.file_type() {
         // Now let's show our entry's file type!
         debug!("{:?}: {:?}", note.path(), file_type);
