@@ -165,14 +165,15 @@ fn query(term: String, server_info: &ServerInformation, schema: tantivy::schema:
     for (_score, doc_address) in top_docs {
         // _score = 1;
         info!("Found doc addr {:?}, score {}", &doc_address, &_score);
-        let retrieved_doc = searcher.doc(doc_address).unwrap();
+        let retrieved_doc: tantivy::schema::Document = searcher.doc(doc_address).unwrap();
+        // debug!("Found {:?}", &retrieved_doc);
         result.push(schema.to_json(&retrieved_doc));
         // println!("{}", schema.to_json(&retrieved_doc));
     }
     //INVALID!
     // result.join(",")
     let json = serde_json::to_string(&result).unwrap();
-    info!("Search result {}", &json);
+    // info!("Search result {}", &json);
     json
     // result[0].clone()
 }
