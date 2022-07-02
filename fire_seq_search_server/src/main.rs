@@ -16,6 +16,7 @@ struct ServerInformation {
     notebook_path: String,
     notebook_name: String,
     schema: tantivy::schema::Schema,
+    show_top_hits: usize,
 }
 
 #[tokio::main]
@@ -86,7 +87,8 @@ fn build_server_info(args: &clap::ArgMatches) -> ServerInformation {
     ServerInformation{
         notebook_path,
         notebook_name,
-        schema: build_schema()
+        schema: build_schema(),
+        show_top_hits: 10
     }
 }
 
@@ -105,7 +107,7 @@ fn query(term: String, server_info: &ServerInformation,
 
 
     let query = query_parser.parse_query(&term).unwrap();
-    let top_docs = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(10))
+    let top_docs = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(server_info.show_top_hits))
         .unwrap();
     let schema = &server_info.schema;
     let mut result = Vec::new();
