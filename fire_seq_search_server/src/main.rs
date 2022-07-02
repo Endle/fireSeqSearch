@@ -1,6 +1,5 @@
 use warp::Filter;
 
-
 use tantivy::schema::*;
 use tantivy::ReloadPolicy;
 
@@ -36,14 +35,20 @@ async fn main() {
 
 
     let server_info: ServerInformation = build_server_info(&matches);
+
+
+
     let index = indexing_documents(&server_info);
     let (reader, query_parser) = build_reader_parser(&index, &server_info);
 
+    // TODO clone server_info is so ugly here
+    let server_info_dup = server_info.clone();
     let call_query = warp::path!("query" / String)
-        .map(move |name| query(name, &reader, &query_parser) );
+        .map(move |name| query(name, &server_info_dup, &reader, &query_parser) );
 
+    let server_info_dup2 = server_info.clone();
     let get_server_info = warp::path("server_info")
-        .map(move || serde_json::to_string( &server_info ).unwrap() );
+        .map(move || serde_json::to_string( &server_info_dup2 ).unwrap() );
 
     let routes = warp::get().and(
         call_query
@@ -52,6 +57,8 @@ async fn main() {
     warp::serve(routes)
         .run(([127, 0, 0, 1], 3030))
         .await;
+
+
 }
 
 fn build_schema() -> tantivy::schema::Schema {
@@ -86,7 +93,8 @@ fn build_server_info(args: &clap::ArgMatches) -> ServerInformation {
 
 
 // TODO No Chinese support yet
-fn query(term: String, reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser)
+fn query(term: String, server_info: &ServerInformation,
+         reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser)
     -> String {
     // TODO HACKY CONVERT
     let term = term.replace("%20", " ");
@@ -99,7 +107,7 @@ fn query(term: String, reader: &tantivy::IndexReader, query_parser: &tantivy::qu
     let query = query_parser.parse_query(&term).unwrap();
     let top_docs = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(10))
         .unwrap();
-    let (schema, _title, _body) = build_schema_dev();
+    let schema = &server_info.schema;
     let mut result = Vec::new();
     for (_score, doc_address) in top_docs {
         // _score = 1;
@@ -209,14 +217,3 @@ fn read_md_file(note: &std::fs::DirEntry) -> Option<(String, String)> {
     Some((note_title.to_string(),contents))
 }
 
-
-fn build_schema_dev() -> (tantivy::schema::Schema, tantivy::schema::Field, tantivy::schema::Field) {
-    // TODO currently for dev, a bit hacky
-    let mut schema_builder = Schema::builder();
-    schema_builder.add_text_field("title", TEXT | STORED);
-    schema_builder.add_text_field("body", TEXT);
-    let schema = schema_builder.build();
-    let title = schema.get_field("title").unwrap();
-    let body = schema.get_field("body").unwrap();
-    (schema, title, body)
-}
