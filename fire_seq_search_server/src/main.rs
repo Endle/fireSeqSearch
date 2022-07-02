@@ -79,8 +79,6 @@ fn build_schema_tokenizer() -> (tantivy::schema::Schema,
                                 CangJieTokenizer
                                 // Box<dyn tantivy::tokenizer::Tokenizer>
 ) {
-    let mut schema_builder = Schema::builder();
-
     let mut schema_builder = SchemaBuilder::default();
     let text_indexing = TextFieldIndexing::default()
         .set_tokenizer(cang_jie::CANG_JIE) // Set custom tokenizer
@@ -92,10 +90,6 @@ fn build_schema_tokenizer() -> (tantivy::schema::Schema,
         worker: std::sync::Arc::new(jieba_rs::Jieba::empty()), // empty dictionary
         option: cang_jie::TokenizerOption::Unicode,
     };
-
-
-    // let (schema, title,body, tokenizer) = build_schema_dev();
-
 
     let title = schema_builder.add_text_field("title", text_options.clone());
     let body = schema_builder.add_text_field("body", text_options);
