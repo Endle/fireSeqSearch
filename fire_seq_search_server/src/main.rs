@@ -17,8 +17,12 @@ use urlencoding::decode;
 struct ServerInformation {
     notebook_path: String,
     notebook_name: String,
-    schema: tantivy::schema::Schema,
     show_top_hits: usize,
+}
+
+struct DocumentSetting {
+    schema: tantivy::schema::Schema,
+    tokenizer: CangJieTokenizer,
 }
 
 #[tokio::main]
@@ -38,16 +42,16 @@ async fn main() {
 
 
     let server_info: ServerInformation = build_server_info(&matches);
+    let document_setting: DocumentSetting = build_document_setting();
 
-
-
-    let index = indexing_documents(&server_info);
-    let (reader, query_parser) = build_reader_parser(&index, &server_info);
+    let index = indexing_documents(&server_info, &document_setting);
+    let (reader, query_parser) = build_reader_parser(&index, &document_setting);
 
     // TODO clone server_info is so ugly here
     let server_info_dup = server_info.clone();
     let call_query = warp::path!("query" / String)
-        .map(move |name| query(name, &server_info_dup, &reader, &query_parser) );
+        .map(move |name| query(name, &server_info_dup, document_setting.schema.clone(),
+                               &reader, &query_parser) );
 
     let server_info_dup2 = server_info.clone();
     let get_server_info = warp::path("server_info")
@@ -64,121 +68,18 @@ async fn main() {
 
 }
 
-fn build_schema() -> tantivy::schema::Schema {
+fn build_document_setting() -> DocumentSetting {
+    let (schema, tokenizer) = build_schema_tokenizer();
+    DocumentSetting{
+        schema, tokenizer
+    }
+}
+
+fn build_schema_tokenizer() -> (tantivy::schema::Schema,
+                                CangJieTokenizer
+                                // Box<dyn tantivy::tokenizer::Tokenizer>
+) {
     let mut schema_builder = Schema::builder();
-    schema_builder.add_text_field("title", TEXT | STORED);
-    schema_builder.add_text_field("body", TEXT);
-    let schema = schema_builder.build();
-    schema
-}
-
-fn build_server_info(args: &clap::ArgMatches) -> ServerInformation {
-    let notebook_path = match args.value_of("notebook_path") {
-        Some(x) => x.to_string(),
-        None => panic!("notebook_path has to be specified!")
-    };
-    let notebook_name = match args.value_of("notebook_name") {
-        Some(x) => x.to_string(),
-        None => {
-            let chunks: Vec<&str> = notebook_path.split("/").collect();
-            let guess: &str = *chunks.last().unwrap();
-            info!("fire_seq_search guess the notebook name is {}", guess);
-            String::from(guess)
-        }
-    };
-    ServerInformation{
-        notebook_path,
-        notebook_name,
-        schema: build_schema(),
-        show_top_hits: 10
-    }
-}
-
-
-fn decode_cjk_str(original: String) -> Vec<String> {
-    let mut result = Vec::new();
-    for s in original.split(' ') {
-        let t = decode(s).expect("UTF-8");
-        debug!("Decode {}  ->   {}", s, t);
-        result.push(String::from(t));
-    }
-
-    result
-}
-
-
-// TODO No Chinese support yet
-fn query(term: String, server_info: &ServerInformation,
-         reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser)
-    -> String {
-
-    debug!("Original Search term {}", term);
-
-    let term = term.replace("%20", " ");
-    let term_vec = decode_cjk_str(term);
-    let term = term_vec.join(" ");
-
-    info!("Searching {}", term);
-    let searcher = reader.searcher();
-
-
-
-    let query = query_parser.parse_query(&term).unwrap();
-    let top_docs = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(server_info.show_top_hits))
-        .unwrap();
-    let schema = &server_info.schema;
-    let mut result = Vec::new();
-    for (_score, doc_address) in top_docs {
-        // _score = 1;
-        info!("Found doc addr {:?}, score {}", &doc_address, &_score);
-        let retrieved_doc = searcher.doc(doc_address).unwrap();
-        result.push(schema.to_json(&retrieved_doc));
-        // println!("{}", schema.to_json(&retrieved_doc));
-    }
-    //INVALID!
-    // result.join(",")
-    let json = serde_json::to_string(&result).unwrap();
-    info!("Search result {}", &json);
-    json
-    // result[0].clone()
-}
-
-fn build_reader_parser(index: &tantivy::Index, server_info: &ServerInformation)
-    -> (tantivy::IndexReader, tantivy::query::QueryParser) {
-    let reader = index
-        .reader_builder()
-        .reload_policy(ReloadPolicy::OnCommit)
-        .try_into().unwrap();
-    let title = server_info.schema.get_field("title").unwrap();
-    let body = server_info.schema.get_field("body").unwrap();
-    let query_parser = tantivy::query::QueryParser::for_index(index, vec![title, body]);
-    (reader, query_parser)
-}
-
-fn indexing_documents(server_info: &ServerInformation) -> tantivy::Index {
-    // TODO remove these unwrap()
-
-    // let index_path = TempDir::new().unwrap();
-    // info!("Using temporary directory {:?}", index_path);
-    // let (schema, title,body) = build_schema_dev();
-   /*
-    let mut schema_builder = SchemaBuilder::default();
-    let text_indexing = TextFieldIndexing::default()
-        .set_tokenizer(cang_jie::CANG_JIE) // Set custom tokenizer
-        .set_index_option(IndexRecordOption::WithFreqsAndPositions);
-    let text_options = TextOptions::default()
-        .set_indexing_options(text_indexing)
-        .set_stored();
-    let tokenizer:CangJieTokenizer = CangJieTokenizer {
-        worker: std::sync::Arc::new(jieba_rs::Jieba::empty()), // empty dictionary
-        option: cang_jie::TokenizerOption::Unicode,
-    };
-
-    */
-
-    let path: &str = &server_info.notebook_path;
-    let schema = &server_info.schema;
-    let index = tantivy::Index::create_in_ram(schema.clone());
 
     let mut schema_builder = SchemaBuilder::default();
     let text_indexing = TextFieldIndexing::default()
@@ -200,9 +101,103 @@ fn indexing_documents(server_info: &ServerInformation) -> tantivy::Index {
     let body = schema_builder.add_text_field("body", text_options);
 
     let schema = schema_builder.build();
+    (schema,
+        tokenizer
+    // Box::new(tokenizer)
+    )
+}
+
+fn build_server_info(args: &clap::ArgMatches) -> ServerInformation {
+    let notebook_path = match args.value_of("notebook_path") {
+        Some(x) => x.to_string(),
+        None => panic!("notebook_path has to be specified!")
+    };
+    let notebook_name = match args.value_of("notebook_name") {
+        Some(x) => x.to_string(),
+        None => {
+            let chunks: Vec<&str> = notebook_path.split("/").collect();
+            let guess: &str = *chunks.last().unwrap();
+            info!("fire_seq_search guess the notebook name is {}", guess);
+            String::from(guess)
+        }
+    };
+    ServerInformation{
+        notebook_path,
+        notebook_name,
+        show_top_hits: 10
+    }
+}
+
+
+fn decode_cjk_str(original: String) -> Vec<String> {
+    let mut result = Vec::new();
+    for s in original.split(' ') {
+        let t = decode(s).expect("UTF-8");
+        debug!("Decode {}  ->   {}", s, t);
+        result.push(String::from(t));
+    }
+
+    result
+}
+
+
+// TODO No Chinese support yet
+fn query(term: String, server_info: &ServerInformation, schema: tantivy::schema::Schema,
+         reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser)
+    -> String {
+
+    debug!("Original Search term {}", term);
+
+    let term = term.replace("%20", " ");
+    let term_vec = decode_cjk_str(term);
+    let term = term_vec.join(" ");
+
+    info!("Searching {}", term);
+    let searcher = reader.searcher();
+
+
+
+    let query = query_parser.parse_query(&term).unwrap();
+    let top_docs = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(server_info.show_top_hits))
+        .unwrap();
+    // let schema = &server_info.schema;
+    let mut result = Vec::new();
+    for (_score, doc_address) in top_docs {
+        // _score = 1;
+        info!("Found doc addr {:?}, score {}", &doc_address, &_score);
+        let retrieved_doc = searcher.doc(doc_address).unwrap();
+        result.push(schema.to_json(&retrieved_doc));
+        // println!("{}", schema.to_json(&retrieved_doc));
+    }
+    //INVALID!
+    // result.join(",")
+    let json = serde_json::to_string(&result).unwrap();
+    info!("Search result {}", &json);
+    json
+    // result[0].clone()
+}
+
+fn build_reader_parser(index: &tantivy::Index, document_setting: &DocumentSetting)
+    -> (tantivy::IndexReader, tantivy::query::QueryParser) {
+    let reader = index
+        .reader_builder()
+        .reload_policy(ReloadPolicy::OnCommit)
+        .try_into().unwrap();
+    let title = document_setting.schema.get_field("title").unwrap();
+    let body = document_setting.schema.get_field("body").unwrap();
+    let query_parser = tantivy::query::QueryParser::for_index(index, vec![title, body]);
+    (reader, query_parser)
+}
+
+fn indexing_documents(server_info: &ServerInformation, document_setting: &DocumentSetting) -> tantivy::Index {
+
+
+    let path: &str = &server_info.notebook_path;
+    let schema = &document_setting.schema;
+    let index = tantivy::Index::create_in_ram(schema.clone());
 
     let index = Index::create_in_ram(schema.clone());
-    index.tokenizers().register(cang_jie::CANG_JIE, tokenizer);
+    index.tokenizers().register(cang_jie::CANG_JIE, document_setting.tokenizer.clone());
 
     let mut index_writer = index.writer(50_000_000).unwrap();
 
@@ -215,8 +210,7 @@ fn indexing_documents(server_info: &ServerInformation) -> tantivy::Index {
 
     for note in notebooks {
         let note : std::fs::DirEntry = note.unwrap();
-        let note_option = read_md_file(note);
-
+        let note_option = read_md_file(&note);
 
         match read_md_file(&note) {
             Some((note_title, contents)) => {
@@ -277,28 +271,3 @@ fn read_md_file(note: &std::fs::DirEntry) -> Option<(String, String)> {
     Some((note_title.to_string(),contents))
 }
 
-
-fn build_schema_dev() -> (tantivy::schema::Schema,
-                          tantivy::schema::Field,
-                          tantivy::schema::Field,
-                          CangJieTokenizer) {
-    // TODO currently for dev, a bit hacky
-    // let mut schema_builder = Schema::builder();
-    let mut schema_builder = SchemaBuilder::default();
-    let text_indexing = TextFieldIndexing::default()
-        .set_tokenizer(cang_jie::CANG_JIE) // Set custom tokenizer
-        .set_index_option(IndexRecordOption::WithFreqsAndPositions);
-    let text_options = TextOptions::default()
-        .set_indexing_options(text_indexing)
-        .set_stored();
-    let tokenizer:CangJieTokenizer = CangJieTokenizer {
-        worker: std::sync::Arc::new(jieba_rs::Jieba::empty()), // empty dictionary
-        option: cang_jie::TokenizerOption::Unicode,
-    };
-    schema_builder.add_text_field("title", TEXT | STORED);
-    schema_builder.add_text_field("body", TEXT);
-    let schema = schema_builder.build();
-    let title = schema.get_field("title").unwrap();
-    let body = schema.get_field("body").unwrap();
-    (schema, title, body, tokenizer)
-}
