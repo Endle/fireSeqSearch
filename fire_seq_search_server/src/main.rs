@@ -9,7 +9,6 @@ use serde_json;
 use serde::Serialize;
 
 use log::{info,debug,warn,error};
-// use log::LevelFilter;
 use clap::{Command,arg};
 
 
@@ -38,12 +37,10 @@ async fn main() {
 
     let server_info: ServerInformation = build_server_info(&matches);
     let index = indexing_documents(&server_info);
-    let (reader, query_parser) = build_reader_parser(&index);
+    let (reader, query_parser) = build_reader_parser(&index, &server_info);
 
     let call_query = warp::path!("query" / String)
         .map(move |name| query(name, &reader, &query_parser) );
-    // I admit I don't know why rust closure asks me to use move.
-    // I know nothing about rust
 
     let get_server_info = warp::path("server_info")
         .map(move || serde_json::to_string( &server_info ).unwrap() );
@@ -119,13 +116,14 @@ fn query(term: String, reader: &tantivy::IndexReader, query_parser: &tantivy::qu
     // result[0].clone()
 }
 
-fn build_reader_parser(index: &tantivy::Index) -> (tantivy::IndexReader, tantivy::query::QueryParser) {
-    // TODO remove these unwrap()
+fn build_reader_parser(index: &tantivy::Index, server_info: &ServerInformation)
+    -> (tantivy::IndexReader, tantivy::query::QueryParser) {
     let reader = index
         .reader_builder()
         .reload_policy(ReloadPolicy::OnCommit)
         .try_into().unwrap();
-    let (_schema, title,body) = build_schema_dev();
+    let title = server_info.schema.get_field("title").unwrap();
+    let body = server_info.schema.get_field("body").unwrap();
     let query_parser = tantivy::query::QueryParser::for_index(index, vec![title, body]);
     (reader, query_parser)
 }
