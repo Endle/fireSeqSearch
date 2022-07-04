@@ -1,6 +1,6 @@
 [package]
 name = "fire_seq_search_server"
-version = "0.0.9"
+version = "0.0.11"
 edition = "2021"
 
 

@@ -1,8 +1,8 @@
 use warp::Filter;
 
 use tantivy::schema::*;
-use tantivy::{Index,doc};
-use tantivy::ReloadPolicy;
+use tantivy::{ReloadPolicy,doc};
+
 
 
 use std::fs;
