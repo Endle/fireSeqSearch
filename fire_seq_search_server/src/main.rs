@@ -3,7 +3,7 @@ use warp::Filter;
 use tantivy::schema::*;
 use tantivy::{Index,doc};
 use tantivy::ReloadPolicy;
-use cang_jie::CangJieTokenizer;
+
 
 use std::fs;
 use serde_json;
@@ -12,6 +12,8 @@ use serde::Serialize;
 use log::{info,debug,warn,error};
 use clap::{Command,arg};
 use urlencoding::decode;
+
+use fire_seq_search_server::{JiebaTokenizer, TOKENIZER_ID};
 
 #[derive(Debug, Clone, Serialize)]
 struct ServerInformation {
@@ -22,7 +24,7 @@ struct ServerInformation {
 
 struct DocumentSetting {
     schema: tantivy::schema::Schema,
-    tokenizer: CangJieTokenizer,
+    tokenizer: JiebaTokenizer,
 }
 
 #[tokio::main]
@@ -76,20 +78,17 @@ fn build_document_setting() -> DocumentSetting {
 }
 
 fn build_schema_tokenizer() -> (tantivy::schema::Schema,
-                                CangJieTokenizer
+                                JiebaTokenizer
                                 // Box<dyn tantivy::tokenizer::Tokenizer>
 ) {
     let mut schema_builder = SchemaBuilder::default();
     let text_indexing = TextFieldIndexing::default()
-        .set_tokenizer(cang_jie::CANG_JIE) // Set custom tokenizer
+        .set_tokenizer(TOKENIZER_ID) // Set custom tokenizer
         .set_index_option(IndexRecordOption::WithFreqsAndPositions);
     let text_options = TextOptions::default()
         .set_indexing_options(text_indexing)
         .set_stored();
-    let tokenizer:CangJieTokenizer = CangJieTokenizer {
-        worker: std::sync::Arc::new(jieba_rs::Jieba::empty()), // empty dictionary
-        option: cang_jie::TokenizerOption::Unicode,
-    };
+    let tokenizer:JiebaTokenizer = JiebaTokenizer {};
 
     let title = schema_builder.add_text_field("title", text_options.clone());
     let body = schema_builder.add_text_field("body", text_options);
@@ -192,7 +191,7 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
     let index = tantivy::Index::create_in_ram(schema.clone());
 
     let index = Index::create_in_ram(schema.clone());
-    index.tokenizers().register(cang_jie::CANG_JIE, document_setting.tokenizer.clone());
+    index.tokenizers().register(TOKENIZER_ID, document_setting.tokenizer.clone());
 
     let mut index_writer = index.writer(50_000_000).unwrap();
 

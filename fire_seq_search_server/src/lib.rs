@@ -14,6 +14,7 @@ lazy_static! {
     static ref JIEBA: jieba_rs::Jieba = jieba_rs::Jieba::new();
 }
 
+pub const TOKENIZER_ID: &'static str = "fss_tokenizer";
 
 use tantivy::tokenizer::{BoxTokenStream, Token, TokenStream, Tokenizer};
 
