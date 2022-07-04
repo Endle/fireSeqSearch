@@ -90,8 +90,8 @@ fn build_schema_tokenizer() -> (tantivy::schema::Schema,
         .set_stored();
     let tokenizer:JiebaTokenizer = JiebaTokenizer {};
 
-    let title = schema_builder.add_text_field("title", text_options.clone());
-    let body = schema_builder.add_text_field("body", text_options);
+    // let title = schema_builder.add_text_field("title", text_options.clone());
+    // let body = schema_builder.add_text_field("body", text_options);
 
     let schema = schema_builder.build();
     (schema,
@@ -190,7 +190,6 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
     let schema = &document_setting.schema;
     let index = tantivy::Index::create_in_ram(schema.clone());
 
-    let index = Index::create_in_ram(schema.clone());
     index.tokenizers().register(TOKENIZER_ID, document_setting.tokenizer.clone());
 
     let mut index_writer = index.writer(50_000_000).unwrap();
@@ -204,13 +203,12 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
 
     for note in notebooks {
         let note : std::fs::DirEntry = note.unwrap();
-        let note_option = read_md_file(&note);
 
         match read_md_file(&note) {
             Some((note_title, contents)) => {
                 debug!("Length: {}", contents.len());
 
-                let mut doc = Document::default();
+                // let mut doc = Document::default();
                 // doc.add_text(title, note_title);
                 // doc.add_text(body, contents);
                 index_writer.add_document(
