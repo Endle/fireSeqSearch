@@ -53,11 +53,12 @@ impl Tokenizer for JiebaTokenizer {
         let mut tokens = Vec::new();
         for i in 0..orig_tokens.len() {
             let token = &orig_tokens[i];
+            let token_text = process_token_text(text, &indices, &token);
             tokens.push(Token {
                 offset_from: indices[token.start].0,
                 offset_to: indices[token.end].0,
                 position: token.start,
-                text: String::from(&text[(indices[token.start].0)..(indices[token.end].0)]),
+                text: token_text,
                 position_length: token.end - token.start,
             });
         }
@@ -65,10 +66,20 @@ impl Tokenizer for JiebaTokenizer {
     }
 }
 
+fn process_token_text(text: &str, indices: &Vec<(usize, char)>, token: &jieba_rs::Token<'_>) -> String {
+    String::from(&text[(indices[token.start].0)..(indices[token.end].0)])
+}
+
+// ============= BELOW IS TEST CASES ====================
 
 
 #[cfg(test)]
 mod test_tokenizer {
+    #[test]
+    fn english() {
+        let tokens = base("Travel to japan", vec!["japan"]);
+    }
+
     #[test]
     fn simple_zh() {
         let tokens = base("张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途",
