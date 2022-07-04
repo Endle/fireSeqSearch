@@ -53,21 +53,39 @@ impl Tokenizer for JiebaTokenizer {
         let mut tokens = Vec::new();
         for i in 0..orig_tokens.len() {
             let token = &orig_tokens[i];
-            let token_text = process_token_text(text, &indices, &token);
-            tokens.push(Token {
-                offset_from: indices[token.start].0,
-                offset_to: indices[token.end].0,
-                position: token.start,
-                text: token_text,
-                position_length: token.end - token.start,
-            });
+            match process_token_text(text, &indices, &token) {
+                Some(text) => tokens.push(Token {
+                    offset_from: indices[token.start].0,
+                    offset_to: indices[token.end].0,
+                    position: token.start,
+                    text,
+                    position_length: token.end - token.start,
+                }),
+                None => ()
+            }
+
         }
         BoxTokenStream::from(JiebaTokenStream { tokens, index: 0 })
     }
 }
 
-fn process_token_text(text: &str, indices: &Vec<(usize, char)>, token: &jieba_rs::Token<'_>) -> String {
-    String::from(&text[(indices[token.start].0)..(indices[token.end].0)])
+/*
+Thoughts on lowercase  2022-07-04:
+tanvity's default tokenizer will lowercase all English characters.
+    https://docs.rs/tantivy/latest/tantivy/tokenizer/index.html
+    I'm just trying my best to simulate it
+However, I think there could be a better approach
+1. use https://github.com/pemistahl/lingua-rs to determine the language of the text
+2. Select proper tokenizer
+ */
+fn process_token_text(text: &str, indices: &Vec<(usize, char)>, token: &jieba_rs::Token<'_>) -> Option<String> {
+    let raw = String::from(&text[(indices[token.start].0)..(indices[token.end].0)]);
+    let lower = raw.to_lowercase();
+    if lower.trim().is_empty() {
+        None
+    } else {
+        Some(lower)
+    }
 }
 
 // ============= BELOW IS TEST CASES ====================
@@ -77,7 +95,7 @@ fn process_token_text(text: &str, indices: &Vec<(usize, char)>, token: &jieba_rs
 mod test_tokenizer {
     #[test]
     fn english() {
-        let tokens = base("Travel to japan", vec!["japan"]);
+        let tokens = base("Travel to japan", vec!["travel", "to", "japan"]);
     }
 
     #[test]
