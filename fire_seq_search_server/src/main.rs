@@ -90,8 +90,8 @@ fn build_schema_tokenizer() -> (tantivy::schema::Schema,
         .set_stored();
     let tokenizer:JiebaTokenizer = JiebaTokenizer {};
 
-    // let title = schema_builder.add_text_field("title", text_options.clone());
-    // let body = schema_builder.add_text_field("body", text_options);
+    let _title = schema_builder.add_text_field("title", text_options.clone());
+    let _body = schema_builder.add_text_field("body", text_options);
 
     let schema = schema_builder.build();
     (schema,
