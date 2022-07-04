@@ -70,11 +70,54 @@ impl Tokenizer for JiebaTokenizer {
 #[cfg(test)]
 mod test_tokenizer {
     #[test]
-    fn it_works() {
+    fn simple_zh() {
+        let tokens = base("张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途",
+             vec![
+                 // "a",
+                 "张华",
+                 "考上",
+                 "了",
+                 "北京",
+                 "大学",
+                 "北京大学",
+                 "；",
+                 "李萍",
+                 "进",
+                 "了",
+                 "中等",
+                 "技术",
+                 "术学",
+                 "学校",
+                 "技术学校",
+                 "；",
+                 "我",
+                 "在",
+                 "百货",
+                 "公司",
+                 "百货公司",
+                 "当",
+                 "售货",
+                 "货员",
+                 "售货员",
+                 "：",
+                 "我们",
+                 "都",
+                 "有",
+                 "光明",
+                 "的",
+                 "前途"
+             ]
+        );
+        // offset should be byte-indexed
+        assert_eq!(tokens[0].offset_from, 0);
+        assert_eq!(tokens[0].offset_to, "张华".bytes().len());
+        assert_eq!(tokens[1].offset_from, "张华".bytes().len());
+    }
+    fn base(sentence: &str, expect_tokens: Vec<&str>) ->  Vec<tantivy::tokenizer::Token> {
         use tantivy::tokenizer::*;
         let tokenizer = crate::JiebaTokenizer {};
         let mut token_stream = tokenizer.token_stream(
-            "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途",
+            sentence
         );
         let mut tokens = Vec::new();
         let mut token_text = Vec::new();
@@ -82,48 +125,11 @@ mod test_tokenizer {
             tokens.push(token.clone());
             token_text.push(token.text.clone());
         }
-        // offset should be byte-indexed
-        assert_eq!(tokens[0].offset_from, 0);
-        assert_eq!(tokens[0].offset_to, "张华".bytes().len());
-        assert_eq!(tokens[1].offset_from, "张华".bytes().len());
         // check tokenized text
         assert_eq!(
             token_text,
-            vec![
-                // "a",
-                "张华",
-                "考上",
-                "了",
-                "北京",
-                "大学",
-                "北京大学",
-                "；",
-                "李萍",
-                "进",
-                "了",
-                "中等",
-                "技术",
-                "术学",
-                "学校",
-                "技术学校",
-                "；",
-                "我",
-                "在",
-                "百货",
-                "公司",
-                "百货公司",
-                "当",
-                "售货",
-                "货员",
-                "售货员",
-                "：",
-                "我们",
-                "都",
-                "有",
-                "光明",
-                "的",
-                "前途"
-            ]
+            expect_tokens
         );
+        tokens
     }
 }
