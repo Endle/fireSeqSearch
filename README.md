@@ -24,8 +24,9 @@ How to use it
 This project is in **VERY EARLY** DEVELOPMENT! But don't panic. fireSeqSearch will only read your logseq notebooks, which is unlikely to cause data loss.
 
 ### Install Browser Extension  
-1. Install latest web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>
-2. Chrome extension is being reviewed. I FEEL UPSET that Google is charging me to upload a free extension and WASTING MY TIME by requiring "high-quality" resource files for my alpha release.
+1. Install latest web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>   
+2. Google require all new Chrome extensions use manifest V3, while providing little examples for it.  
+3. Edge is rejecting my extension, without explaining why.   
 
 ### Install Local Server
 
