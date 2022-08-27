@@ -11,8 +11,8 @@ function wrapRawRecordIntoElement(rawRecord, serverInfo) {
     // rawRecord is String   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/typeof
 
     const name = serverInfo.notebook_name;
-    console.log("wrapping " + String(rawRecord) + " to notebook " + name);
-    console.log(typeof rawRecord);
+    //console.log("wrapping " + String(rawRecord) + " to notebook " + name);
+    //console.log(typeof rawRecord);
 
     const record = JSON.parse(rawRecord);
     console.log(typeof record);
@@ -64,11 +64,36 @@ function getFireSeqDomToWebpage() {
     return fireDom;
 }
 
-function appendResultToSearchResult(fetchResultArray) {
 
+function checkUserOptions() {
+    return Promise.all([
+        browser.storage.sync.get("debugStr"),
+        browser.storage.sync.get("ExperimentalLayout")
+    ]).then(function(res) {
+        console.log(res);
+
+        const options = {
+            debugStr: res[0].debugStr,
+            ExperimentalLayout: res[1].ExperimentalLayout,
+        }
+        console.log(options);
+        return options;
+    });
+
+    /*  .catch(function (error) {
+        console.log(error);
+    });
+
+     */
+}
+
+async function appendResultToSearchResult(fetchResultArray) {
     const serverInfo = fetchResultArray[0];
     const rawSearchResult = fetchResultArray[1];
+    const firefoxExtensionUserOption = await checkUserOptions();
     const count = rawSearchResult.length;
+
+    console.log(firefoxExtensionUserOption);
 
     let hitCount = createElementWithText("div",
         "We found " + count.toString() + " results in your logseq notebook");
@@ -110,24 +135,9 @@ function getSearchParameterFromCurrentPage() {
     console.log("Got search param: " + searchParam);
     return searchParam;
 }
-function checkUserOptions() {
-    function onError(error) {
-        console.log(`Error: ${error}`);
-    }
 
-    function onGot(item) {
-        console.log(item);
-    }
-
-    const getting = browser.storage.sync.get("debugStr");
-    getting.then(onGot, onError);
-
-    const expLay = browser.storage.sync.get("ExperimentalLayout");
-    expLay.then(onGot, onError);
-}
 
 (function() {
-    checkUserOptions();
     const searchParameter = getSearchParameterFromCurrentPage();
 
     //https://gomakethings.com/waiting-for-multiple-all-api-responses-to-complete-with-the-vanilla-js-promise.all-method/
