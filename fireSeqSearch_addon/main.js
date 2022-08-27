@@ -110,9 +110,24 @@ function getSearchParameterFromCurrentPage() {
     console.log("Got search param: " + searchParam);
     return searchParam;
 }
+function checkUserOptions() {
+    function onError(error) {
+        console.log(`Error: ${error}`);
+    }
 
+    function onGot(item) {
+        console.log(item);
+    }
+
+    const getting = browser.storage.sync.get("debugStr");
+    getting.then(onGot, onError);
+
+    const expLay = browser.storage.sync.get("ExperimentalLayout");
+    expLay.then(onGot, onError);
+}
 
 (function() {
+    checkUserOptions();
     const searchParameter = getSearchParameterFromCurrentPage();
 
     //https://gomakethings.com/waiting-for-multiple-all-api-responses-to-complete-with-the-vanilla-js-promise.all-method/
