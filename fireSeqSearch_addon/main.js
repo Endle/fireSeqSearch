@@ -103,9 +103,24 @@ function performSearchAgainstLogseq(keywords, serverInfo) {
 }
 
 
+function checkUserOptions() {
+    function onError(error) {
+        console.log(`Error: ${error}`);
+    }
 
+    function onGot(item) {
+        console.log(item);
+    }
+
+    const getting = browser.storage.sync.get("debugStr");
+    getting.then(onGot, onError);
+
+    const expLay = browser.storage.sync.get("ExperimentalLayout");
+    expLay.then(onGot, onError);
+}
 
 (function() {
+    checkUserOptions();
 
     function getSearchParameterFromCurrentPage() {
         let searchParam;
