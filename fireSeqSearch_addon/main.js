@@ -43,6 +43,7 @@ function uglyExtraLine() {
 }
 
 // deprecated
+/*
 function getFireSeqDomOnWebpage() {
 
     function insertFireSeqDomToWebpage() {
@@ -68,9 +69,12 @@ function getFireSeqDomOnWebpage() {
     return fireDom;
 }
 
+ */
+
 
 function checkUserOptions() {
     return Promise.all([
+        /*global browser */
         browser.storage.sync.get("debugStr"),
         browser.storage.sync.get("ExperimentalLayout")
     ]).then(function(res) {
@@ -141,8 +145,7 @@ function getSearchParameterFromCurrentPage() {
     let searchParam;
 
     function getSearchParameterOfSearx() {
-        let inputBox = document.getElementById("q");
-        // console.log(inputBox);
+        const inputBox = document.getElementById("q");
         return inputBox.value;
     }
 
