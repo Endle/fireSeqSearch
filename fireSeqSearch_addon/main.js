@@ -42,6 +42,7 @@ function uglyExtraLine() {
     return x;
 }
 
+// deprecated
 function getFireSeqDomOnWebpage() {
 
     function insertFireSeqDomToWebpage() {
