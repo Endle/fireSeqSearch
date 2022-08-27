@@ -1,6 +1,9 @@
 // MIT License
 // Copyright (c) 2021-2022 Zhenbo Li
 
+const fireSeqSearchDomId = "fireSeqSearchDom";
+
+
 function createElementWithText(type, text) {
     let x = document.createElement(type);
     x.textContent = text;
@@ -39,8 +42,8 @@ function uglyExtraLine() {
     return x;
 }
 
-function getFireSeqDomToWebpage() {
-    const fireSeqSearchDomId = "fireSeqSearchDom";
+function getFireSeqDomOnWebpage() {
+
     function insertFireSeqDomToWebpage() {
         let div = document.createElement("div");
         div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
@@ -98,7 +101,24 @@ async function appendResultToSearchResult(fetchResultArray) {
     let hitCount = createElementWithText("div",
         "We found " + count.toString() + " results in your logseq notebook");
     hitCount.style.fontSize = "large";
-    let dom = getFireSeqDomToWebpage();
+
+    function createFireSeqDom() {
+        let div = document.createElement("div");
+        div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
+        div.setAttribute("id", fireSeqSearchDomId);
+
+        // document.body.insertBefore(div, document.body.firstChild);
+        // console.log("inserted");
+        // Very hacky for google
+        if (window.location.toString().includes("google")) {
+            for (let i=0; i<6; ++i) {
+                div.appendChild(uglyExtraLine());
+            }
+        }
+        return div;
+    }
+
+    let dom = createFireSeqDom();
     dom.appendChild(hitCount);
     dom.appendChild(uglyExtraLine());
 
@@ -112,6 +132,8 @@ async function appendResultToSearchResult(fetchResultArray) {
     }
     hitList.style.lineHeight = "150%";
     dom.appendChild(hitList);
+
+    document.body.insertBefore(dom, document.body.firstChild);
 }
 
 function getSearchParameterFromCurrentPage() {
