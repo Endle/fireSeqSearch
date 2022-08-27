@@ -9,6 +9,10 @@
     "48": "icons/fire-48.png"
   },
 
+  "options_ui": {
+    "page": "options.html",
+    "browser_style": true
+  },
   "content_scripts": [
     {
       "matches": [
