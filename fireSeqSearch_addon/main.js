@@ -89,20 +89,22 @@ function appendResultToSearchResult(rawSearchResult, dom) {
 
 function performSearchAgainstLogseq(keywords, serverInfo) {
     const search_url = "http://127.0.0.1:3030/query/" + keywords;
-
-
     console.log(search_url);
 
-    let fireSeqDom = getFireSeqDomToWebpage();
-    window.fetch(search_url)
+    // let fireSeqDom = getFireSeqDomToWebpage();
+    return window.fetch(search_url);
+    /*
         .then(response => response.json())
-        .then(data => {
-            console.log(data);
-            appendResultToSearchResult(data, fireSeqDom)
+        .then(searchResult => {
+            console.log(searchResult);
+            return searchResult;
+            // appendResultToSearchResult(data, fireSeqDom)
         });
 
-
+     */
 }
+
+
 
 function getSearchParameterFromCurrentPage() {
     let searchParam;
@@ -122,8 +124,7 @@ function getSearchParameterFromCurrentPage() {
         searchParam = urlParams.get('q');
     }
 
-    console.log("Got search param: ");
-    console.log(searchParam);
+    console.log("Got search param: " + searchParam);
     return searchParam;
 }
 
@@ -131,13 +132,35 @@ function getSearchParameterFromCurrentPage() {
 (function() {
 
     const searchParameter = getSearchParameterFromCurrentPage();
-    window.fetch("http://127.0.0.1:3030/server_info")
+    //https://gomakethings.com/waiting-for-multiple-all-api-responses-to-complete-with-the-vanilla-js-promise.all-method/
+    Promise.all([
+        fetch("http://127.0.0.1:3030/server_info"),
+        fetch("http://127.0.0.1:3030/query/" + searchParameter)
+    ]).then(function (responses) {
+        // Get a JSON object from each of the responses
+        return Promise.all(responses.map(function (response) {
+            return response.json();
+        }));
+    }).then(function (data) {
+        // Log the data to the console
+        // You would do something with both sets of data here
+        console.log(data);
+        appendResultToSearchResult(data);
+    }).catch(function (error) {
+        // if there's an error, log it
+        console.log(error);
+    });
+/*
+    window.fetch()
         // .then(response => console.log(response));
         .then(response => response.json())
-        .then(serverInfo => {
-            console.log(serverInfo);
-            performSearchAgainstLogseq(searchParameter, serverInfo);
+        .then(serverInfo => performSearchAgainstLogseq(searchParameter, serverInfo))
+        .then(searchResult => {
+            console.log('search finished');
+            console.log(searchResult);
         });
 
 
+
+ */
 })();
