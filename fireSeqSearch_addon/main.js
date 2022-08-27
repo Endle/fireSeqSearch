@@ -38,8 +38,7 @@ function wrapRawRecordIntoElement(rawRecord, serverInfo) {
 
 
 function uglyExtraLine() {
-    let x = createElementWithText("br", "");
-    return x;
+    return createElementWithText("br", "");
 }
 
 // deprecated
