@@ -137,6 +137,20 @@ async function appendResultToSearchResult(fetchResultArray) {
     hitList.style.lineHeight = "150%";
     dom.appendChild(hitList);
 
+    if (firefoxExtensionUserOption.ExperimentalLayout) {
+        // Inspired by https://twitter.com/rockucn
+        // https://greasyfork.org/en/scripts/446492-%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E%E5%88%87%E6%8D%A2%E5%99%A8-search-engine-switcher/code
+        dom.style = `
+            position: fixed;
+            top: 140px; 
+            right: 12px; 
+            width: 200px; 
+            background-color: hsla(200, 40%, 96%, .8); 
+            font-size: 12px; 
+            border-radius: 6px; 
+            z-index: 99999;`;
+
+    }
     document.body.insertBefore(dom, document.body.firstChild);
 }
 
