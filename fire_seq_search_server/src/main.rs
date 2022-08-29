@@ -22,6 +22,25 @@ struct ServerInformation {
     show_top_hits: usize,
 }
 
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
+struct FireSeqSearchHit {
+    title: String,
+    //field_values: Vec<FieldValue>,
+}
+impl FireSeqSearchHit {
+    pub fn from_tantivy(doc: &tantivy::schema::Document) {
+        for field in doc.field_values() {
+            // debug!("field {:?} ", &field);
+        }
+        let title: &str = doc.field_values()[0].value().as_text().unwrap();
+
+        let hit = FireSeqSearchHit {
+            title: String::from(title)
+        };
+        debug!("Hit: {:?}", hit);
+    }
+}
+
 struct DocumentSetting {
     schema: tantivy::schema::Schema,
     tokenizer: JiebaTokenizer,
@@ -134,7 +153,6 @@ fn decode_cjk_str(original: String) -> Vec<String> {
 }
 
 
-// TODO No Chinese support yet
 fn query(term: String, server_info: &ServerInformation, schema: tantivy::schema::Schema,
          reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser)
     -> String {
@@ -160,6 +178,7 @@ fn query(term: String, server_info: &ServerInformation, schema: tantivy::schema:
         info!("Found doc addr {:?}, score {}", &doc_address, &_score);
         let retrieved_doc: tantivy::schema::Document = searcher.doc(doc_address).unwrap();
         // debug!("Found {:?}", &retrieved_doc);
+        let _ = FireSeqSearchHit::from_tantivy(&retrieved_doc);
         result.push(schema.to_json(&retrieved_doc));
         // println!("{}", schema.to_json(&retrieved_doc));
     }
