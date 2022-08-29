@@ -6,5 +6,5 @@ fn serialize_hit() {
     let hit = FireSeqSearchHit{title: String::from("Hello")};
     let json = serde_json::to_string(&hit).unwrap();
 
-    assert_eq!(4, 4);
+    assert_eq!(&json, "{\"title\":\"Hello\"}");
 }

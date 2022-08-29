@@ -154,9 +154,9 @@ fn query(term: String, server_info: &ServerInformation, schema: tantivy::schema:
     let query = query_parser.parse_query(&term).unwrap();
     let top_docs = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(server_info.show_top_hits))
         .unwrap();
-    // let schema = &server_info.schema;
+
     let mut result = Vec::new();
-    let mut result2 = Vec::new();
+
     for (_score, doc_address) in top_docs {
         // _score = 1;
         info!("Found doc addr {:?}, score {}", &doc_address, &_score);
@@ -164,16 +164,13 @@ fn query(term: String, server_info: &ServerInformation, schema: tantivy::schema:
         // debug!("Found {:?}", &retrieved_doc);
         let hit = FireSeqSearchHit::from_tantivy(&retrieved_doc);
         debug!("Hit: {:?}", hit);
-        result.push(hit);
-        result2.push(schema.to_json(&retrieved_doc));
-        println!("{}", schema.to_json(&retrieved_doc));
+        result.push(serde_json::to_string(&hit).unwrap());
+
     }
-    //INVALID!
-    // result.join(",")
+
     let json = serde_json::to_string(&result).unwrap();
-    let json2 = serde_json::to_string(&result2).unwrap();
-    info!("Search result {}", &json);
-    info!("Search result {}", &json2);
+
+    // info!("Search result {}", &json);
     json
     // result[0].clone()
 }
