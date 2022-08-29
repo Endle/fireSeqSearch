@@ -13,7 +13,7 @@ use log::{info,debug,warn,error};
 use clap::{Command,arg};
 use urlencoding::decode;
 
-use fire_seq_search_server::{JiebaTokenizer, TOKENIZER_ID};
+use fire_seq_search_server::{FireSeqSearchHit, JiebaTokenizer, TOKENIZER_ID};
 
 #[derive(Debug, Clone, Serialize)]
 struct ServerInformation {
@@ -22,24 +22,7 @@ struct ServerInformation {
     show_top_hits: usize,
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
-struct FireSeqSearchHit {
-    title: String,
-    //field_values: Vec<FieldValue>,
-}
-impl FireSeqSearchHit {
-    pub fn from_tantivy(doc: &tantivy::schema::Document) {
-        for field in doc.field_values() {
-            // debug!("field {:?} ", &field);
-        }
-        let title: &str = doc.field_values()[0].value().as_text().unwrap();
 
-        let hit = FireSeqSearchHit {
-            title: String::from(title)
-        };
-        debug!("Hit: {:?}", hit);
-    }
-}
 
 struct DocumentSetting {
     schema: tantivy::schema::Schema,
@@ -173,19 +156,24 @@ fn query(term: String, server_info: &ServerInformation, schema: tantivy::schema:
         .unwrap();
     // let schema = &server_info.schema;
     let mut result = Vec::new();
+    let mut result2 = Vec::new();
     for (_score, doc_address) in top_docs {
         // _score = 1;
         info!("Found doc addr {:?}, score {}", &doc_address, &_score);
         let retrieved_doc: tantivy::schema::Document = searcher.doc(doc_address).unwrap();
         // debug!("Found {:?}", &retrieved_doc);
-        let _ = FireSeqSearchHit::from_tantivy(&retrieved_doc);
-        result.push(schema.to_json(&retrieved_doc));
-        // println!("{}", schema.to_json(&retrieved_doc));
+        let hit = FireSeqSearchHit::from_tantivy(&retrieved_doc);
+        debug!("Hit: {:?}", hit);
+        result.push(hit);
+        result2.push(schema.to_json(&retrieved_doc));
+        println!("{}", schema.to_json(&retrieved_doc));
     }
     //INVALID!
     // result.join(",")
     let json = serde_json::to_string(&result).unwrap();
-    // info!("Search result {}", &json);
+    let json2 = serde_json::to_string(&result2).unwrap();
+    info!("Search result {}", &json);
+    info!("Search result {}", &json2);
     json
     // result[0].clone()
 }
