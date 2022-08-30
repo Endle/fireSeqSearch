@@ -1,15 +1,31 @@
-// Some sode copied from https://github.com/jiegec/tantivy-jieba
-// tantivy-jieba is licensed under MIT, Copyright 2019-2020 Jiajie Chen
-
-
 
 
 #[macro_use]
 extern crate lazy_static;
 
 
-// use jieba_rs::Jieba;
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
+pub struct FireSeqSearchHit {
+    pub title: String,
+    //field_values: Vec<FieldValue>,
+}
+impl FireSeqSearchHit {
+    pub fn from_tantivy(doc: &tantivy::schema::Document) ->FireSeqSearchHit {
+        for _field in doc.field_values() {
+            // debug!("field {:?} ", &field);
+        }
+        let title: &str = doc.field_values()[0].value().as_text().unwrap();
 
+        FireSeqSearchHit {
+            title: String::from(title)
+        }
+    }
+}
+
+
+
+// Some sode copied from https://github.com/jiegec/tantivy-jieba
+// tantivy-jieba is licensed under MIT, Copyright 2019-2020 Jiajie Chen
 lazy_static! {
     static ref JIEBA: jieba_rs::Jieba = jieba_rs::Jieba::new();
 }
