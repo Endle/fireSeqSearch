@@ -2,7 +2,7 @@ use warp::Filter;
 
 use tantivy::schema::*;
 use tantivy::{ReloadPolicy,doc};
-
+use rayon::prelude::*;
 
 
 use std::fs;
@@ -13,7 +13,7 @@ use log::{info,debug,warn,error};
 use clap::{Command,arg};
 use urlencoding::decode;
 
-use fire_seq_search_server::{FireSeqSearchHit, JiebaTokenizer, TOKENIZER_ID};
+use fire_seq_search_server::{FireSeqSearchHit, FireSeqSearchHitParsed, JiebaTokenizer, TOKENIZER_ID};
 
 #[derive(Debug, Clone, Serialize)]
 struct ServerInformation {
@@ -152,11 +152,14 @@ fn query(term: String, server_info: &ServerInformation, schema: tantivy::schema:
 
 
     let query = query_parser.parse_query(&term).unwrap();
-    let top_docs = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(server_info.show_top_hits))
+    let top_docs: Vec<(f32, tantivy::DocAddress)> = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(server_info.show_top_hits))
         .unwrap();
 
-    let mut result = Vec::new();
+    // top_docs.par_iter()
+    //     .map(|&x| FireSeqSearchHit::from_tantivy(&searcher.doc(x.1).unwrap(), x.0) );
+    // let mut result = Vec::new();
 
+    /*
     for (score, doc_address) in top_docs {
         // _score = 1;
         info!("Found doc addr {:?}, score {}", &doc_address, &score);
@@ -164,9 +167,20 @@ fn query(term: String, server_info: &ServerInformation, schema: tantivy::schema:
         // debug!("Found {:?}", &retrieved_doc);
         let hit = FireSeqSearchHit::from_tantivy(&retrieved_doc, score);
         debug!("Hit: {:?}", hit);
-        result.push(serde_json::to_string(&hit).unwrap());
-
+        result.push(hit);
+        // result.push(serde_json::to_string(&hit).unwrap());
     }
+
+     */
+
+    // let mut result;
+    let result: Vec<String> = top_docs.par_iter()
+        .map(|&x| FireSeqSearchHitParsed::from_tantivy
+            (&searcher.doc(x.1).unwrap(), x.0)
+        )
+        // .map(|x| FireSeqSearchHitParsed::from_hit(&x))
+        .map(|p| serde_json::to_string(&p).unwrap())
+        .collect();
 
     let json = serde_json::to_string(&result).unwrap();
 

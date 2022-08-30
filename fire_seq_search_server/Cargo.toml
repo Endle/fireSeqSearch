@@ -18,3 +18,4 @@ clap = { version = "3.0.14", features = ["derive"] }
 urlencoding = "2.1.0"
 jieba-rs = { version = "0.6.6" }
 lazy_static = "1.4.0"
+rayon = "1.5"
