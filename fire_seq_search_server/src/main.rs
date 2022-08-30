@@ -157,12 +157,12 @@ fn query(term: String, server_info: &ServerInformation, schema: tantivy::schema:
 
     let mut result = Vec::new();
 
-    for (_score, doc_address) in top_docs {
+    for (score, doc_address) in top_docs {
         // _score = 1;
-        info!("Found doc addr {:?}, score {}", &doc_address, &_score);
+        info!("Found doc addr {:?}, score {}", &doc_address, &score);
         let retrieved_doc: tantivy::schema::Document = searcher.doc(doc_address).unwrap();
         // debug!("Found {:?}", &retrieved_doc);
-        let hit = FireSeqSearchHit::from_tantivy(&retrieved_doc);
+        let hit = FireSeqSearchHit::from_tantivy(&retrieved_doc, score);
         debug!("Hit: {:?}", hit);
         result.push(serde_json::to_string(&hit).unwrap());
 

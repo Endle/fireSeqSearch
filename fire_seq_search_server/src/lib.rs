@@ -7,17 +7,19 @@ extern crate lazy_static;
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
 pub struct FireSeqSearchHit {
     pub title: String,
+    pub score: f32,
     //field_values: Vec<FieldValue>,
 }
 impl FireSeqSearchHit {
-    pub fn from_tantivy(doc: &tantivy::schema::Document) ->FireSeqSearchHit {
+    pub fn from_tantivy(doc: &tantivy::schema::Document, score: f32) ->FireSeqSearchHit {
         for _field in doc.field_values() {
             // debug!("field {:?} ", &field);
         }
         let title: &str = doc.field_values()[0].value().as_text().unwrap();
 
         FireSeqSearchHit {
-            title: String::from(title)
+            title: String::from(title),
+            score
         }
     }
 }
