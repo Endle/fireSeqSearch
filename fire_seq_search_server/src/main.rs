@@ -13,7 +13,7 @@ use log::{info,debug,warn,error};
 use clap::{Command,arg};
 use urlencoding::decode;
 
-use fire_seq_search_server::{FireSeqSearchHit, FireSeqSearchHitParsed, JiebaTokenizer, TOKENIZER_ID};
+use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer, TOKENIZER_ID};
 
 #[derive(Debug, Clone, Serialize)]
 struct ServerInformation {
@@ -151,8 +151,10 @@ fn query(term: String, server_info: &ServerInformation, schema: tantivy::schema:
 
 
 
-    let query = query_parser.parse_query(&term).unwrap();
-    let top_docs: Vec<(f32, tantivy::DocAddress)> = searcher.search(&query, &tantivy::collector::TopDocs::with_limit(server_info.show_top_hits))
+    let query: Box<dyn tantivy::query::Query> = query_parser.parse_query(&term).unwrap();
+    let top_docs: Vec<(f32, tantivy::DocAddress)> =
+        searcher.search(&query,
+                        &tantivy::collector::TopDocs::with_limit(server_info.show_top_hits))
         .unwrap();
 
     // top_docs.par_iter()

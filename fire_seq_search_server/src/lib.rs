@@ -143,6 +143,30 @@ fn process_token_text(text: &str, indices: &Vec<(usize, char)>, token: &jieba_rs
     }
 }
 
+pub fn tokenize_sentence_to_text_vec(tokenizer: &JiebaTokenizer, sentence: &str) -> Vec<String> {
+    let tokens = tokenize_sentence_to_vector(&tokenizer, sentence);
+    tokens_to_text_vec(&tokens)
+}
+pub fn tokenize_sentence_to_vector(tokenizer: &JiebaTokenizer, sentence: &str)  ->  Vec<tantivy::tokenizer::Token> {
+    use tantivy::tokenizer::*;
+    let mut token_stream = tokenizer.token_stream(
+        sentence
+    );
+    let mut tokens = Vec::new();
+
+    while let Some(token) = token_stream.next() {
+        tokens.push(token.clone());
+
+    }
+    tokens
+}
+pub fn tokens_to_text_vec(tokens: &Vec<tantivy::tokenizer::Token>) -> Vec<String> {
+    let mut token_text = Vec::new();
+    for token in tokens {
+        token_text.push(token.text.clone());
+    }
+    token_text
+}
 // ============= BELOW IS TEST CASES ====================
 
 
@@ -199,16 +223,10 @@ mod test_tokenizer {
     }
     fn base(sentence: &str, expect_tokens: Vec<&str>) ->  Vec<tantivy::tokenizer::Token> {
         use tantivy::tokenizer::*;
+        use crate::{tokenize_sentence_to_vector,tokens_to_text_vec};
         let tokenizer = crate::JiebaTokenizer {};
-        let mut token_stream = tokenizer.token_stream(
-            sentence
-        );
-        let mut tokens = Vec::new();
-        let mut token_text = Vec::new();
-        while let Some(token) = token_stream.next() {
-            tokens.push(token.clone());
-            token_text.push(token.text.clone());
-        }
+        let tokens = tokenize_sentence_to_vector(&tokenizer, sentence);
+        let token_text = tokens_to_text_vec(&tokens);
         // check tokenized text
         assert_eq!(
             token_text,
@@ -216,4 +234,6 @@ mod test_tokenizer {
         );
         tokens
     }
+
+
 }
