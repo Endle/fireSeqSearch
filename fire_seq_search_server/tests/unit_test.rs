@@ -1,3 +1,4 @@
+
 use fire_seq_search_server::FireSeqSearchHit;
 use serde_json;
 

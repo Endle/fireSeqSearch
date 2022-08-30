@@ -13,7 +13,8 @@ use log::{info,debug,warn,error};
 use clap::{Command,arg};
 use urlencoding::decode;
 
-use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer, TOKENIZER_ID};
+use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer,
+                             TOKENIZER_ID, tokenize_sentence_to_text_vec};
 
 #[derive(Debug, Clone, Serialize)]
 struct ServerInformation {
@@ -175,10 +176,14 @@ fn query(term: String, server_info: &ServerInformation, schema: tantivy::schema:
 
      */
 
+    // TODO avoid creating a tokenizer again
+    let tokenizer = crate::JiebaTokenizer {};
+    let term_tokens = tokenize_sentence_to_text_vec(&tokenizer, &term);
+    info!("get term tokens {:?}", &term_tokens);
     // let mut result;
     let result: Vec<String> = top_docs.par_iter()
         .map(|&x| FireSeqSearchHitParsed::from_tantivy
-            (&searcher.doc(x.1).unwrap(), x.0)
+            (&searcher.doc(x.1).unwrap(), x.0, &term_tokens)
         )
         // .map(|x| FireSeqSearchHitParsed::from_hit(&x))
         .map(|p| serde_json::to_string(&p).unwrap())
