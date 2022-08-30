@@ -42,6 +42,7 @@ Steps:
 2. `git clone https://github.com/Endle/fireSeqSearch`
 3. `cd fire_seq_search_server && cargo build`
 4. `target/debug/fire_seq_search_server --notebook_path /home/li/my_notebook`
+5. Min rust version: See https://github.com/Endle/fireSeqSearch/blob/master/.github/workflows/rust.yml#L21
 
 
 How it works
