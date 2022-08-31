@@ -8,8 +8,8 @@ extern crate lazy_static;
 pub struct FireSeqSearchHitParsed {
     // pub title: String,
     pub title: String,
+    pub summary: String,
     pub score: f32,
-    //field_values: Vec<FieldValue>,
 }
 
 impl FireSeqSearchHitParsed {
@@ -29,11 +29,12 @@ impl FireSeqSearchHitParsed {
         }
         let title: &str = doc.field_values()[0].value().as_text().unwrap();
         let body: &str = doc.field_values()[1].value().as_text().unwrap();
-        let _ = highlight_keywords_in_body(body, term_tokens);
+        let summary = highlight_keywords_in_body(body, term_tokens);
         FireSeqSearchHitParsed {
             // title: String::from(title),
             title: String::from(title),
-            score
+            summary,
+            score,
         }
     }
 
