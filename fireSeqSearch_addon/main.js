@@ -10,88 +10,47 @@ function createElementWithText(type, text) {
     return x;
 }
 
-function wrapRawRecordIntoElement(rawRecord, serverInfo) {
-    // rawRecord is String   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/typeof
-
+function createHrefToLogseq(record, serverInfo) {
     const name = serverInfo.notebook_name;
-    //console.log("wrapping " + String(rawRecord) + " to notebook " + name);
-    //console.log(typeof rawRecord);
-
-    const record = JSON.parse(rawRecord);
-    console.log(typeof record);
 
     const title = record.title;
+    const prettyTitle = title.replaceAll("%2F", "/");
     const target = "logseq://graph/" + name + "?page=" + title;
-
-    let li =  createElementWithText("li", "");
-    li.style.fontSize = "16px";
     let a = document.createElement('a');
-    let text = document.createTextNode(title);
+    let text = document.createTextNode(prettyTitle);
     a.appendChild(text);
-    a.title = title;
+    a.title = prettyTitle;
     a.href = target;
     console.log(a);
-    li.appendChild(a);
-    console.log(li);
-    return li;
+    return a;
 }
+
 
 
 function uglyExtraLine() {
     return createElementWithText("br", "");
 }
 
-// deprecated
-/*
-function getFireSeqDomOnWebpage() {
-
-    function insertFireSeqDomToWebpage() {
-        let div = document.createElement("div");
-        div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
-        div.setAttribute("id", fireSeqSearchDomId);
-
-        document.body.insertBefore(div, document.body.firstChild);
-        console.log("inserted");
-        // Very hacky for google
-        if (window.location.toString().includes("google")) {
-            for (let i=0; i<6; ++i) {
-                div.appendChild(uglyExtraLine());
-            }
-        }
-
-        return div;
-    }
-    let fireDom = document.getElementById(fireSeqSearchDomId);
-    if (fireDom === null) {
-        fireDom = insertFireSeqDomToWebpage();
-    }
-    return fireDom;
-}
-
- */
-
 
 function checkUserOptions() {
     return Promise.all([
         /*global browser */
         browser.storage.sync.get("debugStr"),
-        browser.storage.sync.get("ExperimentalLayout")
+        browser.storage.sync.get("ExperimentalLayout"),
+        browser.storage.sync.get("ShowHighlight"),
+        browser.storage.sync.get("ShowScore")
     ]).then(function(res) {
         console.log(res);
 
         const options = {
             debugStr: res[0].debugStr,
             ExperimentalLayout: res[1].ExperimentalLayout,
+            ShowHighlight: res[2].ShowHighlight,
+            ShowScore: res[3].ShowScore
         }
         console.log(options);
         return options;
     });
-
-    /*  .catch(function (error) {
-        console.log(error);
-    });
-
-     */
 }
 
 async function appendResultToSearchResult(fetchResultArray) {
@@ -129,9 +88,25 @@ async function appendResultToSearchResult(fetchResultArray) {
     let hitList = document.createElement("ul");
     for (let rawRecord of rawSearchResult) {
         // const e = document.createTextNode(record);
-        let e = wrapRawRecordIntoElement(rawRecord, serverInfo);
+        const record = JSON.parse(rawRecord);
+        console.log(typeof record);
+        let li =  createElementWithText("li", "");
+        li.style.fontSize = "16px";
+        if (firefoxExtensionUserOption.ShowScore) {
+            const score = createElementWithText("span", String(record.score));
+            li.appendChild(score);
+        }
+        let href = createHrefToLogseq(record, serverInfo);
+        li.appendChild(href);
+        if (firefoxExtensionUserOption.ShowHighlight) {
+            const summary = createElementWithText("span", "");
+            summary.innerHTML = record.summary;
+            li.appendChild(summary);
+        }
+        // let e = wrapRawRecordIntoElement(record, serverInfo);
+
         // e.style.
-        hitList.appendChild(e);
+        hitList.appendChild(li);
         // console.log("Added an element to the list");
     }
     hitList.style.lineHeight = "150%";
@@ -179,6 +154,8 @@ function getSearchParameterFromCurrentPage() {
 (function() {
     const searchParameter = getSearchParameterFromCurrentPage();
 
+
+
     //https://gomakethings.com/waiting-for-multiple-all-api-responses-to-complete-with-the-vanilla-js-promise.all-method/
     Promise.all([
         fetch("http://127.0.0.1:3030/server_info"),
@@ -187,9 +164,16 @@ function getSearchParameterFromCurrentPage() {
         return Promise.all(responses.map(function (response) {return response.json();}));
     }).then(function (data) {
         console.log(data);
-        appendResultToSearchResult(data);
+        return appendResultToSearchResult(data);
+    }).then((_e) => {
+        const highlightedItems = document.querySelectorAll('.fireSeqSearchHighlight');
+        console.log(highlightedItems);
+        highlightedItems.forEach((element) => {
+            element.style.color = 'red';
+        });
     }).catch(function (error) {
         console.log(error);
     });
+
 
 })();

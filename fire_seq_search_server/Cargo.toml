@@ -1,6 +1,6 @@
 [package]
 name = "fire_seq_search_server"
-version = "0.0.11"
+version = "0.0.15"
 edition = "2021"
 
 
@@ -18,3 +18,6 @@ clap = { version = "3.0.14", features = ["derive"] }
 urlencoding = "2.1.0"
 jieba-rs = { version = "0.6.6" }
 lazy_static = "1.4.0"
+rayon = "1.5"
+stopwords = "0.1.1"
+

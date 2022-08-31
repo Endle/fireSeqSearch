@@ -1,23 +1,70 @@
-
+pub mod post_query;
+use crate::post_query::highlight_keywords_in_body;
 
 #[macro_use]
 extern crate lazy_static;
 
-
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
-pub struct FireSeqSearchHit {
+pub struct FireSeqSearchHitParsed {
+    // pub title: String,
     pub title: String,
-    //field_values: Vec<FieldValue>,
+    pub summary: String,
+    pub score: f32,
 }
-impl FireSeqSearchHit {
-    pub fn from_tantivy(doc: &tantivy::schema::Document) ->FireSeqSearchHit {
+
+impl FireSeqSearchHitParsed {
+    /*
+    pub fn from_hit(hit: &FireSeqSearchHit) -> FireSeqSearchHitParsed {
+        FireSeqSearchHitParsed {
+            title: String::from(hit.title),
+            score: hit.score
+        }
+    }
+
+     */
+    pub fn from_tantivy(doc: &tantivy::schema::Document,
+                        score: f32, term_tokens: &Vec<String>) ->FireSeqSearchHitParsed {
         for _field in doc.field_values() {
             // debug!("field {:?} ", &field);
         }
         let title: &str = doc.field_values()[0].value().as_text().unwrap();
+        let body: &str = doc.field_values()[1].value().as_text().unwrap();
+        let summary = highlight_keywords_in_body(body, term_tokens);
+        FireSeqSearchHitParsed {
+            // title: String::from(title),
+            title: String::from(title),
+            summary,
+            score,
+        }
+    }
+
+}
+
+
+
+
+/*TODO: Do I really need this struct?*/
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
+pub struct FireSeqSearchHit<'a> {
+    // pub title: String,
+    pub title: &'a str,
+    pub body: &'a str,
+    pub score: f32,
+    //field_values: Vec<FieldValue>,
+}
+impl<'a> FireSeqSearchHit<'a> {
+    pub fn from_tantivy(doc: &tantivy::schema::Document, score: f32) ->FireSeqSearchHit {
+        for _field in doc.field_values() {
+            // debug!("field {:?} ", &field);
+        }
+        let title: &str = doc.field_values()[0].value().as_text().unwrap();
+        let body: &str = doc.field_values()[1].value().as_text().unwrap();
 
         FireSeqSearchHit {
-            title: String::from(title)
+            // title: String::from(title),
+            title,
+            body,
+            score
         }
     }
 }
@@ -105,6 +152,30 @@ fn process_token_text(text: &str, indices: &Vec<(usize, char)>, token: &jieba_rs
     }
 }
 
+pub fn tokenize_sentence_to_text_vec(tokenizer: &JiebaTokenizer, sentence: &str) -> Vec<String> {
+    let tokens = tokenize_sentence_to_vector(&tokenizer, sentence);
+    tokens_to_text_vec(&tokens)
+}
+pub fn tokenize_sentence_to_vector(tokenizer: &JiebaTokenizer, sentence: &str)  ->  Vec<tantivy::tokenizer::Token> {
+    use tantivy::tokenizer::*;
+    let mut token_stream = tokenizer.token_stream(
+        sentence
+    );
+    let mut tokens = Vec::new();
+
+    while let Some(token) = token_stream.next() {
+        tokens.push(token.clone());
+
+    }
+    tokens
+}
+pub fn tokens_to_text_vec(tokens: &Vec<tantivy::tokenizer::Token>) -> Vec<String> {
+    let mut token_text = Vec::new();
+    for token in tokens {
+        token_text.push(token.text.clone());
+    }
+    token_text
+}
 // ============= BELOW IS TEST CASES ====================
 
 
@@ -161,16 +232,10 @@ mod test_tokenizer {
     }
     fn base(sentence: &str, expect_tokens: Vec<&str>) ->  Vec<tantivy::tokenizer::Token> {
         use tantivy::tokenizer::*;
+        use crate::{tokenize_sentence_to_vector,tokens_to_text_vec};
         let tokenizer = crate::JiebaTokenizer {};
-        let mut token_stream = tokenizer.token_stream(
-            sentence
-        );
-        let mut tokens = Vec::new();
-        let mut token_text = Vec::new();
-        while let Some(token) = token_stream.next() {
-            tokens.push(token.clone());
-            token_text.push(token.text.clone());
-        }
+        let tokens = tokenize_sentence_to_vector(&tokenizer, sentence);
+        let token_text = tokens_to_text_vec(&tokens);
         // check tokenized text
         assert_eq!(
             token_text,
@@ -178,4 +243,6 @@ mod test_tokenizer {
         );
         tokens
     }
+
+
 }
