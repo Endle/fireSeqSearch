@@ -41,57 +41,26 @@ function uglyExtraLine() {
     return createElementWithText("br", "");
 }
 
-// deprecated
-/*
-function getFireSeqDomOnWebpage() {
-
-    function insertFireSeqDomToWebpage() {
-        let div = document.createElement("div");
-        div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
-        div.setAttribute("id", fireSeqSearchDomId);
-
-        document.body.insertBefore(div, document.body.firstChild);
-        console.log("inserted");
-        // Very hacky for google
-        if (window.location.toString().includes("google")) {
-            for (let i=0; i<6; ++i) {
-                div.appendChild(uglyExtraLine());
-            }
-        }
-
-        return div;
-    }
-    let fireDom = document.getElementById(fireSeqSearchDomId);
-    if (fireDom === null) {
-        fireDom = insertFireSeqDomToWebpage();
-    }
-    return fireDom;
-}
-
- */
-
 
 function checkUserOptions() {
     return Promise.all([
         /*global browser */
         browser.storage.sync.get("debugStr"),
-        browser.storage.sync.get("ExperimentalLayout")
+        browser.storage.sync.get("ExperimentalLayout"),
+        browser.storage.sync.get("ShowHighlight"),
+        browser.storage.sync.get("ShowScore")
     ]).then(function(res) {
         console.log(res);
 
         const options = {
             debugStr: res[0].debugStr,
             ExperimentalLayout: res[1].ExperimentalLayout,
+            ShowHighlight: res[2].ShowHighlight,
+            ShowScore: res[3].ShowScore
         }
         console.log(options);
         return options;
     });
-
-    /*  .catch(function (error) {
-        console.log(error);
-    });
-
-     */
 }
 
 async function appendResultToSearchResult(fetchResultArray) {
