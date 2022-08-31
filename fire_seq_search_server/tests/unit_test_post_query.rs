@@ -17,6 +17,12 @@ fn test_empty_key() {
     //assert_eq!(&json, "{\"title\":\"Hello\"}");
 }
 
+#[test]
+fn test_highlight() {
+    let contents = get_english_text();
+    let v = vec![String::from("juxtaposition"), String::from("of")];
+    let _ = highlight_keywords_in_body(&contents, &v);
+}
 
 #[test]
 fn test_split_to_block() {
