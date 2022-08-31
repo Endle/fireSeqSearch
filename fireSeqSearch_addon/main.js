@@ -12,35 +12,19 @@ function createElementWithText(type, text) {
 
 function createHrefToLogseq(record, serverInfo) {
     const name = serverInfo.notebook_name;
+
     const title = record.title;
+    const prettyTitle = title.replace("%2F", "/");
     const target = "logseq://graph/" + name + "?page=" + title;
     let a = document.createElement('a');
-    let text = document.createTextNode(title);
+    let text = document.createTextNode(prettyTitle);
     a.appendChild(text);
-    a.title = title;
+    a.title = prettyTitle;
     a.href = target;
     console.log(a);
     return a;
 }
-function wrapRawRecordIntoElement(record, serverInfo) {
-    // rawRecord is String   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/typeof
 
-
-    //console.log("wrapping " + String(rawRecord) + " to notebook " + name);
-    //console.log(typeof rawRecord);
-
-    const title = record.title;
-
-
-
-
-
-
-
-    li.appendChild(a);
-    console.log(li);
-    return li;
-}
 
 
 function uglyExtraLine() {
