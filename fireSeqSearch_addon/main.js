@@ -10,27 +10,33 @@ function createElementWithText(type, text) {
     return x;
 }
 
-function wrapRawRecordIntoElement(rawRecord, serverInfo) {
-    // rawRecord is String   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/typeof
-
+function createHrefToLogseq(record, serverInfo) {
     const name = serverInfo.notebook_name;
-    //console.log("wrapping " + String(rawRecord) + " to notebook " + name);
-    //console.log(typeof rawRecord);
-
-    const record = JSON.parse(rawRecord);
-    console.log(typeof record);
-
     const title = record.title;
     const target = "logseq://graph/" + name + "?page=" + title;
-
-    let li =  createElementWithText("li", "");
-    li.style.fontSize = "16px";
     let a = document.createElement('a');
     let text = document.createTextNode(title);
     a.appendChild(text);
     a.title = title;
     a.href = target;
     console.log(a);
+    return a;
+}
+function wrapRawRecordIntoElement(record, serverInfo) {
+    // rawRecord is String   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/typeof
+
+
+    //console.log("wrapping " + String(rawRecord) + " to notebook " + name);
+    //console.log(typeof rawRecord);
+
+    const title = record.title;
+
+
+
+
+
+
+
     li.appendChild(a);
     console.log(li);
     return li;
@@ -98,9 +104,20 @@ async function appendResultToSearchResult(fetchResultArray) {
     let hitList = document.createElement("ul");
     for (let rawRecord of rawSearchResult) {
         // const e = document.createTextNode(record);
-        let e = wrapRawRecordIntoElement(rawRecord, serverInfo);
+        const record = JSON.parse(rawRecord);
+        console.log(typeof record);
+        let li =  createElementWithText("li", "");
+        li.style.fontSize = "16px";
+        if (firefoxExtensionUserOption.ShowScore) {
+            const score = createElementWithText("span", String(record.score));
+            li.appendChild(score);
+        }
+        let href = createHrefToLogseq(record, serverInfo);
+        li.appendChild(href);
+        // let e = wrapRawRecordIntoElement(record, serverInfo);
+
         // e.style.
-        hitList.appendChild(e);
+        hitList.appendChild(li);
         // console.log("Added an element to the list");
     }
     hitList.style.lineHeight = "150%";
