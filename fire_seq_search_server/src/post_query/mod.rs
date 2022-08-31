@@ -46,7 +46,7 @@ fn recursive_wrap(sentence: &str, term_tokens: &[String]) -> String {
         let r = recursive_wrap(seg, &term_tokens[1..]);
         result.push(r);
     }
-    let wrapped = vec![span_start, token, span_end].join("");
+    let wrapped = vec![span_start, token, span_end].join(..);
     result.join(&wrapped)
 }
 
