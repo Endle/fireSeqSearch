@@ -98,6 +98,11 @@ async function appendResultToSearchResult(fetchResultArray) {
         }
         let href = createHrefToLogseq(record, serverInfo);
         li.appendChild(href);
+        if (firefoxExtensionUserOption.ShowHighlight) {
+            const summary = createElementWithText("span", "");
+            summary.innerHTML = record.summary;
+            li.appendChild(summary);
+        }
         // let e = wrapRawRecordIntoElement(record, serverInfo);
 
         // e.style.
@@ -149,6 +154,8 @@ function getSearchParameterFromCurrentPage() {
 (function() {
     const searchParameter = getSearchParameterFromCurrentPage();
 
+
+
     //https://gomakethings.com/waiting-for-multiple-all-api-responses-to-complete-with-the-vanilla-js-promise.all-method/
     Promise.all([
         fetch("http://127.0.0.1:3030/server_info"),
@@ -157,9 +164,16 @@ function getSearchParameterFromCurrentPage() {
         return Promise.all(responses.map(function (response) {return response.json();}));
     }).then(function (data) {
         console.log(data);
-        appendResultToSearchResult(data);
+        return appendResultToSearchResult(data);
+    }).then((_e) => {
+        const highlightedItems = document.querySelectorAll('.fireSeqSearchHighlight');
+        console.log(highlightedItems);
+        highlightedItems.forEach((element) => {
+            element.style.color = 'red';
+        });
     }).catch(function (error) {
         console.log(error);
     });
+
 
 })();
