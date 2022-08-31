@@ -1,3 +1,4 @@
+use tantivy::HasLen;
 use stopwords;
 
 pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>) -> String {
@@ -10,33 +11,43 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>) -> Stri
     nltk.insert("fireSeqSearchHighlight");
 
 //TODO remove unnecessary copy
-    let terms_selected: Vec<_> = term_tokens.into_iter()
+    let terms_selected: Vec<String> = term_tokens.into_iter()
         .filter(|&s| !nltk.contains(&*String::from(s)))
+        .map(|s| String::from(s))
         .collect();
-    println!("{:?}", &terms_selected);
-    let span_start = "<span class=\"fireSeqSearchHighlight\">";
-    let span_end = "</span>";
+    // println!("{:?}", &terms_selected);
 
+
+    let mut result = Vec::new();
     for sentence in blocks {
-        let result = recursive_wrap(&sentence, &term_tokens, &span_start, &span_end);
-        println!("{}", &result);
-
+        let r = recursive_wrap(&sentence, &terms_selected);
+        // println!("{}", &result);
+        if sentence != r {
+            result.push(r);
+        }
     }
+    // println!("{:?}", &result);
 
-
-    String::from(body)
+    result.join(" ")
 }
 
-fn recursive_wrap(sentence: &str, term_tokens: &Vec<String>, span_start: &str, span_end: &str) -> String {
-    for token in term_tokens {
-        // TODO fix this unnecessary copy
-        // if nltk.contains(&*String::from(token)) { continue }
-        if !sentence.contains(token) {continue}
-
+fn recursive_wrap(sentence: &str, term_tokens: &[String]) -> String {
+    if term_tokens.is_empty() {
+        return String::from(sentence);
     }
-
-
-    String::from("1")
+    let span_start = "<span class=\"fireSeqSearchHighlight\">";
+    let span_end = "</span>";
+    let token = &term_tokens[0];
+    if !sentence.contains(token) {
+        return recursive_wrap(sentence, &term_tokens[1..]);
+    }
+    let mut result = Vec::new();
+    for seg in sentence.split(token) {
+        let r = recursive_wrap(seg, &term_tokens[1..]);
+        result.push(r);
+    }
+    let wrapped = vec![span_start, token, span_end].join("");
+    result.join(&wrapped)
 }
 
 // TODO: current implementation is too naive, I believe it is buggy
