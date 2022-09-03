@@ -1,4 +1,30 @@
-use log::{debug, error, warn};
+use std::fs::DirEntry;
+use log::{debug, error, info, warn};
+
+use rayon::prelude::*;
+
+pub fn read_specific_path(path: &String) -> Vec<(String,String)> {
+    info!("Try to read {}", &path);
+    let notebooks = std::fs::read_dir(path).unwrap();
+    let mut note_filenames: Vec<DirEntry> = Vec::new();
+    for note in notebooks {
+        let note : DirEntry = note.unwrap();
+        note_filenames.push(note);
+    }
+    // debug!("Note titles: {:?}", &note_filenames);
+    let result: Vec<(String,String)> = note_filenames.par_iter()
+        .map(|note|  read_md_file(&note))
+        .filter(|x| (&x).is_some())
+        .map(|x| x.unwrap())
+        .collect();
+    info!("Loaded {} notes from {}", result.len(), path);
+    // info!("After map {:?}", &result);
+
+    result
+}
+
+
+
 
 pub fn read_md_file(note: &std::fs::DirEntry) -> Option<(String, String)> {
     if let Ok(file_type) = note.file_type() {

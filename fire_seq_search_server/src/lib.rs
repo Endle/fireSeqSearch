@@ -2,7 +2,7 @@ pub mod post_query;
 pub mod load_notes;
 
 use crate::post_query::highlight_keywords_in_body;
-use crate::load_notes::read_md_file;
+
 
 #[macro_use]
 extern crate lazy_static;

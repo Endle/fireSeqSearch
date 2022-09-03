@@ -15,7 +15,7 @@ use urlencoding::decode;
 
 use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer,
                              TOKENIZER_ID, tokenize_sentence_to_text_vec};
-use fire_seq_search_server::load_notes::read_md_file;
+use fire_seq_search_server::load_notes::{read_md_file, read_specific_path};
 
 #[derive(Debug, Clone, Serialize)]
 struct ServerInformation {
@@ -210,8 +210,6 @@ fn build_reader_parser(index: &tantivy::Index, document_setting: &DocumentSettin
 }
 
 fn indexing_documents(server_info: &ServerInformation, document_setting: &DocumentSetting) -> tantivy::Index {
-
-
     let path: &str = &server_info.notebook_path;
     let schema = &document_setting.schema;
     let index = tantivy::Index::create_in_ram(schema.clone());
@@ -220,30 +218,18 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
 
     let mut index_writer = index.writer(50_000_000).unwrap();
 
+
     // I should remove the unwrap and convert it into map
     let path = path.to_owned() + "/pages";
-    let notebooks = fs::read_dir(path).unwrap();
+
 
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
 
-    for note in notebooks {
-        let note : std::fs::DirEntry = note.unwrap();
-        match read_md_file(&note) {
-            Some((note_title, contents)) => {
-                debug!("Length: {}", contents.len());
-
-                // let mut doc = Document::default();
-                // doc.add_text(title, note_title);
-                // doc.add_text(body, contents);
-                index_writer.add_document(
-                    doc!{ title => note_title, body => contents}
-                );
-            },
-            None => (
-                warn!("Skip file {:?}", note)
-                )
-        };
+    for (note_title, contents) in read_specific_path(&path) {
+        index_writer.add_document(
+            doc!{ title => note_title, body => contents}
+        ).unwrap();
     }
 
     index_writer.commit().unwrap();
