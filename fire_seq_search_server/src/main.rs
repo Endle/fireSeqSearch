@@ -5,7 +5,7 @@ use tantivy::{ReloadPolicy,doc};
 use rayon::prelude::*;
 
 
-use std::fs;
+
 use serde_json;
 use serde::Serialize;
 
@@ -15,7 +15,7 @@ use urlencoding::decode;
 
 use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer,
                              TOKENIZER_ID, tokenize_sentence_to_text_vec};
-use fire_seq_search_server::load_notes::{read_md_file, read_specific_path};
+use fire_seq_search_server::load_notes::read_specific_path;
 
 #[derive(Debug, Clone, Serialize)]
 struct ServerInformation {

@@ -3,7 +3,7 @@ use log::{debug, error, info, warn};
 
 use rayon::prelude::*;
 
-pub fn read_specific_path(path: &String) -> Vec<(String,String)> {
+pub fn read_specific_path(path: &str) -> Vec<(String,String)> {
     info!("Try to read {}", &path);
     let notebooks = std::fs::read_dir(path).unwrap();
     let mut note_filenames: Vec<DirEntry> = Vec::new();
