@@ -15,6 +15,7 @@ use urlencoding::decode;
 
 use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer,
                              TOKENIZER_ID, tokenize_sentence_to_text_vec};
+use fire_seq_search_server::load_notes::read_md_file;
 
 #[derive(Debug, Clone, Serialize)]
 struct ServerInformation {
@@ -228,7 +229,6 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
 
     for note in notebooks {
         let note : std::fs::DirEntry = note.unwrap();
-
         match read_md_file(&note) {
             Some((note_title, contents)) => {
                 debug!("Length: {}", contents.len());
@@ -250,41 +250,5 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
     index
 }
 
-fn read_md_file(note: &std::fs::DirEntry) -> Option<(String, String)> {
-    if let Ok(file_type) = note.file_type() {
-        // Now let's show our entry's file type!
-        debug!("{:?}: {:?}", note.path(), file_type);
-        if file_type.is_dir() {
-            debug!("{:?} is a directory, skipping", note.path());
-            return None;
-        }
-    } else {
-        warn!("Couldn't get file type for {:?}", note.path());
-        return None;
-    }
 
-    let note_path = note.path();
-    let note_title = match note_path.file_stem() {
-        Some(osstr) => osstr.to_str().unwrap(),
-        None => {
-            error!("Couldn't get file_stem for {:?}", note.path());
-            return None;
-        }
-    };
-    debug!("note title: {}", &note_title);
-
-    let contents : String = match fs::read_to_string(&note_path) {
-        Ok(c) => c,
-        Err(e) => {
-            if note_title.to_lowercase() == ".ds_store" {
-                debug!("Ignore .DS_Store for mac");
-            } else {
-                error!("Error({:?}) when reading the file {:?}", e, note_path);
-            }
-            return None;
-        }
-    };
-
-    Some((note_title.to_string(),contents))
-}
 
