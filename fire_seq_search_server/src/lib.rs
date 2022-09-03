@@ -1,5 +1,8 @@
 pub mod post_query;
+pub mod load_notes;
+
 use crate::post_query::highlight_keywords_in_body;
+
 
 #[macro_use]
 extern crate lazy_static;

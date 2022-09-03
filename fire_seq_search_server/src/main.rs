@@ -5,7 +5,7 @@ use tantivy::{ReloadPolicy,doc};
 use rayon::prelude::*;
 
 
-use std::fs;
+
 use serde_json;
 use serde::Serialize;
 
@@ -15,6 +15,7 @@ use urlencoding::decode;
 
 use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer,
                              TOKENIZER_ID, tokenize_sentence_to_text_vec};
+use fire_seq_search_server::load_notes::read_specific_path;
 
 #[derive(Debug, Clone, Serialize)]
 struct ServerInformation {
@@ -209,8 +210,6 @@ fn build_reader_parser(index: &tantivy::Index, document_setting: &DocumentSettin
 }
 
 fn indexing_documents(server_info: &ServerInformation, document_setting: &DocumentSetting) -> tantivy::Index {
-
-
     let path: &str = &server_info.notebook_path;
     let schema = &document_setting.schema;
     let index = tantivy::Index::create_in_ram(schema.clone());
@@ -219,72 +218,23 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
 
     let mut index_writer = index.writer(50_000_000).unwrap();
 
+
     // I should remove the unwrap and convert it into map
     let path = path.to_owned() + "/pages";
-    let notebooks = fs::read_dir(path).unwrap();
+
 
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
 
-    for note in notebooks {
-        let note : std::fs::DirEntry = note.unwrap();
-
-        match read_md_file(&note) {
-            Some((note_title, contents)) => {
-                debug!("Length: {}", contents.len());
-
-                // let mut doc = Document::default();
-                // doc.add_text(title, note_title);
-                // doc.add_text(body, contents);
-                index_writer.add_document(
-                    doc!{ title => note_title, body => contents}
-                );
-            },
-            None => (
-                warn!("Skip file {:?}", note)
-                )
-        };
+    for (note_title, contents) in read_specific_path(&path) {
+        index_writer.add_document(
+            doc!{ title => note_title, body => contents}
+        ).unwrap();
     }
 
     index_writer.commit().unwrap();
     index
 }
 
-fn read_md_file(note: &std::fs::DirEntry) -> Option<(String, String)> {
-    if let Ok(file_type) = note.file_type() {
-        // Now let's show our entry's file type!
-        debug!("{:?}: {:?}", note.path(), file_type);
-        if file_type.is_dir() {
-            debug!("{:?} is a directory, skipping", note.path());
-            return None;
-        }
-    } else {
-        warn!("Couldn't get file type for {:?}", note.path());
-        return None;
-    }
 
-    let note_path = note.path();
-    let note_title = match note_path.file_stem() {
-        Some(osstr) => osstr.to_str().unwrap(),
-        None => {
-            error!("Couldn't get file_stem for {:?}", note.path());
-            return None;
-        }
-    };
-    debug!("note title: {}", &note_title);
-
-    let contents : String = match fs::read_to_string(&note_path) {
-        Ok(c) => c,
-        Err(e) => {
-            if note_title.to_lowercase() == ".ds_store" {
-                debug!("Ignore .DS_Store for mac");
-            } else {
-                error!("Error({:?}) when reading the file {:?}", e, note_path);
-            }
-            return None;
-        }
-    };
-
-    Some((note_title.to_string(),contents))
-}
 
