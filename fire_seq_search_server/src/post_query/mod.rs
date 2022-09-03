@@ -45,12 +45,8 @@ fn recursive_wrap(sentence: &str, term_tokens: &[String]) -> String {
         let r = recursive_wrap(seg, &term_tokens[1..]);
         result.push(r);
     }
-    let wrapped = vec![span_start, token, span_end].join("");
-    /*
-    Linter asked me to change it, but I got
-    49 |     let wrapped = vec![span_start, token, span_end].join(..);
-   |                                                          ^^ expected `&str`, found struct `RangeFull`
-     */
+    let wrapped = vec![span_start, token, span_end].concat();
+
     result.join(&wrapped)
 }
 
