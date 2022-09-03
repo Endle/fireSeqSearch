@@ -57,13 +57,35 @@ async function appendResultToSearchResult(fetchResultArray) {
     const serverInfo = fetchResultArray[0];
     const rawSearchResult = fetchResultArray[1];
     const firefoxExtensionUserOption = await checkUserOptions();
-    const count = rawSearchResult.length;
+
 
     console.log(firefoxExtensionUserOption);
 
-    let hitCount = createElementWithText("div",
-        "We found " + count.toString() + " results in your logseq notebook");
-    hitCount.style.fontSize = "large";
+    function createTitleBarDom(count) {
+        let titleBar = createElementWithText("span");
+        titleBar.classList.add('fireSeqSearchTitleBar');
+        let hitCount = createElementWithText("span",
+            "We found " + count.toString() + " results in your logseq notebook");
+
+        titleBar.appendChild(hitCount);
+
+        let btn = document.createElement("button");
+        let text = document.createTextNode("Hide Summary (Tmp)");
+        btn.appendChild(text);
+        btn.onclick = function () {
+            // alert("Button is clicked");
+            for (let el of document.querySelectorAll('.fireSeqSearchHitSummary')) {
+                // el.style.visibility = 'hidden';
+                el.remove();
+            }
+        };
+        titleBar.appendChild(btn);
+        titleBar.appendChild(uglyExtraLine());
+        titleBar.appendChild(uglyExtraLine());
+        return titleBar;
+    }
+
+
 
     function createFireSeqDom() {
         let div = document.createElement("div");
@@ -72,7 +94,7 @@ async function appendResultToSearchResult(fetchResultArray) {
 
         // document.body.insertBefore(div, document.body.firstChild);
         // console.log("inserted");
-        // Very hacky for google
+        // Very hacky for Google
         if (window.location.toString().includes("google")) {
             for (let i=0; i<6; ++i) {
                 div.appendChild(uglyExtraLine());
@@ -82,8 +104,8 @@ async function appendResultToSearchResult(fetchResultArray) {
     }
 
     let dom = createFireSeqDom();
-    dom.appendChild(hitCount);
-    dom.appendChild(uglyExtraLine());
+    dom.appendChild(createTitleBarDom(rawSearchResult.length));
+
 
     let hitList = document.createElement("ul");
     for (let rawRecord of rawSearchResult) {
@@ -101,6 +123,7 @@ async function appendResultToSearchResult(fetchResultArray) {
         if (firefoxExtensionUserOption.ShowHighlight) {
             const summary = createElementWithText("span", "");
             summary.innerHTML = record.summary;
+            summary.classList.add('fireSeqSearchHitSummary');
             li.appendChild(summary);
         }
         // let e = wrapRawRecordIntoElement(record, serverInfo);
