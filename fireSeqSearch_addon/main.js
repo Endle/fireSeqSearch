@@ -3,6 +3,10 @@
 
 const fireSeqSearchDomId = "fireSeqSearchDom";
 
+function consoleLogForDebug(s) {
+    // console.log(s);
+    // Comment it in master branch, to make deepSource happy
+}
 
 function createElementWithText(type, text) {
     let x = document.createElement(type);
@@ -21,7 +25,7 @@ function createHrefToLogseq(record, serverInfo) {
     a.appendChild(text);
     a.title = prettyTitle;
     a.href = target;
-    console.log(a);
+    consoleLogForDebug(a);
     return a;
 }
 
@@ -40,7 +44,7 @@ function checkUserOptions() {
         browser.storage.sync.get("ShowHighlight"),
         browser.storage.sync.get("ShowScore")
     ]).then(function(res) {
-        console.log(res);
+        consoleLogForDebug(res);
 
         const options = {
             debugStr: res[0].debugStr,
@@ -48,7 +52,7 @@ function checkUserOptions() {
             ShowHighlight: res[2].ShowHighlight,
             ShowScore: res[3].ShowScore
         }
-        console.log(options);
+        consoleLogForDebug(options);
         return options;
     });
 }
@@ -59,7 +63,7 @@ async function appendResultToSearchResult(fetchResultArray) {
     const firefoxExtensionUserOption = await checkUserOptions();
 
 
-    console.log(firefoxExtensionUserOption);
+    consoleLogForDebug(firefoxExtensionUserOption);
 
     function createTitleBarDom(count) {
         let titleBar = createElementWithText("span");
@@ -93,7 +97,7 @@ async function appendResultToSearchResult(fetchResultArray) {
         div.setAttribute("id", fireSeqSearchDomId);
 
         // document.body.insertBefore(div, document.body.firstChild);
-        // console.log("inserted");
+        // consoleLogForDebug("inserted");
         // Very hacky for Google
         if (window.location.toString().includes("google")) {
             for (let i=0; i<6; ++i) {
@@ -111,7 +115,7 @@ async function appendResultToSearchResult(fetchResultArray) {
     for (let rawRecord of rawSearchResult) {
         // const e = document.createTextNode(record);
         const record = JSON.parse(rawRecord);
-        console.log(typeof record);
+        consoleLogForDebug(typeof record);
         let li =  createElementWithText("li", "");
         li.style.fontSize = "16px";
         if (firefoxExtensionUserOption.ShowScore) {
@@ -130,7 +134,7 @@ async function appendResultToSearchResult(fetchResultArray) {
 
         // e.style.
         hitList.appendChild(li);
-        // console.log("Added an element to the list");
+        // consoleLogForDebug("Added an element to the list");
     }
     hitList.style.lineHeight = "150%";
     dom.appendChild(hitList);
@@ -165,11 +169,11 @@ function getSearchParameterFromCurrentPage() {
     } else {
         // https://stackoverflow.com/a/901144/1166518
         const urlParams = new URLSearchParams(window.location.search);
-        // console.log(urlParams);
+        // consoleLogForDebug(urlParams);
         searchParam = urlParams.get('q');
     }
 
-    console.log("Got search param: " + searchParam);
+    consoleLogForDebug("Got search param: " + searchParam);
     return searchParam;
 }
 
@@ -186,16 +190,16 @@ function getSearchParameterFromCurrentPage() {
     ]).then(function (responses) {
         return Promise.all(responses.map(function (response) {return response.json();}));
     }).then(function (data) {
-        console.log(data);
+        consoleLogForDebug(data);
         return appendResultToSearchResult(data);
     }).then((_e) => {
         const highlightedItems = document.querySelectorAll('.fireSeqSearchHighlight');
-        console.log(highlightedItems);
+        consoleLogForDebug(highlightedItems);
         highlightedItems.forEach((element) => {
             element.style.color = 'red';
         });
     }).catch(function (error) {
-        console.log(error);
+        consoleLogForDebug(error);
     });
 
 
