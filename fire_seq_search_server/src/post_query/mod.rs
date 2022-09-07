@@ -9,6 +9,9 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>) -> Stri
     nltk.insert("class");
     nltk.insert("fireSeqSearchHighlight");
 
+    nltk.insert("theorem");
+    nltk.insert("-");
+
 //TODO remove unnecessary copy
     let terms_selected: Vec<String> = term_tokens.into_iter()
         .filter(|&s| !nltk.contains(&*String::from(s)))
