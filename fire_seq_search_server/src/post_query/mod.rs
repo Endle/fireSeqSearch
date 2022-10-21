@@ -3,7 +3,7 @@ use stopwords;
 pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>) -> String {
     use stopwords::Stopwords;
     let blocks = split_body_to_blocks(body);
-    //TODO Avoid collect it repeatly
+    //TODO Avoid collect it repeatedly
     let mut nltk: std::collections::HashSet<&str> = stopwords::NLTK::stopwords(stopwords::Language::English).unwrap().iter().cloned().collect();
     nltk.insert("span");
     nltk.insert("class");
