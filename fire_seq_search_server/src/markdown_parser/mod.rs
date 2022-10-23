@@ -1,5 +1,4 @@
-use pulldown_cmark::{Parser, Options, html};
-
+mod markdown_to_text;
 
 
 pub fn parse_to_plain_text(md: &str) -> String {

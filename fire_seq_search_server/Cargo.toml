@@ -21,4 +21,3 @@ lazy_static = "1.4.0"
 rayon = "1.5"
 stopwords = "0.1.1"
 pulldown-cmark = { version = "0.9.2", default-features = false }
-markdown_to_text  = { git = "https://github.com/Endle/markdown_to_text", branch = "master" }
