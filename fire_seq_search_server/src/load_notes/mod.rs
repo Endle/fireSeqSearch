@@ -4,6 +4,7 @@ use log::{debug, error, info, warn};
 use rayon::prelude::*;
 
 use crate::markdown_parser;
+use crate::markdown_parser::parse_to_plain_text;
 
 pub fn read_specific_path(path: &str) -> Vec<(String,String)> {
     info!("Try to read {}", &path);
@@ -76,6 +77,8 @@ pub fn read_md_file(note: &std::fs::DirEntry) -> Option<(String, String)> {
         }
     };
 
+
+    let content:String = parse_to_plain_text(&content);
 
     Some((note_title.to_string(),content))
 }
