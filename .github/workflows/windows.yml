@@ -135,7 +135,7 @@ jobs:
       - name: Package
         run: |
           cd fire_seq_search_server
-          cargo package --verbose  --release
+          cargo package --verbose
         shell: cmd
       - name: Save Artifact
         run: |
