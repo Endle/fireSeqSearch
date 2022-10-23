@@ -20,4 +20,6 @@ jieba-rs = { version = "0.6.6" }
 lazy_static = "1.4.0"
 rayon = "1.5"
 stopwords = "0.1.1"
+minimad = "0.9.1"
+
 
