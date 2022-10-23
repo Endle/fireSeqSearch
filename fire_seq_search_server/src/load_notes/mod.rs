@@ -26,6 +26,19 @@ pub fn read_specific_path(path: &str) -> Vec<(String,String)> {
 
 
 
+///
+///
+/// # Arguments
+///
+/// * `note`:
+///
+/// returns: Option<(String, String)>
+///
+/// First: title
+/// Second: full text (parsed)
+///
+/// If input is a directory or DS_STORE, return None
+///
 pub fn read_md_file(note: &std::fs::DirEntry) -> Option<(String, String)> {
     if let Ok(file_type) = note.file_type() {
         // Now let's show our entry's file type!
