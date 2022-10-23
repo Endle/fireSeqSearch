@@ -13,5 +13,8 @@ fn read_file_to_line(relative_path: &str) -> String {
 #[test]
 fn parse() {
     let md = read_file_to_line("blog_thunderbird_zh.md");
-    let result = parse_to_plain_text(md);
+    let result = parse_to_plain_text(&md);
+    assert!(result.contains("Aug 3, 2021 - 使用 git shallow clone 下载并编译 Thunderbird"));
+    assert!(!result.contains("https://developer.thunderbird.net/thunderbird-development/getting-started"));
+
 }
