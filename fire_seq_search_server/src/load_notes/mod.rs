@@ -3,6 +3,8 @@ use log::{debug, error, info, warn};
 
 use rayon::prelude::*;
 
+use crate::markdown_parser;
+
 pub fn read_specific_path(path: &str) -> Vec<(String,String)> {
     info!("Try to read {}", &path);
     let notebooks = std::fs::read_dir(path).unwrap();
@@ -62,7 +64,7 @@ pub fn read_md_file(note: &std::fs::DirEntry) -> Option<(String, String)> {
     };
     debug!("note title: {}", &note_title);
 
-    let contents : String = match std::fs::read_to_string(&note_path) {
+    let content : String = match std::fs::read_to_string(&note_path) {
         Ok(c) => c,
         Err(e) => {
             if note_title.to_lowercase() == ".ds_store" {
@@ -74,5 +76,6 @@ pub fn read_md_file(note: &std::fs::DirEntry) -> Option<(String, String)> {
         }
     };
 
-    Some((note_title.to_string(),contents))
+
+    Some((note_title.to_string(),content))
 }
