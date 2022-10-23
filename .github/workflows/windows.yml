@@ -125,7 +125,7 @@ jobs:
           rustc -Vv
           cargo -V
           cd fire_seq_search_server
-          cargo build
+          cargo build  --release
         shell: cmd
       - name: test
         run: |
@@ -135,7 +135,7 @@ jobs:
       - name: Package
         run: |
           cd fire_seq_search_server
-          cargo package --verbose
+          cargo package --verbose  --release
         shell: cmd
       - name: Save Artifact
         run: |
