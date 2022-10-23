@@ -1,16 +1,11 @@
 use stopwords;
 
 pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>) -> String {
-    use stopwords::Stopwords;
-    let blocks = split_body_to_blocks(body);
-    //TODO Avoid collect it repeatedly
-    let mut nltk: std::collections::HashSet<&str> = stopwords::NLTK::stopwords(stopwords::Language::English).unwrap().iter().cloned().collect();
-    nltk.insert("span");
-    nltk.insert("class");
-    nltk.insert("fireSeqSearchHighlight");
 
-    nltk.insert("theorem");
-    nltk.insert("-");
+    let blocks = split_body_to_blocks(body);
+
+
+    let nltk = generate_stopwords_list();
 
 //TODO remove unnecessary copy
     let terms_selected: Vec<String> = term_tokens.into_iter()
@@ -31,6 +26,19 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>) -> Stri
     // println!("{:?}", &result);
 
     result.join(" ")
+}
+
+fn generate_stopwords_list<'a>() -> std::collections::HashSet<&'a str> {
+    //TODO Avoid collect it repeatedly
+    use stopwords::Stopwords;
+    let mut nltk: std::collections::HashSet<&str> = stopwords::NLTK::stopwords(stopwords::Language::English).unwrap().iter().cloned().collect();
+    nltk.insert("span");
+    nltk.insert("class");
+    nltk.insert("fireSeqSearchHighlight");
+
+    nltk.insert("theorem");
+    nltk.insert("-");
+    nltk
 }
 
 fn recursive_wrap(sentence: &str, term_tokens: &[String]) -> String {
