@@ -1,5 +1,5 @@
-/// This file is based on https://github.com/fbecart/markdown_to_text
-///
+// This file is based on https://github.com/fbecart/markdown_to_text
+//
 // MIT License
 //
 // Copyright (c) 2019 Arran France
