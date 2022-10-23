@@ -3,7 +3,6 @@ use log::{debug, error, info, warn};
 
 use rayon::prelude::*;
 
-use crate::markdown_parser;
 use crate::markdown_parser::parse_to_plain_text;
 
 pub fn read_specific_path(path: &str) -> Vec<(String,String)> {
