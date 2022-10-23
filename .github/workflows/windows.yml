@@ -125,7 +125,7 @@ jobs:
           rustc -Vv
           cargo -V
           cd fire_seq_search_server
-          cargo build
+          cargo build  --release
         shell: cmd
       - name: test
         run: |
