@@ -95,9 +95,7 @@ fn end_tag(tag: &Tag, buffer: &mut String, tags_stack: &[Tag]) {
     match tag {
         Tag::Paragraph | Tag::Heading(..) => buffer.push('\n'),
         Tag::CodeBlock(_) => {
-            if buffer.chars().last() != Some('\n') {
-                buffer.push('\n');
-            }
+            buffer.push('\n'); // it's okay for duplicate new lines
         }
         Tag::List(_) => {
             let is_sublist = tags_stack.iter().any(|tag| match tag {
