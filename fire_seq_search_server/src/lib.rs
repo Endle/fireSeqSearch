@@ -1,5 +1,7 @@
 pub mod post_query;
 pub mod load_notes;
+pub mod markdown_parser;
+
 
 use crate::post_query::highlight_keywords_in_body;
 

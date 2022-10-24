@@ -1,7 +1,7 @@
 use warp::Filter;
 
 use tantivy::schema::*;
-use tantivy::{ReloadPolicy,doc};
+use tantivy::{ReloadPolicy, doc, DocAddress, LeasedItem, Searcher};
 use rayon::prelude::*;
 
 
@@ -177,6 +177,21 @@ fn query(term: String, server_info: &ServerInformation, schema: tantivy::schema:
 
      */
 
+
+    let result: Vec<String> = post_query_wrapper(top_docs, &term, &searcher);
+
+
+    let json = serde_json::to_string(&result).unwrap();
+
+    // info!("Search result {}", &json);
+    json
+    // result[0].clone()
+}
+
+fn post_query_wrapper(top_docs: Vec<(f32, DocAddress)>,
+                      term: &String,
+                      searcher: &LeasedItem<Searcher>) -> Vec<String> {
+
     // TODO avoid creating a tokenizer again
     let tokenizer = crate::JiebaTokenizer {};
     let term_tokens = tokenize_sentence_to_text_vec(&tokenizer, &term);
@@ -189,12 +204,7 @@ fn query(term: String, server_info: &ServerInformation, schema: tantivy::schema:
         // .map(|x| FireSeqSearchHitParsed::from_hit(&x))
         .map(|p| serde_json::to_string(&p).unwrap())
         .collect();
-
-    let json = serde_json::to_string(&result).unwrap();
-
-    // info!("Search result {}", &json);
-    json
-    // result[0].clone()
+    result
 }
 
 fn build_reader_parser(index: &tantivy::Index, document_setting: &DocumentSetting)
