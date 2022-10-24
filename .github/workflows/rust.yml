@@ -52,8 +52,8 @@ jobs:
         run: |
           cd fire_seq_search_server
           cargo build --verbose
-#      - name: Run tests
-#        run: cargo test --verbose
+      - name: Run tests
+        run: cargo test --verbose
       - name: Install
         run: |
           cd fire_seq_search_server
