@@ -11,6 +11,6 @@
 If the block is very long, for example, you clipped a long article into logseq, then the summary would be hard (or useless) to read. That's why there is a "Hide Summary" button.
 
 #### Thanks
-@raphlinus and other https://github.com/raphlinus/pulldown-cmark developers
+@raphlinus and other https://github.com/raphlinus/pulldown-cmark developers  
 @arranf and @fbecart for https://github.com/fbecart/markdown_to_text
 
