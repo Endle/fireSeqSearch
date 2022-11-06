@@ -88,7 +88,7 @@ pub fn read_md_file_and_parse(note: &std::fs::DirEntry) -> Option<(String, Strin
 // https://docs.rs/regex/latest/regex/#repetitions
 // https://stackoverflow.com/a/8303552/1166518
 pub fn exclude_advanced_query(md: String) -> String {
-    if !md.contains("#") {
+    if !md.contains('#') {
         return md;
     }
 
