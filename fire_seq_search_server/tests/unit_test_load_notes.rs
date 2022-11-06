@@ -1,4 +1,5 @@
-use fire_seq_search_server::load_notes::read_specific_directory;
+use fire_seq_search_server::load_notes::{exclude_advanced_query, read_specific_directory};
+use fire_seq_search_server::markdown_parser::parse_to_plain_text;
 
 #[test]
 fn load_articles() {
@@ -9,8 +10,6 @@ fn load_articles() {
         assert!(body.len()>0);
     }
 }
-
-use fire_seq_search_server::markdown_parser::parse_to_plain_text;
 
 
 fn read_file_to_line(relative_path: &str) -> String {
@@ -33,5 +32,13 @@ fn parse() {
 
 #[test]
 fn exclude_advance_query() {
+    let md = read_file_to_line("advanced_query.md");
+    let result = exclude_advanced_query(md);
+    assert!(!result.contains("exempli"));
+    assert!(result.contains("In this test page we have"));
 
+
+    let md = read_file_to_line("blog_thunderbird_zh.md");
+    let result = exclude_advanced_query(md.clone());
+    assert_eq!(md, result);
 }

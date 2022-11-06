@@ -1,5 +1,6 @@
 use std::fs::DirEntry;
 use log::{debug, error, info, warn};
+use regex::Regex;
 
 use rayon::prelude::*;
 
@@ -81,4 +82,27 @@ pub fn read_md_file_and_parse(note: &std::fs::DirEntry) -> Option<(String, Strin
     let content:String = parse_to_plain_text(&content);
 
     Some((note_title.to_string(),content))
+}
+
+// https://docs.rs/regex/latest/regex/#repetitions
+// https://stackoverflow.com/a/8303552/1166518
+pub fn exclude_advanced_query(md: String) -> String {
+    if !md.contains("#") {
+        return md;
+    }
+
+    lazy_static! {
+        static ref RE: Regex = Regex::new(
+            r"\#\+BEGIN_QUERY[\S\s]+?\#\+END_QUERY")
+            .unwrap();
+    }
+    let result = RE.replace_all(&md, "    ");
+    String::from(result)
+    // let mat = RE.find(&md);
+    // match mat {
+    //     Some(m) => {
+    //         todo!()
+    //     },
+    //     None => md
+    // }
 }
