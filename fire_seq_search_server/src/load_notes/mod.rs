@@ -79,7 +79,8 @@ pub fn read_md_file_and_parse(note: &std::fs::DirEntry) -> Option<(String, Strin
 
 
     // Now we do some parsing for this file
-    let content:String = parse_to_plain_text(&content);
+    let content: String = exclude_advanced_query(content);
+    let content: String = parse_to_plain_text(&content);
 
     Some((note_title.to_string(),content))
 }
