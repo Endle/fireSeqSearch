@@ -5,7 +5,7 @@ use rayon::prelude::*;
 
 use crate::markdown_parser::parse_to_plain_text;
 
-pub fn read_specific_path(path: &str) -> Vec<(String,String)> {
+pub fn read_specific_directory(path: &str) -> Vec<(String, String)> {
     info!("Try to read {}", &path);
     let notebooks = std::fs::read_dir(path).unwrap();
     let mut note_filenames: Vec<DirEntry> = Vec::new();

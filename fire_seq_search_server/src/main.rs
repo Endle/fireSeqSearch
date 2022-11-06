@@ -15,7 +15,7 @@ use urlencoding::decode;
 
 use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer,
                              TOKENIZER_ID, tokenize_sentence_to_text_vec};
-use fire_seq_search_server::load_notes::read_specific_path;
+use fire_seq_search_server::load_notes::read_specific_directory;
 
 #[derive(Debug, Clone, Serialize)]
 struct ServerInformation {
@@ -236,7 +236,7 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
 
-    for (note_title, contents) in read_specific_path(&path) {
+    for (note_title, contents) in read_specific_directory(&path) {
         index_writer.add_document(
             doc!{ title => note_title, body => contents}
         ).unwrap();
