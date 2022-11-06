@@ -1,11 +1,12 @@
 use std::fs::DirEntry;
 use log::{debug, error, info, warn};
+use regex::Regex;
 
 use rayon::prelude::*;
 
 use crate::markdown_parser::parse_to_plain_text;
 
-pub fn read_specific_path(path: &str) -> Vec<(String,String)> {
+pub fn read_specific_directory(path: &str) -> Vec<(String, String)> {
     info!("Try to read {}", &path);
     let notebooks = std::fs::read_dir(path).unwrap();
     let mut note_filenames: Vec<DirEntry> = Vec::new();
@@ -15,7 +16,7 @@ pub fn read_specific_path(path: &str) -> Vec<(String,String)> {
     }
     // debug!("Note titles: {:?}", &note_filenames);
     let result: Vec<(String,String)> = note_filenames.par_iter()
-        .map(|note|  read_md_file(&note))
+        .map(|note|  read_md_file_and_parse(&note))
         .filter(|x| (&x).is_some())
         .map(|x| x.unwrap())
         .collect();
@@ -41,7 +42,7 @@ pub fn read_specific_path(path: &str) -> Vec<(String,String)> {
 ///
 /// If input is a directory or DS_STORE, return None
 ///
-pub fn read_md_file(note: &std::fs::DirEntry) -> Option<(String, String)> {
+pub fn read_md_file_and_parse(note: &std::fs::DirEntry) -> Option<(String, String)> {
     if let Ok(file_type) = note.file_type() {
         // Now let's show our entry's file type!
         debug!("{:?}: {:?}", note.path(), file_type);
@@ -77,7 +78,32 @@ pub fn read_md_file(note: &std::fs::DirEntry) -> Option<(String, String)> {
     };
 
 
-    let content:String = parse_to_plain_text(&content);
+    // Now we do some parsing for this file
+    let content: String = exclude_advanced_query(content);
+    let content: String = parse_to_plain_text(&content);
 
     Some((note_title.to_string(),content))
+}
+
+// https://docs.rs/regex/latest/regex/#repetitions
+// https://stackoverflow.com/a/8303552/1166518
+pub fn exclude_advanced_query(md: String) -> String {
+    if !md.contains('#') {
+        return md;
+    }
+
+    lazy_static! {
+        static ref RE: Regex = Regex::new(
+            r"\#\+BEGIN_QUERY[\S\s]+?\#\+END_QUERY")
+            .unwrap();
+    }
+    let result = RE.replace_all(&md, "    ");
+    String::from(result)
+    // let mat = RE.find(&md);
+    // match mat {
+    //     Some(m) => {
+    //         todo!()
+    //     },
+    //     None => md
+    // }
 }

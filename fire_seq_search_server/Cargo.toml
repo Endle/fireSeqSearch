@@ -1,6 +1,6 @@
 [package]
 name = "fire_seq_search_server"
-version = "0.0.16"
+version = "0.0.17"
 edition = "2021"
 
 
@@ -21,3 +21,5 @@ lazy_static = "1.4.0"
 rayon = "1.5"
 stopwords = "0.1.1"
 pulldown-cmark = { version = "0.9.2", default-features = false }
+regex = "1"
+

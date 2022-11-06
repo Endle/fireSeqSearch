@@ -9,13 +9,13 @@ use rayon::prelude::*;
 use serde_json;
 use serde::Serialize;
 
-use log::{info,debug,warn,error};
+use log::{info,debug};
 use clap::{Command,arg};
 use urlencoding::decode;
 
 use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer,
                              TOKENIZER_ID, tokenize_sentence_to_text_vec};
-use fire_seq_search_server::load_notes::read_specific_path;
+use fire_seq_search_server::load_notes::read_specific_directory;
 
 #[derive(Debug, Clone, Serialize)]
 struct ServerInformation {
@@ -138,7 +138,8 @@ fn decode_cjk_str(original: String) -> Vec<String> {
 }
 
 
-fn query(term: String, server_info: &ServerInformation, schema: tantivy::schema::Schema,
+// I can't remember why I need this schema parameter. To satisfy compiler, I added _ on 2022-11-06
+fn query(term: String, server_info: &ServerInformation, _schema: tantivy::schema::Schema,
          reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser)
     -> String {
 
@@ -236,7 +237,7 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
 
-    for (note_title, contents) in read_specific_path(&path) {
+    for (note_title, contents) in read_specific_directory(&path) {
         index_writer.add_document(
             doc!{ title => note_title, body => contents}
         ).unwrap();
