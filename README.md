@@ -25,8 +25,7 @@ This project is in **VERY EARLY** DEVELOPMENT! But don't panic. fireSeqSearch wi
 
 ### Install Browser Extension  
 1. Install latest web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>   
-2. Google require all new Chrome extensions use manifest V3, while providing little examples for it.  
-3. Edge is rejecting my extension, without explaining why.   
+2. If you're using other browser, you can install [Tampermonkey](https://www.tampermonkey.net/), then install the [script version](https://github.com/Endle/fireSeqSearch/raw/master/fireSeqSearch_addon/monkeyscript.user.js)
 
 ### Install Local Server
 
