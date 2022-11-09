@@ -5,6 +5,7 @@
 // @description  Everytime you use the search engine, FireSeqSearch searches your personal logseq notes.
 // @author       Zhenbo Li
 // @match        https://www.google.com/search*
+// @match        https://duckduckgo.com/?q=*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=tampermonkey.net
 // @grant GM_xmlhttpRequest
 // ==/UserScript==
@@ -32,6 +33,7 @@ function createHrefToLogseq(record, serverInfo) {
     const prettyTitle = title.replaceAll("%2F", "/");
     const target = "logseq://graph/" + name + "?page=" + title;
     let a = document.createElement('a');
+    a.style.textDecoration = 'underline';
     let text = document.createTextNode(prettyTitle);
     a.appendChild(text);
     a.title = prettyTitle;
@@ -39,13 +41,6 @@ function createHrefToLogseq(record, serverInfo) {
     consoleLogForDebug(a);
     return a;
 }
-
-
-
-function uglyExtraLine() {
-    return createElementWithText("br", "");
-}
-
 
 function checkUserOptions() {
     const options = {
@@ -60,7 +55,7 @@ function checkUserOptions() {
 }
 
 
-async function appendResultToSearchResult(fetchResultArray) {
+async function appendResultToSearchResult(fetchResultArray, container) {
     const serverInfo = fetchResultArray[0];
     const rawSearchResult = fetchResultArray[1];
     const firefoxExtensionUserOption = await checkUserOptions();
@@ -87,8 +82,6 @@ async function appendResultToSearchResult(fetchResultArray) {
             }
         };
         titleBar.appendChild(btn);
-        titleBar.appendChild(uglyExtraLine());
-        titleBar.appendChild(uglyExtraLine());
         return titleBar;
     }
 
@@ -96,17 +89,14 @@ async function appendResultToSearchResult(fetchResultArray) {
 
     function createFireSeqDom() {
         let div = document.createElement("div");
-        div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
+        const p = createElementWithText("p", "fireSeqSearch launched!")
+        p.style = "margin: 0; padding: 0;" // reset for google and duckduckgo
+        div.appendChild(p);
         div.setAttribute("id", fireSeqSearchDomId);
+        div.style = "padding: 20px; border: thin solid gray; border-radius: 5px;"
 
         // document.body.insertBefore(div, document.body.firstChild);
         // consoleLogForDebug("inserted");
-        // Very hacky for Google
-        if (window.location.toString().includes("google")) {
-            for (let i=0; i<6; ++i) {
-                div.appendChild(uglyExtraLine());
-            }
-        }
         return div;
     }
 
@@ -115,6 +105,8 @@ async function appendResultToSearchResult(fetchResultArray) {
     consoleLogForDebug(dom);
 
     let hitList = document.createElement("ul");
+    hitList.style.marginLeft = "20px";
+    hitList.style.marginTop = "10px";
     consoleLogForDebug(rawSearchResult);
     for (let rawRecord of rawSearchResult) {
         // const e = document.createTextNode(record);
@@ -123,12 +115,14 @@ async function appendResultToSearchResult(fetchResultArray) {
         consoleLogForDebug(typeof record);
         let li =  createElementWithText("li", "");
         li.style.fontSize = "16px";
+        li.style.listStyle = 'disc';
         if (firefoxExtensionUserOption.ShowScore) {
             const score = createElementWithText("span", String(record.score));
             li.appendChild(score);
         }
         let href = createHrefToLogseq(record, serverInfo);
         li.appendChild(href);
+        li.append(' ')
         if (firefoxExtensionUserOption.ShowHighlight) {
             const summary = createElementWithText("span", "");
             summary.innerHTML = record.summary;
@@ -158,7 +152,7 @@ async function appendResultToSearchResult(fetchResultArray) {
             z-index: 99999;`;
 
     }
-    document.body.insertBefore(dom, document.body.firstChild);
+    container.prepend(dom);
 }
 
 function getSearchParameterFromCurrentPage() {
@@ -182,6 +176,20 @@ function getSearchParameterFromCurrentPage() {
     return searchParam;
 }
 
+function waitForContainer() {
+    return new Promise((resolve, reject) => {
+        const interval = setInterval(() => {
+            const container = document.querySelector("#search") // google
+            || document.querySelector("#links") // duckduckgo
+
+            if (container) {
+                resolve(container)
+                clearInterval(interval);
+            }
+        }, 200)
+    });
+}
+
 
 (function() {
     const searchParameter = getSearchParameterFromCurrentPage();
@@ -201,16 +209,18 @@ function getSearchParameterFromCurrentPage() {
                     let hit = JSON.parse(response.responseText);
                     // consoleLogForDebug(hit);
                     consoleLogForDebug(typeof hit);
-                    appendResultToSearchResult([server_info, hit])
-                        .then((_e) => {
-                            const highlightedItems = document.querySelectorAll('.fireSeqSearchHighlight');
-                            consoleLogForDebug(highlightedItems);
-                            highlightedItems.forEach((element) => {
-                                element.style.color = 'red';
-                            })})
-                        .catch(function (error) {
-                            consoleLogForDebug(error);
-                        });
+                    waitForContainer().then((container) => {
+                        appendResultToSearchResult([server_info, hit], container)
+                            .then((_e) => {
+                                const highlightedItems = document.querySelectorAll(".fireSeqSearchHighlight");
+                                consoleLogForDebug(highlightedItems);
+                                highlightedItems.forEach((element) => {
+                                    element.style.color = 'red';
+                                })})
+                                .catch(function (error) {
+                                consoleLogForDebug(error);
+                            });
+                    })
 
                 }
             });

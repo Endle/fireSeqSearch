@@ -246,6 +246,3 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
     index_writer.commit().unwrap();
     index
 }
-
-
-
