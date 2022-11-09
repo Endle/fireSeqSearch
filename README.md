@@ -48,9 +48,14 @@ License
 This project (both server and addon) is using MIT license. Some third party library may have other licenses (see source code)
 
 
-<a href="https://www.flaticon.com/free-icons/ui" title="ui icons">Ui icons created by manshagraphics - Flaticon</a> 
+<a href="https://www.flaticon.com/free-icons/ui" title="ui icons">Ui icons created by manshagraphics - Flaticon</a>
+
+
 LOGO link: <https://www.flaticon.com/free-icon/web-browser_7328762>
+
+
 LOGO license: Flaticon license
+
 
 How it works
 ---------
