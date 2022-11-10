@@ -57,7 +57,8 @@ function checkUserOptions() {
     });
 }
 
-async function appendResultToSearchResult(fetchResultArray) {
+
+async function appendResultToSearchResult(fetchResultArray, container) {
     const serverInfo = fetchResultArray[0];
     const rawSearchResult = fetchResultArray[1];
     const firefoxExtensionUserOption = await checkUserOptions();

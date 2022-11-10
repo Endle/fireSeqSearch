@@ -17,6 +17,8 @@
 
 const fireSeqSearchDomId = "fireSeqSearchDom";
 
+function consoleLogForDebug(s) {
+    // console.log(s);
 const fireSeqSearchScriptCSS = `
     #fireSeqSearchDom {
         margin: 1em 1em 1em 1em;
