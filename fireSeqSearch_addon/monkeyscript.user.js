@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         fireSeqSearchScript
 // @namespace    https://github.com/Endle/fireSeqSearch
-// @version      0.0.16
+// @version      0.0.18
 // @description  Everytime you use the search engine, FireSeqSearch searches your personal logseq notes.
 // @author       Zhenbo Li
 // @match        https://www.google.com/search*
@@ -16,6 +16,7 @@
 /*global GM*/
 
 const fireSeqSearchDomId = "fireSeqSearchDom";
+
 
 const fireSeqSearchScriptCSS = `
     #fireSeqSearchDom {
@@ -95,10 +96,10 @@ function addGlobalStyle(css) {
     if (!head) { return; }
     const style = document.createElement("style");
     style.id = "fireSeqSearchScriptCSS";
-    style.type = "text/css";
+    // style.type = "text/css";
     style.innerHTML = css;
     head.appendChild(style);
-};
+}
 
 
 function createElementWithText(type, text) {
@@ -250,19 +251,6 @@ function getSearchParameterFromCurrentPage() {
     return searchParam;
 }
 
-function waitForContainer() {
-    return new Promise((resolve, reject) => {
-        const interval = setInterval(() => {
-            const container = document.querySelector("#search") // google
-            || document.querySelector("#links") // duckduckgo
-
-            if (container) {
-                resolve(container)
-                clearInterval(interval);
-            }
-        }, 200)
-    });
-}
 
 
 (function() {
