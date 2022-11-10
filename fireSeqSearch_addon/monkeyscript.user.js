@@ -113,6 +113,7 @@ function createHrefToLogseq(record, serverInfo) {
 
     const title = record.title;
     const prettyTitle = title.replaceAll("%2F", "/");
+
     const target = `logseq://graph/${name}?page=${title}`;
     const logseqPageLink = document.createElement('a');
     const text = document.createTextNode(prettyTitle);
@@ -137,7 +138,7 @@ function checkUserOptions() {
 }
 
 
-async function appendResultToSearchResult(fetchResultArray) {
+async function appendResultToSearchResult(fetchResultArray, container) {
     const serverInfo = fetchResultArray[0];
     const rawSearchResult = fetchResultArray[1];
     const firefoxExtensionUserOption = await checkUserOptions();
@@ -168,9 +169,12 @@ async function appendResultToSearchResult(fetchResultArray) {
 
 
     function createFireSeqDom() {
+
         const div = document.createElement("div");
         // div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
         div.setAttribute("id", fireSeqSearchDomId);
+
+
         return div;
     }
 
@@ -179,19 +183,24 @@ async function appendResultToSearchResult(fetchResultArray) {
     consoleLogForDebug(dom);
 
     const hitList = document.createElement("ul");
+
     consoleLogForDebug(rawSearchResult);
     for (const rawRecord of rawSearchResult) {
         // const e = document.createTextNode(record);
         consoleLogForDebug(rawRecord);
         const record = JSON.parse(rawRecord);
         consoleLogForDebug(typeof record);
+
         const li =  createElementWithText("li", "");
+
+
         if (firefoxExtensionUserOption.ShowScore) {
             const score = createElementWithText("span", String(record.score));
             li.appendChild(score);
         }
         const href = createHrefToLogseq(record, serverInfo);
         li.appendChild(href);
+        li.append(' ')
         if (firefoxExtensionUserOption.ShowHighlight) {
             const summary = createElementWithText("span", "");
             summary.innerHTML = record.summary;
@@ -209,6 +218,7 @@ async function appendResultToSearchResult(fetchResultArray) {
     if (firefoxExtensionUserOption.ExperimentalLayout) {
         // Inspired by https://twitter.com/rockucn
         // https://greasyfork.org/en/scripts/446492-%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E%E5%88%87%E6%8D%A2%E5%99%A8-search-engine-switcher/code
+
         dom.classList.add("experimentalLayout");
     }
     let contextId = "rcnt";
@@ -216,6 +226,7 @@ async function appendResultToSearchResult(fetchResultArray) {
         contextId = "web_content_wrapper";
     }
     document.getElementById(contextId).insertAdjacentElement("beforebegin", dom);
+
 }
 
 function getSearchParameterFromCurrentPage() {
@@ -239,6 +250,20 @@ function getSearchParameterFromCurrentPage() {
     return searchParam;
 }
 
+function waitForContainer() {
+    return new Promise((resolve, reject) => {
+        const interval = setInterval(() => {
+            const container = document.querySelector("#search") // google
+            || document.querySelector("#links") // duckduckgo
+
+            if (container) {
+                resolve(container)
+                clearInterval(interval);
+            }
+        }, 200)
+    });
+}
+
 
 (function() {
     const searchParameter = getSearchParameterFromCurrentPage();
@@ -259,6 +284,7 @@ function getSearchParameterFromCurrentPage() {
                     const hit = JSON.parse(queryResponse.responseText);
                     // consoleLogForDebug(hit);
                     consoleLogForDebug(typeof hit);
+
                     appendResultToSearchResult([server_info, hit])
                         .then((_e) => {
                             const highlightedItems = document.querySelectorAll('.fireSeqSearchHighlight');
@@ -267,6 +293,7 @@ function getSearchParameterFromCurrentPage() {
                         .catch(error => {
                             consoleLogForDebug(error);
                         });
+
                 }
             });
         }
