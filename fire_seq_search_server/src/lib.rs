@@ -157,6 +157,13 @@ fn process_token_text(text: &str, indices: &Vec<(usize, char)>, token: &jieba_rs
     }
 }
 
+pub fn tokenize_default(sentence: &str) -> Vec<String> {
+    lazy_static! {
+        static ref TK: JiebaTokenizer = crate::JiebaTokenizer {};
+    }
+    tokenize_sentence_to_text_vec(&TK, sentence)
+
+}
 pub fn tokenize_sentence_to_text_vec(tokenizer: &JiebaTokenizer, sentence: &str) -> Vec<String> {
     let tokens = tokenize_sentence_to_vector(&tokenizer, sentence);
     tokens_to_text_vec(&tokens)
