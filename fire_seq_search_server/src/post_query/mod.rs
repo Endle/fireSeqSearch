@@ -1,4 +1,6 @@
+use log::error;
 use stopwords;
+use regex::RegexBuilder;
 
 pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>) -> String {
 
@@ -46,28 +48,41 @@ pub fn recursive_wrap(sentence: &str, term_tokens: &[String]) -> String {
     let span_start = "<span class=\"fireSeqSearchHighlight\">";
     let span_end = "</span>";
     let token = &term_tokens[0];
-    if !sentence.contains(token) {
-        let lower_token = token.to_ascii_lowercase();
-        let lower_sentence = sentence.to_ascii_lowercase();
-        if lower_sentence.contains(&lower_token) {
-            //FIXME This is a hack for English words
-            let mut new_terms = Vec::from(term_tokens);
-            new_terms[0] = lower_token;
-            return recursive_wrap(&lower_sentence, &new_terms);
-        }
-
-
+    let segments = split_by_single_token(sentence, token);
+    // Found nothing for this token
+    if segments.len() <= 1 {
         return recursive_wrap(sentence, &term_tokens[1..]);
     }
+
     let mut result = Vec::new();
-    for seg in sentence.split(token) {
-        let r = recursive_wrap(seg, &term_tokens[1..]);
+    for seg in segments {
+        let r = recursive_wrap(&seg, &term_tokens[1..]);
         result.push(r);
     }
     let wrapped = vec![span_start, token, span_end].concat();
 
     result.join(&wrapped)
 }
+
+pub fn split_by_single_token(sentence: &str, token: &String) -> Vec<String> {
+    let mut result = Vec::new();
+    let needle = RegexBuilder::new(token)
+        .case_insensitive(true)
+        .build();
+    let needle = match needle {
+        Ok(x) => x,
+        Err(e) => {
+            error!("Failed({}) to build regex for {}", e, token);
+            return result;
+        }
+    };
+    let segs: Vec<&str> = needle.split(sentence).collect();
+    for seg in segs {
+        result.push(String::from(seg));
+    }
+    result
+}
+
 
 // TODO: current implementation is too naive, I believe it is buggy
 pub fn split_body_to_blocks(body: &str) -> Vec<String> {
