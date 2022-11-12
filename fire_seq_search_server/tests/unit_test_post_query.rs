@@ -1,5 +1,5 @@
 
-use fire_seq_search_server::post_query::{highlight_keywords_in_body, split_body_to_blocks};
+use fire_seq_search_server::post_query::{highlight_keywords_in_body, recursive_wrap, split_body_to_blocks, split_by_single_token};
 
 fn get_english_text() -> String {
     std::fs::read_to_string("tests/resource/pages/International Language, Past, Present & Future by Walter John Clark.md")
@@ -43,4 +43,40 @@ fn test_split_to_block() {
     assert_eq!("As an ounce of personal experience is worth a pound of second-hand recital, a brief statement may here be given of the way in which the present writer came to take up Esperanto, and of the experiences which soon led him to the conviction of its absolute practicability and utility.", &blocks[0]);
     assert_eq!("Now, quite apart from the obvious fact that the nations will never agree to give the preference to the language of one of them to the prejudice of the others, this argument involves the 16 suggestion that an artificial language is no easier to learn than a natural one. We thus come to the question of ease as a qualification.", &blocks[12]);
     assert_eq!(14, blocks.len());
+}
+
+#[test]
+fn test_split_by_single_token() {
+    // not stabled yet
+    let r = split_by_single_token("As an ounce of personal experience is worth a pound of", "personal");
+    assert_eq!(r.len(), 2);
+
+    let r = split_by_single_token("no such", "exist");
+    assert_eq!(r.len(), 1);
+
+    let r = split_by_single_token("母猪都能上树", "上");
+    assert_eq!(r.len(), 2);
+
+    let r = split_by_single_token("Это статья для тестов поиска в кириллических символах", "для");
+    assert_eq!(r.len(), 2);
+
+    let r = split_by_single_token("head is match", "head");
+    assert_eq!(r.len(), 2);
+    // println!("{:?}", &r);
+}
+
+
+#[test]
+fn test_recursive_wrap_unstable() {
+    let r = recursive_wrap("head is match", &gen(vec!["head"]));
+    assert!(r.contains("fireSeqSearchHighlight"));
+    // println!("{:?}", &r);
+}
+
+fn gen(s: Vec<&str>) -> Vec<String> {
+    let mut r = Vec::with_capacity(s.len());
+    for i in s {
+        r.push(String::from(i));
+    }
+    r
 }
