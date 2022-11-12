@@ -1,6 +1,7 @@
 pub mod post_query;
 pub mod load_notes;
 pub mod markdown_parser;
+mod language_detect;
 
 
 use crate::post_query::highlight_keywords_in_body;
@@ -76,8 +77,9 @@ impl<'a> FireSeqSearchHit<'a> {
 
 
 
-// Some sode copied from https://github.com/jiegec/tantivy-jieba
+// Based on https://github.com/jiegec/tantivy-jieba
 // tantivy-jieba is licensed under MIT, Copyright 2019-2020 Jiajie Chen
+// I had heavy modifications on it
 lazy_static! {
     static ref JIEBA: jieba_rs::Jieba = jieba_rs::Jieba::new();
 }
@@ -156,6 +158,7 @@ fn process_token_text(text: &str, indices: &Vec<(usize, char)>, token: &jieba_rs
         Some(lower)
     }
 }
+
 
 pub fn tokenize_default(sentence: &str) -> Vec<String> {
     lazy_static! {
