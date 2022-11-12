@@ -4,6 +4,7 @@ pub mod markdown_parser;
 mod language_detect;
 
 
+use log::info;
 use crate::post_query::highlight_keywords_in_body;
 
 
@@ -164,7 +165,14 @@ pub fn tokenize_default(sentence: &str) -> Vec<String> {
     lazy_static! {
         static ref TK: JiebaTokenizer = crate::JiebaTokenizer {};
     }
-    tokenize_sentence_to_text_vec(&TK, sentence)
+    if language_detect::is_chinese(sentence) {
+        info!("Use Tokenizer for Chinese term {}", sentence);
+        tokenize_sentence_to_text_vec(&TK, sentence)
+    } else {
+        info!("Skip tokenizer for {}", sentence);
+        vec![String::from(sentence)]
+    }
+
 
 }
 pub fn tokenize_sentence_to_text_vec(tokenizer: &JiebaTokenizer, sentence: &str) -> Vec<String> {
