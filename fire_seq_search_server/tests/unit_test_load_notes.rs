@@ -4,7 +4,7 @@ use fire_seq_search_server::markdown_parser::parse_to_plain_text;
 #[test]
 fn load_articles() {
     let r = read_specific_directory("tests/resource/pages");
-    assert_eq!(r.len(), 7);
+    assert_eq!(r.len(), 8);
     for (title,body) in &r{
         assert!(title.len()>0);
         assert!(body.len()>0);
