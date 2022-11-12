@@ -20,9 +20,9 @@ mod test_language_detect {
     #[test]
     fn zh() {
         use crate::language_detect::is_chinese;
-        assert_eq!(is_chinese("李华"), true);
-        assert_eq!(is_chinese("rust"), false);
-        assert_eq!(is_chinese("Это статья ."), false);
+        assert!(is_chinese("李华"));
+        assert!(!is_chinese("rust"));
+        assert!(!is_chinese("Это статья ."));
     }
 }
 // assert_eq!(detected_language, Some(English));
