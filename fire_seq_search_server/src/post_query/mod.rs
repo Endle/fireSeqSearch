@@ -56,7 +56,7 @@ pub fn recursive_wrap(sentence: &str, term_tokens: &[String]) -> String {
 
     let mut result = Vec::new();
     for seg in segments {
-        let r = recursive_wrap(&seg, &term_tokens[1..]);
+        let r = recursive_wrap(seg, &term_tokens[1..]);
         result.push(r);
     }
     let wrapped = vec![span_start, token, span_end].concat();
@@ -64,7 +64,7 @@ pub fn recursive_wrap(sentence: &str, term_tokens: &[String]) -> String {
     result.join(&wrapped)
 }
 
-pub fn split_by_single_token(sentence: &str, token: &String) -> Vec<String> {
+pub fn split_by_single_token<'a>(sentence: &'a str, token: &'a str) -> Vec<&'a str> {
     let mut result = Vec::new();
     let needle = RegexBuilder::new(token)
         .case_insensitive(true)
@@ -78,7 +78,7 @@ pub fn split_by_single_token(sentence: &str, token: &String) -> Vec<String> {
     };
     let segs: Vec<&str> = needle.split(sentence).collect();
     for seg in segs {
-        result.push(String::from(seg));
+        result.push(seg);
     }
     result
 }
