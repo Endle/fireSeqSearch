@@ -4,7 +4,7 @@ pub mod markdown_parser;
 mod language_detect;
 
 
-use log::info;
+use log::{debug, info};
 use crate::post_query::highlight_keywords_in_body;
 
 
@@ -169,8 +169,13 @@ pub fn tokenize_default(sentence: &str) -> Vec<String> {
         info!("Use Tokenizer for Chinese term {}", sentence);
         tokenize_sentence_to_text_vec(&TK, sentence)
     } else {
-        info!("Skip tokenizer for {}", sentence);
-        vec![String::from(sentence)]
+        info!("Space Tokenizer {}", sentence);
+        let result : Vec<&str> = sentence.split_whitespace()
+            .collect();
+        debug!("Got tokens {:?}", &result);
+        let result:Vec<String> = result.iter().map(|&s|s.into()).collect();
+        result
+        // vec![String::from(sentence)]
     }
 
 
