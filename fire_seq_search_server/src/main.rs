@@ -13,8 +13,7 @@ use log::{info,debug};
 use clap::{Command,arg};
 use urlencoding::decode;
 
-use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer,
-                             TOKENIZER_ID, tokenize_sentence_to_text_vec};
+use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer, TOKENIZER_ID, tokenize_sentence_to_text_vec, tokenize_default};
 use fire_seq_search_server::load_notes::read_specific_directory;
 
 #[derive(Debug, Clone, Serialize)]
@@ -145,6 +144,7 @@ fn query(term: String, server_info: &ServerInformation, _schema: tantivy::schema
 
     debug!("Original Search term {}", term);
 
+    // in the future, I would use tokenize_sentence_to_text_vec here
     let term = term.replace("%20", " ");
     let term_vec = decode_cjk_str(term);
     let term = term_vec.join(" ");
@@ -159,24 +159,6 @@ fn query(term: String, server_info: &ServerInformation, _schema: tantivy::schema
         searcher.search(&query,
                         &tantivy::collector::TopDocs::with_limit(server_info.show_top_hits))
         .unwrap();
-
-    // top_docs.par_iter()
-    //     .map(|&x| FireSeqSearchHit::from_tantivy(&searcher.doc(x.1).unwrap(), x.0) );
-    // let mut result = Vec::new();
-
-    /*
-    for (score, doc_address) in top_docs {
-        // _score = 1;
-        info!("Found doc addr {:?}, score {}", &doc_address, &score);
-        let retrieved_doc: tantivy::schema::Document = searcher.doc(doc_address).unwrap();
-        // debug!("Found {:?}", &retrieved_doc);
-        let hit = FireSeqSearchHit::from_tantivy(&retrieved_doc, score);
-        debug!("Hit: {:?}", hit);
-        result.push(hit);
-        // result.push(serde_json::to_string(&hit).unwrap());
-    }
-
-     */
 
 
     let result: Vec<String> = post_query_wrapper(top_docs, &term, &searcher);
@@ -194,8 +176,9 @@ fn post_query_wrapper(top_docs: Vec<(f32, DocAddress)>,
                       searcher: &LeasedItem<Searcher>) -> Vec<String> {
 
     // TODO avoid creating a tokenizer again
-    let tokenizer = crate::JiebaTokenizer {};
-    let term_tokens = tokenize_sentence_to_text_vec(&tokenizer, &term);
+    // let tokenizer = crate::JiebaTokenizer {};
+    // let term_tokens = tokenize_sentence_to_text_vec(&tokenizer, &term);
+    let term_tokens = tokenize_default(&term);
     info!("get term tokens {:?}", &term_tokens);
     // let mut result;
     let result: Vec<String> = top_docs.par_iter()
