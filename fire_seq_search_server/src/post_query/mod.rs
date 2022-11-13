@@ -110,7 +110,7 @@ pub fn split_body_to_blocks(body: &str, show_summary_single_line_chars_limit: us
             let splits = &SPLITTER.split(&input)[0];
 
             for sentence in splits.iter() {
-                debug!("Split into {}", sentence.text());
+                // debug!("Split into {}", sentence.text());
                 let s: &str = sentence.text();
                 result.push(String::from(s));
             }

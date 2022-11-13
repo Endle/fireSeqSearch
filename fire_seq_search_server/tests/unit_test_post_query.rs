@@ -56,7 +56,7 @@ fn test_split_long_article_to_block() {
     for b in &blocks {
         // println!("{}", b.len());
 
-        assert!(b.len() < 200);
+        assert!(b.len() < 400);
     }
     assert!(blocks.len() > 20);
     // println!("{:?}", blocks.len());
