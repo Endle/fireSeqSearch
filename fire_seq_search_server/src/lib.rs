@@ -6,10 +6,20 @@ mod language_detect;
 
 use log::{debug, info};
 use crate::post_query::highlight_keywords_in_body;
-
+use serde::Serialize;
 
 #[macro_use]
 extern crate lazy_static;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ServerInformation {
+    pub notebook_path: String,
+    pub notebook_name: String,
+    pub show_top_hits: usize,
+
+    pub show_summary_single_line_chars_limit: usize,
+}
+
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
 pub struct FireSeqSearchHitParsed {
@@ -30,13 +40,14 @@ impl FireSeqSearchHitParsed {
 
      */
     pub fn from_tantivy(doc: &tantivy::schema::Document,
-                        score: f32, term_tokens: &Vec<String>) ->FireSeqSearchHitParsed {
+                        score: f32, term_tokens: &Vec<String>,
+                        server_info: &ServerInformation) ->FireSeqSearchHitParsed {
         for _field in doc.field_values() {
             // debug!("field {:?} ", &field);
         }
         let title: &str = doc.field_values()[0].value().as_text().unwrap();
         let body: &str = doc.field_values()[1].value().as_text().unwrap();
-        let summary = highlight_keywords_in_body(body, term_tokens);
+        let summary = highlight_keywords_in_body(body, term_tokens, server_info.show_summary_single_line_chars_limit);
         FireSeqSearchHitParsed {
             // title: String::from(title),
             title: String::from(title),

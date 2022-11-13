@@ -2,9 +2,10 @@ use log::error;
 use stopwords;
 use regex::RegexBuilder;
 
-pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>) -> String {
+pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
+                                  show_summary_single_line_chars_limit: usize) -> String {
 
-    let blocks = split_body_to_blocks(body);
+    let blocks = split_body_to_blocks(body, show_summary_single_line_chars_limit);
     let nltk = generate_stopwords_list();
 
 //TODO remove unnecessary copy
@@ -85,7 +86,7 @@ pub fn split_by_single_token<'a>(sentence: &'a str, token: &'a str) -> Vec<&'a s
 
 
 // TODO: current implementation is too naive, I believe it is buggy
-pub fn split_body_to_blocks(body: &str) -> Vec<String> {
+pub fn split_body_to_blocks(body: &str, show_summary_single_line_chars_limit: usize) -> Vec<String> {
     let mut result = Vec::new();
     for line in body.lines() {
         // let t = line.trim();

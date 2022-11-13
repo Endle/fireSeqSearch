@@ -13,17 +13,9 @@ use log::{info,debug};
 use clap::{Command,arg};
 use urlencoding::decode;
 
-use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer, TOKENIZER_ID, tokenize_sentence_to_text_vec, tokenize_default};
+use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer, TOKENIZER_ID, tokenize_sentence_to_text_vec, tokenize_default, ServerInformation};
 use fire_seq_search_server::load_notes::read_specific_directory;
 
-#[derive(Debug, Clone, Serialize)]
-struct ServerInformation {
-    notebook_path: String,
-    notebook_name: String,
-    show_top_hits: usize,
-
-    show_summary_single_line_chars_limit: usize,
-}
 
 
 
@@ -170,7 +162,7 @@ fn query(term: String, server_info: &ServerInformation, _schema: tantivy::schema
         .unwrap();
 
 
-    let result: Vec<String> = post_query_wrapper(top_docs, &term, &searcher);
+    let result: Vec<String> = post_query_wrapper(top_docs, &term, &searcher, &server_info);
 
 
     let json = serde_json::to_string(&result).unwrap();
@@ -182,17 +174,19 @@ fn query(term: String, server_info: &ServerInformation, _schema: tantivy::schema
 
 fn post_query_wrapper(top_docs: Vec<(f32, DocAddress)>,
                       term: &String,
-                      searcher: &LeasedItem<Searcher>) -> Vec<String> {
+                      searcher: &LeasedItem<Searcher>,
+                      server_info: &ServerInformation) -> Vec<String> {
 
-    // TODO avoid creating a tokenizer again
-    // let tokenizer = crate::JiebaTokenizer {};
-    // let term_tokens = tokenize_sentence_to_text_vec(&tokenizer, &term);
+
     let term_tokens = tokenize_default(&term);
     info!("get term tokens {:?}", &term_tokens);
     // let mut result;
     let result: Vec<String> = top_docs.par_iter()
         .map(|&x| FireSeqSearchHitParsed::from_tantivy
-            (&searcher.doc(x.1).unwrap(), x.0, &term_tokens)
+            (&searcher.doc(x.1).unwrap(),
+             x.0,
+             &term_tokens,
+            server_info)
         )
         // .map(|x| FireSeqSearchHitParsed::from_hit(&x))
         .map(|p| serde_json::to_string(&p).unwrap())
