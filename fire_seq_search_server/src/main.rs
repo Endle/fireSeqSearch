@@ -13,6 +13,7 @@ use log::{info,debug};
 use clap::{Command,arg};
 use urlencoding::decode;
 
+
 use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer, TOKENIZER_ID, tokenize_sentence_to_text_vec, tokenize_default, ServerInformation};
 use fire_seq_search_server::load_notes::read_specific_directory;
 
@@ -162,7 +163,9 @@ fn query(term: String, server_info: &ServerInformation, _schema: tantivy::schema
         .unwrap();
 
 
+
     let result: Vec<String> = post_query_wrapper(top_docs, &term, &searcher, &server_info);
+
 
 
     let json = serde_json::to_string(&result).unwrap();
