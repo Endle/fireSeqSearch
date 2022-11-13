@@ -1,7 +1,6 @@
 use log::{debug, error, info};
 use stopwords;
 use regex::RegexBuilder;
-use nnsplit;
 
 pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
                                   show_summary_single_line_chars_limit: usize) -> String {
@@ -14,20 +13,28 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
         .filter(|&s| !nltk.contains(&*String::from(s)))
         .map(|s| String::from(s))
         .collect();
-    // println!("{:?}", &terms_selected);
+    info!("Highlight terms: {:?}", &terms_selected);
 
 
-    let mut result = Vec::new();
+    let mut result: Vec<String> = Vec::new();
     for sentence in blocks {
-        let r = recursive_wrap(&sentence, &terms_selected);
+        let sentence_highlight = highlight_sentence_with_keywords(
+            &sentence,
+            &terms_selected
+        );
+        // let r = recursive_wrap(&sentence, &terms_selected);
         // println!("{}", &result);
-        if sentence != r {
-            result.push(r);
-        }
+        // if sentence != r {
+        //     result.push(r);
+        // }
     }
     // println!("{:?}", &result);
 
     result.join(" ")
+}
+
+fn highlight_sentence_with_keywords(p0: &String, p1: &Vec<String>) -> Option<String> {
+    todo!()
 }
 
 fn generate_stopwords_list<'a>() -> std::collections::HashSet<&'a str> {
@@ -100,24 +107,9 @@ pub fn split_body_to_blocks(body: &str, show_summary_single_line_chars_limit: us
         }
 
         if t.len() > show_summary_single_line_chars_limit {
-            info!("Split a long paragraph ({})", t.len());
-            lazy_static! {
-                static ref SPLITTER:  nnsplit::NNSplit =
-                    nnsplit::NNSplit::
-                    load("en", nnsplit::NNSplitOptions::default()).unwrap();
-            }
-            let input: Vec<&str> = vec![t];
-            let splits = &SPLITTER.split(&input)[0];
-
-            for sentence in splits.iter() {
-                // debug!("Split into {}", sentence.text());
-                let s: &str = sentence.text();
-                result.push(String::from(s));
-            }
-        } else {
-            result.push(String::from(t));
+            debug!("We have a long paragraph ({})", t.len());
         }
-
+        result.push(String::from(t));
     }
     result
 }
