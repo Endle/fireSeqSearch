@@ -14,7 +14,7 @@ use clap::{Command,arg};
 use urlencoding::decode;
 
 
-use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer, TOKENIZER_ID, tokenize_sentence_to_text_vec, tokenize_default, ServerInformation};
+use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer, TOKENIZER_ID, tokenize_default, ServerInformation};
 use fire_seq_search_server::load_notes::read_specific_directory;
 
 

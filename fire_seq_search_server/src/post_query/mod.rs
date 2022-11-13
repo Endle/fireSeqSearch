@@ -8,10 +8,9 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
     let blocks = split_body_to_blocks(body, show_summary_single_line_chars_limit);
     let nltk = generate_stopwords_list();
 
-//TODO remove unnecessary copy
-    let terms_selected: Vec<String> = term_tokens.into_iter()
-        .filter(|&s| !nltk.contains(&*String::from(s)))
-        .map(|s| String::from(s))
+    let term_ref: Vec<&str> = term_tokens.iter().map(|s| &**s).collect();
+    let terms_selected: Vec<&str> = term_ref.into_iter()
+        .filter(|&s| !nltk.contains(s))
         .collect();
     info!("Highlight terms: {:?}", &terms_selected);
 
@@ -33,7 +32,7 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
     result.join(" ")
 }
 
-fn highlight_sentence_with_keywords(p0: &String, p1: &Vec<String>) -> Option<String> {
+fn highlight_sentence_with_keywords(p0: &String, p1: &Vec<&str>) -> Option<String> {
     todo!()
 }
 
