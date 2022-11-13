@@ -21,6 +21,8 @@ struct ServerInformation {
     notebook_path: String,
     notebook_name: String,
     show_top_hits: usize,
+
+    show_summary_single_line_chars_limit: usize,
 }
 
 
@@ -120,7 +122,14 @@ fn build_server_info(args: &clap::ArgMatches) -> ServerInformation {
     ServerInformation{
         notebook_path,
         notebook_name,
-        show_top_hits: 10
+        show_top_hits: 10,
+
+        /*
+        This is really an arbitrary limit. https://stackoverflow.com/a/33758289/1166518
+        It doesn't mean the width limit of output,
+            but a threshold between short paragraph and long paragraph
+         */
+        show_summary_single_line_chars_limit: 120,
     }
 }
 
