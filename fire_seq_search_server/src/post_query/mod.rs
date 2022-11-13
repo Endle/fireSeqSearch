@@ -88,10 +88,8 @@ pub fn split_by_single_token<'a>(sentence: &'a str, token: &'a str) -> Vec<&'a s
 
 // TODO: current implementation is too naive, I believe it is buggy
 pub fn split_body_to_blocks(body: &str, show_summary_single_line_chars_limit: usize) -> Vec<String> {
-    let splitter:i32 =
-        nnsplit::NNSplit::load("en", nnsplit::NNSplitOptions::default()).unwrap();
 
-    let mut result = Vec::new();
+    let mut result: Vec<String> = Vec::new();
     for line in body.lines() {
         // let t = line.trim();
         let t = line.trim_start_matches(&['-', ' ']);
@@ -103,11 +101,23 @@ pub fn split_body_to_blocks(body: &str, show_summary_single_line_chars_limit: us
 
         if t.len() > show_summary_single_line_chars_limit {
             info!("Split a long paragraph ({})", t.len());
+            lazy_static! {
+                static ref SPLITTER:  nnsplit::NNSplit =
+                    nnsplit::NNSplit::
+                    load("en", nnsplit::NNSplitOptions::default()).unwrap();
+            }
+            let input: Vec<&str> = vec![t];
+            let splits = &SPLITTER.split(&input)[0];
 
-        }
-        if !t.is_empty() {
+            for sentence in splits.iter() {
+                debug!("Split into {}", sentence.text());
+                let s: &str = sentence.text();
+                result.push(String::from(s));
+            }
+        } else {
             result.push(String::from(t));
         }
+
     }
     result
 }

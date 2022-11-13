@@ -54,9 +54,12 @@ fn test_split_long_article_to_block() {
     let blocks = split_body_to_blocks(&contents, 120);
 
     for b in &blocks {
-        println!("{}", b.len());
+        // println!("{}", b.len());
+
+        assert!(b.len() < 200);
     }
-    println!("{:?}", blocks.len());
+    assert!(blocks.len() > 20);
+    // println!("{:?}", blocks.len());
 }
 
 #[test]
