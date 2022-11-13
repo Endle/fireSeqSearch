@@ -121,7 +121,7 @@ fn build_server_info(args: &clap::ArgMatches) -> ServerInformation {
     ServerInformation{
         notebook_path,
         notebook_name,
-        show_top_hits: 10
+        show_top_hits: 1
     }
 }
 

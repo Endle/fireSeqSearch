@@ -31,6 +31,11 @@ fn test_highlight_wrap() {
     let v = vec![String::from("thunderbird")];
     let r = highlight_keywords_in_body(&contents, &v);
     assert_eq!(&r, "使用 git shallow clone 下载并编译 <span class=\"fireSeqSearchHighlight\">thunderbird</span>");
+
+    let v = vec![String::from("vec")];
+    let r = highlight_keywords_in_body("$r_{ij} = \\vec{q_i}^T \\vec{a_j}, i<j$", &v);
+    println!("{}", r);
+
 }
 
 

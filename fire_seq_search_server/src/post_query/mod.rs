@@ -1,4 +1,4 @@
-use log::error;
+use log::{debug, error};
 use stopwords;
 use regex::RegexBuilder;
 
@@ -20,6 +20,7 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>) -> Stri
         let r = recursive_wrap(&sentence, &terms_selected);
         // println!("{}", &result);
         if sentence != r {
+            debug!("{}", &r);
             result.push(r);
         }
     }
