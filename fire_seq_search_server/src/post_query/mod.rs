@@ -1,6 +1,7 @@
-use log::error;
+use log::{debug, error, info};
 use stopwords;
 use regex::RegexBuilder;
+use nnsplit;
 
 pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
                                   show_summary_single_line_chars_limit: usize) -> String {
@@ -87,11 +88,23 @@ pub fn split_by_single_token<'a>(sentence: &'a str, token: &'a str) -> Vec<&'a s
 
 // TODO: current implementation is too naive, I believe it is buggy
 pub fn split_body_to_blocks(body: &str, show_summary_single_line_chars_limit: usize) -> Vec<String> {
+    let splitter:i32 =
+        nnsplit::NNSplit::load("en", nnsplit::NNSplitOptions::default()).unwrap();
+
     let mut result = Vec::new();
     for line in body.lines() {
         // let t = line.trim();
         let t = line.trim_start_matches(&['-', ' ']);
         // println!("trim: {}", t);
+
+        if t.is_empty() {
+            continue;
+        }
+
+        if t.len() > show_summary_single_line_chars_limit {
+            info!("Split a long paragraph ({})", t.len());
+
+        }
         if !t.is_empty() {
             result.push(String::from(t));
         }
