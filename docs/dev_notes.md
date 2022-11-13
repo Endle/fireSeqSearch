@@ -27,3 +27,7 @@ In 0.0.4, I added one extra domain. I think I should find a more elegent way.
 ## CLion's shell is confusing under Windows  
 I got `ld: cannot find -lntdll`. No idea why it happens. However, my previous clone is good. Why this terrible OS is so popular?!
 
+## How to handle long paragraph
+<https://github.com/Endle/fireSeqSearch/issues/57>
+
+On 2022-Nov-13, I tried https://bminixhofer.github.io/nnsplit . This tool is powerful. However, the model is too slow for my purpose. 
