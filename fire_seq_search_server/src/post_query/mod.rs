@@ -56,9 +56,10 @@ fn wrap_text_at_given_spots(sentence: &String, mats_found: &mut Vec<(usize, usiz
     let span_start = "<span class=\"fireSeqSearchHighlight\">";
     let span_end = "</span>";
 
-    if sentence.len() > show_summary_single_line_chars_limit {
-        return wrap_too_long_text(sentence, mats_found);
-    }
+    // let wrap_too_long_segment =
+    //     sentence.len() > show_summary_single_line_chars_limit;
+    // arbitrary seg
+    let too_long_segment_remained_len = show_summary_single_line_chars_limit / 3;
 
     mats_found.sort_by_key(|k| k.0);
 
@@ -73,7 +74,16 @@ fn wrap_text_at_given_spots(sentence: &String, mats_found: &mut Vec<(usize, usiz
             continue;
         }
         // [cursor, start) should remain the same
-        builder.push(&sentence[cursor..highlight_start]);
+        let remain_seg = &sentence[cursor..highlight_start];
+        if remain_seg.len() > show_summary_single_line_chars_limit {
+            builder.push(&remain_seg[..too_long_segment_remained_len]);
+            builder.push("...");
+            builder.push(&remain_seg[
+                remain_seg.len()-too_long_segment_remained_len..]);
+        } else {
+            builder.push(remain_seg);
+        }
+
 
         let highlight_end = std::cmp::min(mats_found[mat_pos].1, sentence.len());
 
@@ -90,22 +100,10 @@ fn wrap_text_at_given_spots(sentence: &String, mats_found: &mut Vec<(usize, usiz
     }
 
     builder.join("")
-    // wrap_short_text_at_given_spots_recursive(sentence, mats_found.as_slice(), 0)
-    // String::from("stub")
-
 }
 
-fn wrap_short_text_at_given_spots_recursive(
-    sentence: &String, mats_found: &[(usize, usize)], offset: usize) -> String {
 
-    // let rul
-todo!()
 
-}
-
-fn wrap_too_long_text(sentence: &String, mats_found: &mut Vec<(usize, usize)>) -> String {
-    String::from("stub_long")
-}
 
 
 // TODO: conjugation is not considered here
