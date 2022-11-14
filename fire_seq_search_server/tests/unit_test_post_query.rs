@@ -1,4 +1,4 @@
-use fire_seq_search_server::post_query::{highlight_keywords_in_body, split_body_to_blocks, split_by_single_token};
+use fire_seq_search_server::post_query::{highlight_keywords_in_body, split_body_to_blocks};
 
 fn get_english_text() -> String {
     std::fs::read_to_string("tests/resource/pages/International Language, Past, Present & Future by Walter John Clark.md")
@@ -46,36 +46,6 @@ fn test_split_long_article_to_block() {
         .expect("Should have been able to read the file");
     let _a = split_body_to_blocks(&contents, 120);
 
-
+    //I didn't finish the test
 }
-
-#[test]
-fn test_split_by_single_token() {
-    // not stabled yet
-    let r = split_by_single_token("As an ounce of personal experience is worth a pound of", "personal");
-    assert_eq!(r.len(), 2);
-
-    let r = split_by_single_token("no such", "exist");
-    assert_eq!(r.len(), 1);
-
-    let r = split_by_single_token("母猪都能上树", "上");
-    assert_eq!(r.len(), 2);
-
-    let r = split_by_single_token("Это статья для тестов поиска в кириллических символах", "для");
-    assert_eq!(r.len(), 2);
-
-    let r = split_by_single_token("head is match", "head");
-    assert_eq!(r.len(), 2);
-    // println!("{:?}", &r);
-}
-
-#[test]
-fn test_split_by_single_token_cyrillic() {
-    let haystack = "Это статья для тестов поиска в кириллических символах";
-    let r = split_by_single_token(haystack, "для");
-    assert_eq!(r.len(), 2);
-
-
-}
-
 

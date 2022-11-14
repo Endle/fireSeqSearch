@@ -222,7 +222,7 @@ pub fn tokens_to_text_vec(tokens: &Vec<tantivy::tokenizer::Token>) -> Vec<String
 mod test_tokenizer {
     #[test]
     fn english() {
-        let tokens = base("Travel to japan", vec!["travel", "to", "japan"]);
+        let _tokens = base("Travel to japan", vec!["travel", "to", "japan"]);
     }
 
     #[test]
@@ -270,7 +270,7 @@ mod test_tokenizer {
         assert_eq!(tokens[1].offset_from, "张华".bytes().len());
     }
     fn base(sentence: &str, expect_tokens: Vec<&str>) ->  Vec<tantivy::tokenizer::Token> {
-        use tantivy::tokenizer::*;
+
         use crate::{tokenize_sentence_to_vector,tokens_to_text_vec};
         let tokenizer = crate::JiebaTokenizer {};
         let tokens = tokenize_sentence_to_vector(&tokenizer, sentence);

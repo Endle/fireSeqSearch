@@ -148,25 +148,6 @@ fn generate_stopwords_list<'a>() -> std::collections::HashSet<&'a str> {
 }
 
 
-pub fn split_by_single_token<'a>(sentence: &'a str, token: &'a str) -> Vec<&'a str> {
-    let mut result = Vec::new();
-    let needle = RegexBuilder::new(token)
-        .case_insensitive(true)
-        .build();
-    let needle = match needle {
-        Ok(x) => x,
-        Err(e) => {
-            error!("Failed({}) to build regex for {}", e, token);
-            return result;
-        }
-    };
-    let segs: Vec<&str> = needle.split(sentence).collect();
-    for seg in segs {
-        result.push(seg);
-    }
-    result
-}
-
 
 // TODO: current implementation is too naive, I believe it is buggy
 pub fn split_body_to_blocks(body: &str, show_summary_single_line_chars_limit: usize) -> Vec<String> {
