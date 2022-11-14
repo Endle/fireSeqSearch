@@ -1,7 +1,7 @@
 use log::{debug, error, info};
 use stopwords;
 use regex::RegexBuilder;
-use tantivy::HasLen;
+
 
 pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
                                   show_summary_single_line_chars_limit: usize) -> String {
@@ -147,28 +147,6 @@ fn generate_stopwords_list<'a>() -> std::collections::HashSet<&'a str> {
     nltk
 }
 
-pub fn recursive_wrap(sentence: &str, term_tokens: &[String]) -> String {
-    if term_tokens.is_empty() {
-        return String::from(sentence);
-    }
-    let span_start = "<span class=\"fireSeqSearchHighlight\">";
-    let span_end = "</span>";
-    let token = &term_tokens[0];
-    let segments = split_by_single_token(sentence, token);
-    // Found nothing for this token
-    if segments.len() <= 1 {
-        return recursive_wrap(sentence, &term_tokens[1..]);
-    }
-
-    let mut result = Vec::new();
-    for seg in segments {
-        let r = recursive_wrap(seg, &term_tokens[1..]);
-        result.push(r);
-    }
-    let wrapped = vec![span_start, token, span_end].concat();
-
-    result.join(&wrapped)
-}
 
 pub fn split_by_single_token<'a>(sentence: &'a str, token: &'a str) -> Vec<&'a str> {
     let mut result = Vec::new();

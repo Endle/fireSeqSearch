@@ -82,21 +82,10 @@ fn test_split_by_single_token_cyrillic() {
     let r = split_by_single_token(haystack, "для");
     assert_eq!(r.len(), 2);
 
-    let r = recursive_wrap(
-        haystack,
-        &gen(vec!["head", "для", "символах"])
-    );
-    // println!("{}", r);
-    let c = "<span class=\"fireSeqSearchHighlight\">";
-    assert_eq!(2, r.matches(c).count());
+
 }
 
-#[test]
-fn test_recursive_wrap_unstable() {
-    let r = recursive_wrap("head is match", &gen(vec!["head"]));
-    assert!(r.contains("fireSeqSearchHighlight"));
-    // println!("{:?}", &r);
-}
+
 
 fn gen(s: Vec<&str>) -> Vec<String> {
     let mut r = Vec::with_capacity(s.len());
