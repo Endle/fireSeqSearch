@@ -1,5 +1,5 @@
 use tantivy::HasLen;
-use fire_seq_search_server::post_query::{highlight_keywords_in_body, recursive_wrap, split_body_to_blocks, split_by_single_token};
+use fire_seq_search_server::post_query::{highlight_keywords_in_body, split_body_to_blocks, split_by_single_token};
 
 fn get_english_text() -> String {
     std::fs::read_to_string("tests/resource/pages/International Language, Past, Present & Future by Walter John Clark.md")
