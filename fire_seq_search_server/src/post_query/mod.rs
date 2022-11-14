@@ -99,7 +99,7 @@ fn wrap_text_at_given_spots(sentence: &String, mats_found: &mut Vec<(usize, usiz
         let remain_seg = &sentence[cursor..];
         if remain_seg.len() > show_summary_single_line_chars_limit {
             builder.push(&remain_seg[..too_long_segment_remained_len]);
-            builder.push("...");
+            builder.push(".....");
             builder.push(&remain_seg[
                 remain_seg.len()-too_long_segment_remained_len..]);
         } else {
@@ -107,7 +107,7 @@ fn wrap_text_at_given_spots(sentence: &String, mats_found: &mut Vec<(usize, usiz
         }
     }
 
-    builder.join("")
+    builder.concat()
 }
 
 
