@@ -19,7 +19,8 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
     for sentence in blocks {
         let sentence_highlight = highlight_sentence_with_keywords(
             &sentence,
-            &terms_selected
+            &terms_selected,
+            show_summary_single_line_chars_limit
         );
         // let r = recursive_wrap(&sentence, &terms_selected);
         // println!("{}", &result);
@@ -32,7 +33,19 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
     result.join(" ")
 }
 
-fn highlight_sentence_with_keywords(p0: &String, p1: &Vec<&str>) -> Option<String> {
+fn highlight_sentence_with_keywords(sentence: &String,
+                                    term_tokens: &Vec<&str>,
+                                    show_summary_single_line_chars_limit: usize) -> Option<String> {
+
+    let mut hits_found: Vec<(usize,usize)> = Vec::new();
+    for t in term_tokens {
+        let mut r = locate_single_keyword(sentence, t);
+        hits_found.append(&mut r);
+    }
+    todo!()
+}
+
+fn locate_single_keyword<'a>(sentence: &'a str, token: &'a str) -> Vec<(usize,usize)> {
     todo!()
 }
 
