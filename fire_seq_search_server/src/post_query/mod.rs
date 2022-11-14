@@ -42,11 +42,27 @@ fn highlight_sentence_with_keywords(sentence: &String,
         let mut r = locate_single_keyword(sentence, t);
         hits_found.append(&mut r);
     }
-    todo!()
+    println!("Tokens {:?}, match {:?}", term_tokens, &hits_found);
+    None
 }
 
 fn locate_single_keyword<'a>(sentence: &'a str, token: &'a str) -> Vec<(usize,usize)> {
-    todo!()
+    let mut result = Vec::new();
+    let needle = RegexBuilder::new(token)
+        .case_insensitive(true)
+        .build();
+    let needle = match needle {
+        Ok(x) => x,
+        Err(e) => {
+            error!("Failed({}) to build regex for {}", e, token);
+            return result;
+        }
+    };
+    for mat in needle.find_iter(sentence) {
+        debug!("{:?}", &mat);
+        result.push((mat.start(), mat.end()));
+    }
+    result
 }
 
 fn generate_stopwords_list<'a>() -> std::collections::HashSet<&'a str> {

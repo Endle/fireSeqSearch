@@ -7,7 +7,7 @@ use rayon::prelude::*;
 
 
 use serde_json;
-use serde::Serialize;
+
 
 use log::{info,debug};
 use clap::{Command,arg};
