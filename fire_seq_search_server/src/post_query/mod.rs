@@ -1,6 +1,7 @@
 use log::{debug, error, info};
 use stopwords;
 use regex::RegexBuilder;
+use tantivy::HasLen;
 
 pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
                                   show_summary_single_line_chars_limit: usize) -> String {
@@ -22,13 +23,11 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
             &terms_selected,
             show_summary_single_line_chars_limit
         );
-        // let r = recursive_wrap(&sentence, &terms_selected);
-        // println!("{}", &result);
-        // if sentence != r {
-        //     result.push(r);
-        // }
+        match sentence_highlight {
+            Some(x) => result.push(x),
+            None => ()
+        }
     }
-    // println!("{:?}", &result);
 
     result.join(" ")
 }
@@ -37,15 +36,79 @@ fn highlight_sentence_with_keywords(sentence: &String,
                                     term_tokens: &Vec<&str>,
                                     show_summary_single_line_chars_limit: usize) -> Option<String> {
 
-    let mut hits_found: Vec<(usize,usize)> = Vec::new();
+    let mut mats_found: Vec<(usize,usize)> = Vec::new();
     for t in term_tokens {
         let mut r = locate_single_keyword(sentence, t);
-        hits_found.append(&mut r);
+        mats_found.append(&mut r);
     }
-    println!("Tokens {:?}, match {:?}", term_tokens, &hits_found);
-    None
+    if mats_found.is_empty() {
+        return None;
+    }
+    Some(wrap_text_at_given_spots(sentence, &mut mats_found,
+                                  show_summary_single_line_chars_limit))
+    // println!("Tokens {:?}, match {:?}", term_tokens, &hits_found);
 }
 
+fn wrap_text_at_given_spots(sentence: &String, mats_found: &mut Vec<(usize, usize)>,
+                            show_summary_single_line_chars_limit: usize) -> String {
+
+
+    let span_start = "<span class=\"fireSeqSearchHighlight\">";
+    let span_end = "</span>";
+
+    if sentence.len() > show_summary_single_line_chars_limit {
+        return wrap_too_long_text(sentence, mats_found);
+    }
+
+    mats_found.sort_by_key(|k| k.0);
+
+    let mut builder: Vec<&str> = Vec::with_capacity(mats_found.len() + 1);
+    let mut cursor = 0;
+    let mut mat_pos = 0;
+
+    while cursor < sentence.len() && mat_pos < mats_found.len() {
+        let highlight_start = mats_found[mat_pos].0;
+        if highlight_start < cursor {
+            mat_pos += 1;
+            continue;
+        }
+        // [cursor, start) should remain the same
+        builder.push(&sentence[cursor..highlight_start]);
+
+        let highlight_end = std::cmp::min(mats_found[mat_pos].1, sentence.len());
+
+        // [start, end) be wrapped
+        builder.push(span_start);
+        builder.push(&sentence[highlight_start..highlight_end]);
+        builder.push(span_end);
+
+        //[end..) remains
+        cursor = highlight_end;
+    }
+    if cursor < sentence.len() {
+        builder.push(&sentence[cursor..]);
+    }
+
+    builder.join("")
+    // wrap_short_text_at_given_spots_recursive(sentence, mats_found.as_slice(), 0)
+    // String::from("stub")
+
+}
+
+fn wrap_short_text_at_given_spots_recursive(
+    sentence: &String, mats_found: &[(usize, usize)], offset: usize) -> String {
+
+    // let rul
+todo!()
+
+}
+
+fn wrap_too_long_text(sentence: &String, mats_found: &mut Vec<(usize, usize)>) -> String {
+    String::from("stub_long")
+}
+
+
+// TODO: conjugation is not considered here
 fn locate_single_keyword<'a>(sentence: &'a str, token: &'a str) -> Vec<(usize,usize)> {
     let mut result = Vec::new();
     let needle = RegexBuilder::new(token)
