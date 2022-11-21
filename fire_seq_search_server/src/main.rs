@@ -122,7 +122,7 @@ fn build_server_info(args: &clap::ArgMatches) -> ServerInformation {
         It doesn't mean the width limit of output,
             but a threshold between short paragraph and long paragraph
          */
-        show_summary_single_line_chars_limit: 120*3,
+        show_summary_single_line_chars_limit: 120*2,
     }
 }
 
