@@ -1,4 +1,4 @@
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use stopwords;
 use regex::RegexBuilder;
 
@@ -44,15 +44,17 @@ fn highlight_sentence_with_keywords(sentence: &String,
     if mats_found.is_empty() {
         return None;
     }
+    debug!("Tokens {:?}, match {:?}", term_tokens, &mats_found);
     Some(wrap_text_at_given_spots(sentence, &mut mats_found,
                                   show_summary_single_line_chars_limit))
-    // println!("Tokens {:?}, match {:?}", term_tokens, &hits_found);
+
 }
 
-fn wrap_text_at_given_spots(sentence: &String, mats_found: &mut Vec<(usize, usize)>,
+fn wrap_text_at_given_spots(sentence: &str, mats_found: &mut Vec<(usize, usize)>,
                             show_summary_single_line_chars_limit: usize) -> String {
 
-
+    debug!("Wrap with span, origin len={}, match number = {}",
+        sentence.len(), mats_found.len());
     let span_start = "<span class=\"fireSeqSearchHighlight\">";
     let span_end = "</span>";
 
@@ -63,53 +65,78 @@ fn wrap_text_at_given_spots(sentence: &String, mats_found: &mut Vec<(usize, usiz
 
     mats_found.sort_by_key(|k| k.0);
 
-    let mut builder: Vec<&str> = Vec::with_capacity(mats_found.len() + 1);
+    // I feel that this is not quite elegant
+    let mut builder: Vec<String> = Vec::with_capacity(mats_found.len() + 1);
     let mut cursor = 0;
     let mut mat_pos = 0;
 
     while cursor < sentence.len() && mat_pos < mats_found.len() {
         let highlight_start = mats_found[mat_pos].0;
         if highlight_start < cursor {
+            warn!("The {}-th mat skipped, cursor={}, mat={:?}", &mat_pos, &cursor, &mats_found);
             mat_pos += 1;
             continue;
         }
         // [cursor, start) should remain the same
-        let remain_seg = &sentence[cursor..highlight_start];
-        if remain_seg.len() > show_summary_single_line_chars_limit {
-            builder.push(&remain_seg[..too_long_segment_remained_len]);
-            builder.push("...");
-            builder.push(&remain_seg[
-                remain_seg.len()-too_long_segment_remained_len..]);
-        } else {
-            builder.push(remain_seg);
+        if cursor > highlight_start {
+            error!("Unexpected Cursor = {}, highlight_start = {}", cursor, highlight_start);
         }
 
+        let remain_seg = &sentence[cursor..highlight_start];
+        if remain_seg.len() > show_summary_single_line_chars_limit {
+            let brief: String = safe_generate_brief_for_too_long_segment(
+                &remain_seg, too_long_segment_remained_len);
+            builder.push(brief);
+            // builder.push(&remain_seg[..too_long_segment_remained_len]);
+            // builder.push("...");
+            // builder.push(&remain_seg[
+            //     remain_seg.len()-too_long_segment_remained_len..]);
+        } else {
+            builder.push(remain_seg.to_string());
+        }
 
-        let highlight_end = std::cmp::min(mats_found[mat_pos].1, sentence.len());
+        if mats_found[mat_pos].1 > sentence.len() {
+            error!("This match {:?} exceeded the sentence {}",
+                &mats_found[mat_pos], sentence.len());
+        }
+        // let highlight_end = std::cmp::min(mats_found[mat_pos].1, sentence.len());
+        let highlight_end = mats_found[mat_pos].1;
 
+
+        debug!("Wrapping {}-th: ({},{})", mat_pos, highlight_start, highlight_end);
         // [start, end) be wrapped
-        builder.push(span_start);
-        builder.push(&sentence[highlight_start..highlight_end]);
-        builder.push(span_end);
+        builder.push(span_start.to_string());
+        let wrapped_word = &sentence[highlight_start..highlight_end];
+        debug!("\tWrapping ({})", &wrapped_word);
+        builder.push(wrapped_word.to_string());
+        builder.push(span_end.to_string());
 
         //[end..) remains
         cursor = highlight_end;
+        mat_pos += 1;
     }
+
     if cursor < sentence.len() {
         let remain_seg = &sentence[cursor..];
         if remain_seg.len() > show_summary_single_line_chars_limit {
-            builder.push(&remain_seg[..too_long_segment_remained_len]);
-            builder.push(".....");
-            builder.push(&remain_seg[
-                remain_seg.len()-too_long_segment_remained_len..]);
+            let brief = safe_generate_brief_for_too_long_segment(
+                &remain_seg[..too_long_segment_remained_len], too_long_segment_remained_len
+            );
+            builder.push(brief);
         } else {
-            builder.push(remain_seg);
+            builder.push(remain_seg.to_string());
         }
     }
 
     builder.concat()
 }
 
+fn safe_generate_brief_for_too_long_segment(remained: &str, too_long_segment_remained_len: usize) -> String {
+    // let mut remain_chars = remained.chars();
+    let front: String = remained.chars().take(too_long_segment_remained_len).collect();
+    let end: String = remained.chars().rev().take(too_long_segment_remained_len).collect();
+    vec![front, end].join("...")
+}
 
 
 
@@ -128,11 +155,15 @@ fn locate_single_keyword<'a>(sentence: &'a str, token: &'a str) -> Vec<(usize,us
         }
     };
     for mat in needle.find_iter(sentence) {
-        debug!("{:?}", &mat);
+
         result.push((mat.start(), mat.end()));
+        let t: &str = &sentence[mat.start()..mat.end()];
+        debug!("Matched ({}) at {},{}", &t, mat.start(),mat.end());
     }
     result
 }
+
+
 
 fn generate_stopwords_list<'a>() -> std::collections::HashSet<&'a str> {
     //TODO Avoid collect it repeatedly
