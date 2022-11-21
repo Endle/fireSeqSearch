@@ -135,6 +135,7 @@ fn safe_generate_brief_for_too_long_segment(remained: &str, too_long_segment_rem
     // let mut remain_chars = remained.chars();
     let front: String = remained.chars().take(too_long_segment_remained_len).collect();
     let end: String = remained.chars().rev().take(too_long_segment_remained_len).collect();
+    let end = end.chars().rev().collect();
     vec![front, end].join("...")
 }
 
