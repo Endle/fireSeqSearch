@@ -1,3 +1,9 @@
+### 0.0.19
+This is a server-side update.  
+
+1. Fixed [highlight for Cyrillic letters](https://github.com/Endle/fireSeqSearch/issues/59).  
+2. Improvement: When a paragraph is too long, use its summary (See [Issue 57](https://github.com/Endle/fireSeqSearch/issues/57) and [commit](https://github.com/Endle/fireSeqSearch/commit/fb15a17bb9a47754bb7817891b01f08108c8c952))  
+
 ### 0.0.18
 Exciting new UI by @phoenixeliot and @yoyurec  
 Thank you for your contribution!
