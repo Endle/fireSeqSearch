@@ -1,3 +1,9 @@
+### 0.0.18
+Exciting new UI by @phoenixeliot and @yoyurec  
+Thank you for your contribution!
+
+No change at server side. All you need is to update Firefox extension or user script.
+
 ### 0.0.16
 
 1. Experimental support to search summary.

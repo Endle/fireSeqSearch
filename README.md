@@ -25,8 +25,7 @@ This project is in **VERY EARLY** DEVELOPMENT! But don't panic. fireSeqSearch wi
 
 ### Install Browser Extension  
 1. Install latest web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>   
-2. Google require all new Chrome extensions use manifest V3, while providing little examples for it.  
-3. Edge is rejecting my extension, without explaining why.   
+2. If you're using other browser, you can install [Tampermonkey](https://www.tampermonkey.net/), then install the [script version](https://github.com/Endle/fireSeqSearch/raw/master/fireSeqSearch_addon/monkeyscript.user.js)
 
 ### Install Local Server
 
@@ -43,6 +42,19 @@ Steps:
 3. `cd fire_seq_search_server && cargo build`
 4. `target/debug/fire_seq_search_server --notebook_path /home/li/my_notebook`
 5. Min rust version: See https://github.com/Endle/fireSeqSearch/blob/master/.github/workflows/rust.yml#L21
+
+License
+----------------
+This project (both server and addon) is using MIT license. Some third party library may have other licenses (see source code)
+
+
+<a href="https://www.flaticon.com/free-icons/ui" title="ui icons">Ui icons created by manshagraphics - Flaticon</a>
+
+
+LOGO link: <https://www.flaticon.com/free-icon/web-browser_7328762>
+
+
+LOGO license: Flaticon license
 
 
 How it works

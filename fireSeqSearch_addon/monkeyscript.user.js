@@ -1,5 +1,19 @@
+// ==UserScript==
+// @name         fireSeqSearchScript
+// @namespace    https://github.com/Endle/fireSeqSearch
+// @version      0.0.18
+// @description  Everytime you use the search engine, FireSeqSearch searches your personal logseq notes.
+// @author       Zhenbo Li
+// @match        https://www.google.com/search*
+// @match        https://duckduckgo.com/?q=*
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=tampermonkey.net
+// @grant GM_xmlhttpRequest
+// ==/UserScript==
+
 // MIT License
 // Copyright (c) 2021-2022 Zhenbo Li
+
+/*global GM*/
 
 const fireSeqSearchDomId = "fireSeqSearchDom";
 
@@ -113,24 +127,15 @@ function createHrefToLogseq(record, serverInfo) {
 
 
 function checkUserOptions() {
-    return Promise.all([
-        /*global browser */
-        browser.storage.sync.get("debugStr"),
-        browser.storage.sync.get("ExperimentalLayout"),
-        browser.storage.sync.get("ShowHighlight"),
-        browser.storage.sync.get("ShowScore")
-    ]).then(function(res) {
-        consoleLogForDebug(res);
+    const options = {
+        debugStr: "tampermonkey",
+        ExperimentalLayout: false,
+        ShowHighlight: true,
+        ShowScore: false
+    }
+    consoleLogForDebug(options);
+    return options;
 
-        const options = {
-            debugStr: res[0].debugStr,
-            ExperimentalLayout: res[1].ExperimentalLayout,
-            ShowHighlight: res[2].ShowHighlight,
-            ShowScore: res[3].ShowScore
-        }
-        consoleLogForDebug(options);
-        return options;
-    });
 }
 
 
@@ -254,24 +259,58 @@ function getSearchParameterFromCurrentPage() {
     consoleLogForDebug(searchParameter);
     addGlobalStyle(fireSeqSearchScriptCSS);
 
-    //https://gomakethings.com/waiting-for-multiple-all-api-responses-to-complete-with-the-vanilla-js-promise.all-method/
-    Promise.all([
-        fetch("http://127.0.0.1:3030/server_info"),
-        fetch("http://127.0.0.1:3030/query/" + searchParameter)
-    ]).then(function (responses) {
-        return Promise.all(responses.map(function (response) {return response.json();}));
-    }).then(function (data) {
-        consoleLogForDebug(data);
-        return appendResultToSearchResult(data);
-    }).then((_e) => {
-        const highlightedItems = document.querySelectorAll('.fireSeqSearchHighlight');
-        consoleLogForDebug(highlightedItems);
-        highlightedItems.forEach((element) => {
-            element.style.color = 'red';
-        });
-    }).catch(function (error) {
-        consoleLogForDebug(error);
+    GM.xmlHttpRequest({
+        method: "GET",
+        url: "http://127.0.0.1:3030/server_info",
+        onload(infoResponse) {
+            const server_info = JSON.parse(infoResponse.responseText);
+            consoleLogForDebug(server_info);
+            GM.xmlHttpRequest({
+                method: "GET",
+                url: `http://127.0.0.1:3030/query/${searchParameter}`,
+                onload(queryResponse) {
+                    const hit = JSON.parse(queryResponse.responseText);
+                    // consoleLogForDebug(hit);
+                    consoleLogForDebug(typeof hit);
+
+                    appendResultToSearchResult([server_info, hit])
+                        .then((_e) => {
+                            const highlightedItems = document.querySelectorAll('.fireSeqSearchHighlight');
+                            consoleLogForDebug(highlightedItems);
+                        })
+                        .catch(error => {
+                            consoleLogForDebug(error);
+                        });
+
+                }
+            });
+        }
     });
+
+    /*
+        //https://gomakethings.com/waiting-for-multiple-all-api-responses-to-complete-with-the-vanilla-js-promise.all-method/
+        Promise.all([
+            fetch("http://127.0.0.1:3030/server_info"),
+            fetch(`http://127.0.0.1:3030/query/${searchParameter}`)
+        ]).then(function (responses) {
+            return Promise.all(responses.map(function (response) {return response.json();}));
+        }).then(function (data) {
+            consoleLogForDebug(data);
+            return appendResultToSearchResult(data);
+        }).then((_e) => {
+            const highlightedItems = document.querySelectorAll('.fireSeqSearchHighlight');
+            consoleLogForDebug(highlightedItems);
+            highlightedItems.forEach((element) => {
+                element.style.color = 'red';
+            });
+        }).catch(function (error) {
+            consoleLogForDebug(error);
+        });
+
+
+
+     */
+
 
 
 })();
