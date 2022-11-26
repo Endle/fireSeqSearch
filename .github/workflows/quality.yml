@@ -16,7 +16,7 @@ jobs:
           override: true
     - name: Cache cargo registry
       uses: actions/cache@v2
-        with:
+      with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
