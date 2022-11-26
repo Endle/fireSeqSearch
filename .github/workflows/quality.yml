@@ -18,7 +18,7 @@ jobs:
       with:
         command: check ${{ matrix.checks }}
     - name: clippy
-        run: |
+      run: |
           cd fire_seq_search_server
           rustup component add clippy
           cargo clippy
