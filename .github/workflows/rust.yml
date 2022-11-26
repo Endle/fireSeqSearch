@@ -64,12 +64,7 @@ jobs:
         run: |
           cd fire_seq_search_server
           cargo package --verbose
-      - name: clippy
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          cd fire_seq_search_server
-          rustup component add clippy
-          cargo clippy
+
         
 
 

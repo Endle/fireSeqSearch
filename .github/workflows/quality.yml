@@ -1,0 +1,48 @@
+name: Quality Control
+on: [push, pull_request]
+jobs:
+  cargo-deny:
+    runs-on: ubuntu-latest
+
+
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Rust 
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          profile: minimal
+          override: true
+    - name: Cache cargo registry
+      uses: actions/cache@v2
+      with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.toml') }}-release
+          restore-keys: |
+            ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-cargo-stable-
+            ${{ runner.os }}-cargo-
+    - name: Install cargo deny
+      continue-on-error: true
+      run: |
+          cargo install --locked cargo-deny
+          cd fire_seq_search_server
+          cargo deny init
+    - name: cargo deny license
+      continue-on-error: true
+      run: |
+          cd fire_seq_search_server
+          cargo deny check licenses
+    - name: cargo deny advisories
+      continue-on-error: true
+      run: |
+          cd fire_seq_search_server
+          cargo deny check advisories          
+    - name: clippy
+      run: |
+          cd fire_seq_search_server
+          rustup component add clippy
+          cargo clippy
