@@ -32,7 +32,7 @@ pub struct FireSeqSearchHitParsed {
 }
 
 
-pub static JOURNAL_PREFIX: &'static str = "@journal@";
+pub static JOURNAL_PREFIX: &str = "@journal@";
 
 impl FireSeqSearchHitParsed {
     /*
