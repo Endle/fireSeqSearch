@@ -4,8 +4,8 @@ pub mod markdown_parser;
 mod language_detect;
 
 
-use log::{debug, info, warn};
-use crate::post_query::highlight_keywords_in_body;
+use log::{debug, info};
+use crate::post_query::{generate_logseq_uri, highlight_keywords_in_body};
 use serde::Serialize;
 
 #[macro_use]
@@ -83,20 +83,6 @@ impl FireSeqSearchHitParsed {
 
 }
 
-fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &ServerInformation) -> String {
-
-    return if *is_page_hit {
-        let uri = format!("logseq://graph/page?{}={}",
-                          server_info.notebook_name, title);
-        uri
-    } else {
-        warn!("Not implemented for journal page yet");
-        let uri = format!("logseq://graph/page?{}",
-                          server_info.notebook_name);
-        uri
-    };
-    // logseq://graph/logseq_notebook?page=Nov%2026th%2C%202022
-}
 
 
 
