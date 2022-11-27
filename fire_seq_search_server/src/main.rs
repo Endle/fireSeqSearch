@@ -10,7 +10,7 @@ use serde_json;
 
 
 use log::{info,debug};
-use clap::{Command,arg};
+
 use urlencoding::decode;
 
 
@@ -19,6 +19,31 @@ use fire_seq_search_server::load_notes::read_specific_directory;
 
 
 
+use clap::Parser;
+
+#[derive(Parser)]
+#[command(author, version)]
+#[command(about = "Server for fireSeqSearch: hosting logseq notebooks at 127.0.0.1",
+    long_about = None)]
+struct Cli{
+    #[arg(long="notebook_path")]
+    notebook_path: String,
+    #[arg(long="notebook_name")]
+    notebook_name: Option<String>,
+
+
+    #[arg(long,default_value_t = 10, value_name="HITS")]
+    show_top_hits: usize,
+
+/*
+        This is really an arbitrary limit.
+        https://stackoverflow.com/a/33758289/1166518
+        It doesn't mean the width limit of output,
+            but a threshold between short paragraph and long paragraph
+ */
+    #[arg(long,default_value_t = 120*2, value_name="LEN")]
+    show_summary_single_line_chars_limit: usize,
+}
 
 struct DocumentSetting {
     schema: tantivy::schema::Schema,
@@ -32,16 +57,9 @@ async fn main() {
         .format_target(false)
         .init();
 
-    let matches = Command::new(env!("CARGO_PKG_NAME"))
-        .version(env!("CARGO_PKG_VERSION"))
-        .author(env!("CARGO_PKG_AUTHORS"))
-        .about("Server for fireSeqSearch: hosting logseq notebooks at 127.0.0.1")
-        .arg(arg!(--notebook_path <VALUE>))
-        .arg(arg!(--notebook_name <VALUE>).required(false))
-        .get_matches();
+    let matches = Cli::parse();
 
-
-    let server_info: ServerInformation = build_server_info(&matches);
+    let server_info: ServerInformation = build_server_info(matches);
     let document_setting: DocumentSetting = build_document_setting();
 
     let index = indexing_documents(&server_info, &document_setting);
@@ -98,31 +116,22 @@ fn build_schema_tokenizer() -> (tantivy::schema::Schema,
     )
 }
 
-fn build_server_info(args: &clap::ArgMatches) -> ServerInformation {
-    let notebook_path = match args.value_of("notebook_path") {
-        Some(x) => x.to_string(),
-        None => panic!("notebook_path has to be specified!")
-    };
-    let notebook_name = match args.value_of("notebook_name") {
+fn build_server_info(args: Cli) -> ServerInformation {
+    let notebook_name = match args.notebook_name {
         Some(x) => x.to_string(),
         None => {
-            let chunks: Vec<&str> = notebook_path.split("/").collect();
+            let chunks: Vec<&str> = args.notebook_path.split("/").collect();
             let guess: &str = *chunks.last().unwrap();
             info!("fire_seq_search guess the notebook name is {}", guess);
             String::from(guess)
         }
     };
     ServerInformation{
-        notebook_path,
+        notebook_path: args.notebook_path,
         notebook_name,
-        show_top_hits: 10,
-
-        /*
-        This is really an arbitrary limit. https://stackoverflow.com/a/33758289/1166518
-        It doesn't mean the width limit of output,
-            but a threshold between short paragraph and long paragraph
-         */
-        show_summary_single_line_chars_limit: 120*2,
+        show_top_hits: args.show_top_hits,
+        show_summary_single_line_chars_limit:
+            args.show_summary_single_line_chars_limit,
     }
 }
 
