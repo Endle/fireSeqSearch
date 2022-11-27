@@ -14,7 +14,7 @@ use log::{info,debug};
 use urlencoding::decode;
 
 
-use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer, TOKENIZER_ID, tokenize_default, ServerInformation};
+use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer, TOKENIZER_ID, tokenize_default, ServerInformation, JOURNAL_PREFIX};
 use fire_seq_search_server::load_notes::read_specific_directory;
 
 
@@ -31,6 +31,8 @@ struct Cli{
     #[arg(long="notebook_name")]
     notebook_name: Option<String>,
 
+    #[arg(long,default_value_t = false)]
+    enable_journal_query: bool,
 
     #[arg(long,default_value_t = 10, value_name="HITS")]
     show_top_hits: usize,
@@ -129,6 +131,7 @@ fn build_server_info(args: Cli) -> ServerInformation {
     ServerInformation{
         notebook_path: args.notebook_path,
         notebook_name,
+        enable_journal_query: args.enable_journal_query,
         show_top_hits: args.show_top_hits,
         show_summary_single_line_chars_limit:
             args.show_summary_single_line_chars_limit,
@@ -188,8 +191,6 @@ fn post_query_wrapper(top_docs: Vec<(f32, DocAddress)>,
                       term: &String,
                       searcher: &LeasedItem<Searcher>,
                       server_info: &ServerInformation) -> Vec<String> {
-
-
     let term_tokens = tokenize_default(&term);
     info!("get term tokens {:?}", &term_tokens);
     // let mut result;
@@ -229,16 +230,28 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
 
 
     // I should remove the unwrap and convert it into map
-    let path = path.to_owned() + "/pages";
+    let path = path.to_owned();
+    let pages_path = path.clone() + "/pages";
 
 
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
 
-    for (note_title, contents) in read_specific_directory(&path) {
+    for (note_title, contents) in read_specific_directory(&pages_path) {
         index_writer.add_document(
             doc!{ title => note_title, body => contents}
         ).unwrap();
+    }
+
+    if server_info.enable_journal_query {
+        info!("Loading journals");
+        let journals_page = path.clone() + "/journals";
+        for (note_title, contents) in read_specific_directory(&journals_page) {
+            let tantivy_title = JOURNAL_PREFIX.to_owned() + &note_title;
+            index_writer.add_document(
+                doc!{ title => tantivy_title, body => contents}
+            ).unwrap();
+        }
     }
 
     index_writer.commit().unwrap();

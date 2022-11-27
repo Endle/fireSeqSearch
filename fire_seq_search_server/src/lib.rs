@@ -4,7 +4,7 @@ pub mod markdown_parser;
 mod language_detect;
 
 
-use log::{debug, info};
+use log::{debug, info, warn};
 use crate::post_query::highlight_keywords_in_body;
 use serde::Serialize;
 
@@ -15,8 +15,8 @@ extern crate lazy_static;
 pub struct ServerInformation {
     pub notebook_path: String,
     pub notebook_name: String,
+    pub enable_journal_query: bool,
     pub show_top_hits: usize,
-
     pub show_summary_single_line_chars_limit: usize,
 }
 
@@ -27,7 +27,12 @@ pub struct FireSeqSearchHitParsed {
     pub title: String,
     pub summary: String,
     pub score: f32,
+    pub metadata: String,
+    pub logseq_uri: String,
 }
+
+
+pub static JOURNAL_PREFIX: &'static str = "@journal@";
 
 impl FireSeqSearchHitParsed {
     /*
@@ -48,43 +53,51 @@ impl FireSeqSearchHitParsed {
         let title: &str = doc.field_values()[0].value().as_text().unwrap();
         let body: &str = doc.field_values()[1].value().as_text().unwrap();
         let summary = highlight_keywords_in_body(body, term_tokens, server_info.show_summary_single_line_chars_limit);
+
+        let mut is_page_hit = true;
+        let title = match title.starts_with(JOURNAL_PREFIX) {
+            true => {
+                assert!(server_info.enable_journal_query);
+                debug!("Found a journal hit {}", title);
+                is_page_hit = false;
+                let t = title.strip_prefix(JOURNAL_PREFIX);
+                t.unwrap().to_string()
+            },
+            false => {
+                title.to_string()
+            }
+        };
+
+        let logseq_uri = generate_logseq_uri(&title, &is_page_hit, &server_info);
+        let metadata: String = match is_page_hit {
+            true => String::from("page_hit"),
+            false => String::from("journal_hit"),
+        };
+
         FireSeqSearchHitParsed {
-            // title: String::from(title),
-            title: String::from(title),
+            title,
             summary,
             score,
+            logseq_uri,
+            metadata,
         }
     }
 
 }
 
+fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &ServerInformation) -> String {
 
-
-
-/*TODO: Do I really need this struct?*/
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
-pub struct FireSeqSearchHit<'a> {
-    // pub title: String,
-    pub title: &'a str,
-    pub body: &'a str,
-    pub score: f32,
-    //field_values: Vec<FieldValue>,
-}
-impl<'a> FireSeqSearchHit<'a> {
-    pub fn from_tantivy(doc: &tantivy::schema::Document, score: f32) ->FireSeqSearchHit {
-        for _field in doc.field_values() {
-            // debug!("field {:?} ", &field);
-        }
-        let title: &str = doc.field_values()[0].value().as_text().unwrap();
-        let body: &str = doc.field_values()[1].value().as_text().unwrap();
-
-        FireSeqSearchHit {
-            // title: String::from(title),
-            title,
-            body,
-            score
-        }
-    }
+    return if *is_page_hit {
+        let uri = format!("logseq://graph/page?{}={}",
+                          server_info.notebook_name, title);
+        uri
+    } else {
+        warn!("Not implemented for journal page yet");
+        let uri = format!("logseq://graph/page?{}",
+                          server_info.notebook_name);
+        uri
+    };
+    // logseq://graph/logseq_notebook?page=Nov%2026th%2C%202022
 }
 
 
