@@ -4,7 +4,7 @@ pub mod markdown_parser;
 mod language_detect;
 
 
-use log::{debug, info, warn};
+use log::{debug, info};
 use crate::post_query::{generate_logseq_uri, highlight_keywords_in_body};
 use serde::Serialize;
 

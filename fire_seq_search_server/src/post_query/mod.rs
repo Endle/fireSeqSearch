@@ -203,9 +203,10 @@ pub fn split_body_to_blocks(body: &str, show_summary_single_line_chars_limit: us
 }
 
 use urlencoding::encode;
+use crate::ServerInformation;
 
 pub fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &ServerInformation) -> String {
-    // logseq://graph/logseq_notebook?page=Games%2FEU4
+
     return if *is_page_hit {
         let uri = format!("logseq://graph/{}?page={}",
                           server_info.notebook_name, encode(title));
@@ -217,4 +218,23 @@ pub fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &Server
         uri
     };
     // logseq://graph/logseq_notebook?page=Nov%2026th%2C%202022
+}
+#[cfg(test)]
+mod test_logseq_uri {
+    use crate::post_query::generate_logseq_uri;
+    use crate::ServerInformation;
+
+    #[test]
+    fn test_generate() {
+        let server_info = ServerInformation {
+            notebook_path: "stub_path".to_string(),
+            notebook_name: "logseq_notebook".to_string(),
+            enable_journal_query: false,
+            show_top_hits: 0,
+            show_summary_single_line_chars_limit: 0,
+        };
+
+        let r = generate_logseq_uri("Games/EU4", &false, &server_info);
+        assert_eq!(&r, "logseq://graph/logseq_notebook?page=Games%2FEU4");
+    }
 }
