@@ -55,23 +55,21 @@ impl FireSeqSearchHitParsed {
         let summary = highlight_keywords_in_body(body, term_tokens, server_info.show_summary_single_line_chars_limit);
 
         let mut is_page_hit = true;
-        let title = match title.starts_with(JOURNAL_PREFIX) {
-            true => {
-                assert!(server_info.enable_journal_query);
-                debug!("Found a journal hit {}", title);
-                is_page_hit = false;
-                let t = title.strip_prefix(JOURNAL_PREFIX);
-                t.unwrap().to_string()
-            },
-            false => {
-                title.to_string()
-            }
+        let title = if title.starts_with(JOURNAL_PREFIX) {
+            assert!(server_info.enable_journal_query);
+            debug!("Found a journal hit {}", title);
+            is_page_hit = false;
+            let t = title.strip_prefix(JOURNAL_PREFIX);
+            t.unwrap().to_string()
+        } else {
+            title.to_string()
         };
 
         let logseq_uri = generate_logseq_uri(&title, &is_page_hit, &server_info);
-        let metadata: String = match is_page_hit {
-            true => String::from("page_hit"),
-            false => String::from("journal_hit"),
+        let metadata: String = if is_page_hit {
+            String::from("page_hit")
+        } else {
+            String::from("journal_hit")
         };
 
         FireSeqSearchHitParsed {
