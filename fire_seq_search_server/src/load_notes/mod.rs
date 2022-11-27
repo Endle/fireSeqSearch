@@ -1,6 +1,7 @@
 use std::fs::DirEntry;
 use log::{debug, error, info, warn};
 use regex::Regex;
+use std::process;
 
 use rayon::prelude::*;
 
@@ -8,7 +9,13 @@ use crate::markdown_parser::parse_to_plain_text;
 
 pub fn read_specific_directory(path: &str) -> Vec<(String, String)> {
     info!("Try to read {}", &path);
-    let notebooks = std::fs::read_dir(path).unwrap();
+    let notebooks = match std::fs::read_dir(path) {
+        Ok(x) => x,
+        Err(e) => {
+            error!("Fatal error ({:?}) when reading {}", e, path);
+            process::abort();
+        }
+    };
     let mut note_filenames: Vec<DirEntry> = Vec::new();
     for note in notebooks {
         let note : DirEntry = note.unwrap();

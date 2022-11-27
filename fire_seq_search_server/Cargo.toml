@@ -1,6 +1,6 @@
 [package]
 name = "fire_seq_search_server"
-version = "0.0.20"
+version = "0.0.21"
 edition = "2021"
 
 
@@ -20,7 +20,10 @@ tantivy = "0.18"
 log = "0.4.0"
 env_logger = "0.9.0"
 
-clap = { version = "3.0.14", features = ["derive"] }
+# Rust
+clap = { version = "4.0", features = ["derive"] }
+
+
 urlencoding = "2.1.0"
 jieba-rs = { version = "0.6.6" }
 lazy_static = "1.4.0"
