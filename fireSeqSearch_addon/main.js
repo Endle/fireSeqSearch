@@ -101,7 +101,8 @@ function createHrefToLogseq(record, serverInfo) {
     const title = record.title;
     const prettyTitle = title.replaceAll("%2F", "/");
 
-    const target = `logseq://graph/${name}?page=${title}`;
+    const target = record.logseq_uri || `logseq://graph/${name}?page=${title}`;
+
     const logseqPageLink = document.createElement('a');
     const text = document.createTextNode(prettyTitle);
     logseqPageLink.appendChild(text);
