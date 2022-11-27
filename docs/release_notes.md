@@ -1,3 +1,10 @@
+### 0.0.22
+This is both server-side and client-side update.  
+
+New feature: [include journal pages in search results](https://github.com/Endle/fireSeqSearch/issues/65). This feature is turned off by default. Use `--enable-journal-query` to enable it.
+
+Currently, I haven't figured out an approach to generate the Logseq URI for a specific journal page.
+
 ### 0.0.19
 This is a server-side update.  
 
