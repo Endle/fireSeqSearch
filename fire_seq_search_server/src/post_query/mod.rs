@@ -201,3 +201,20 @@ pub fn split_body_to_blocks(body: &str, show_summary_single_line_chars_limit: us
     }
     result
 }
+
+use urlencoding::encode;
+
+pub fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &ServerInformation) -> String {
+    // logseq://graph/logseq_notebook?page=Games%2FEU4
+    return if *is_page_hit {
+        let uri = format!("logseq://graph/{}?page={}",
+                          server_info.notebook_name, encode(title));
+        uri
+    } else {
+        warn!("Not implemented for journal page yet: {}", title);
+        let uri = format!("logseq://graph/page?{}",
+                          server_info.notebook_name);
+        uri
+    };
+    // logseq://graph/logseq_notebook?page=Nov%2026th%2C%202022
+}
