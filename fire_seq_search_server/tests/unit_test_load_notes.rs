@@ -1,5 +1,3 @@
-mod test_uri_encode;
-
 use fire_seq_search_server::load_notes::{exclude_advanced_query, read_specific_directory};
 use fire_seq_search_server::markdown_parser::parse_to_plain_text;
 

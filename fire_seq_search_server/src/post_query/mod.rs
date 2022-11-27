@@ -213,7 +213,7 @@ pub fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &Server
         uri
     } else {
         warn!("Not implemented for journal page yet: {}", title);
-        let uri = format!("logseq://graph/page?{}",
+        let uri = format!("logseq://graph/{}",
                           server_info.notebook_name);
         uri
     };
@@ -234,7 +234,7 @@ mod test_logseq_uri {
             show_summary_single_line_chars_limit: 0,
         };
 
-        let r = generate_logseq_uri("Games/EU4", &false, &server_info);
+        let r = generate_logseq_uri("Games/EU4", &true, &server_info);
         assert_eq!(&r, "logseq://graph/logseq_notebook?page=Games%2FEU4");
     }
 }
