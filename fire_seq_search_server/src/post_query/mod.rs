@@ -45,12 +45,13 @@ fn highlight_sentence_with_keywords(sentence: &String,
         return None;
     }
     debug!("Tokens {:?}, match {:?}", term_tokens, &mats_found);
-    Some(wrap_text_at_given_spots(sentence, &mut mats_found,
+    mats_found.sort_by_key(|k| k.0);
+    Some(wrap_text_at_given_spots(sentence, &mats_found,
                                   show_summary_single_line_chars_limit))
 
 }
 
-fn wrap_text_at_given_spots(sentence: &str, mats_found: &mut Vec<(usize, usize)>,
+fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>,
                             show_summary_single_line_chars_limit: usize) -> String {
 
     debug!("Wrap with span, origin len={}, match number = {}",
@@ -63,7 +64,7 @@ fn wrap_text_at_given_spots(sentence: &str, mats_found: &mut Vec<(usize, usize)>
     // arbitrary seg
     let too_long_segment_remained_len = show_summary_single_line_chars_limit / 3;
 
-    mats_found.sort_by_key(|k| k.0);
+
 
     // I feel that this is not quite elegant
     let mut builder: Vec<String> = Vec::with_capacity(mats_found.len() + 1);
