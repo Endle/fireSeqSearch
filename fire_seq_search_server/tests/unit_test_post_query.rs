@@ -1,4 +1,4 @@
-use fire_seq_search_server::post_query::{highlight_keywords_in_body, split_body_to_blocks};
+use fire_seq_search_server::post_query::{highlight_keywords_in_body, highlight_sentence_with_keywords, split_body_to_blocks};
 
 fn get_english_text() -> String {
     std::fs::read_to_string("tests/resource/pages/International Language, Past, Present & Future by Walter John Clark.md")
@@ -49,3 +49,11 @@ fn test_split_long_article_to_block() {
     //I didn't finish the test
 }
 
+#[test]
+fn test_highlight_sentence_with_keywords() {
+    let contents = std::fs::read_to_string
+        ("tests/resource/pages/咖啡.md")
+        .expect("Should have been able to read the file");
+    let tokens = vec!["咖啡"];
+    let _r = highlight_sentence_with_keywords(&contents, &tokens, 300);
+}

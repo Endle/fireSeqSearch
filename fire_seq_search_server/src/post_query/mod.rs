@@ -32,7 +32,7 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
     result.join(" ")
 }
 
-fn highlight_sentence_with_keywords(sentence: &String,
+pub fn highlight_sentence_with_keywords(sentence: &str,
                                     term_tokens: &Vec<&str>,
                                     show_summary_single_line_chars_limit: usize) -> Option<String> {
 
@@ -117,11 +117,12 @@ fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>,
         mat_pos += 1;
     }
 
+
     if cursor < sentence.len() {
         let remain_seg = &sentence[cursor..];
         if remain_seg.len() > show_summary_single_line_chars_limit {
             let brief = safe_generate_brief_for_too_long_segment(
-                &remain_seg[..too_long_segment_remained_len], too_long_segment_remained_len
+                remain_seg, too_long_segment_remained_len
             );
             builder.push(brief);
         } else {
@@ -157,7 +158,6 @@ fn locate_single_keyword<'a>(sentence: &'a str, token: &'a str) -> Vec<(usize,us
         }
     };
     for mat in needle.find_iter(sentence) {
-
         result.push((mat.start(), mat.end()));
         let t: &str = &sentence[mat.start()..mat.end()];
         debug!("Matched ({}) at {},{}", &t, mat.start(),mat.end());
