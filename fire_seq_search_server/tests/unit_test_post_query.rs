@@ -64,7 +64,10 @@ fn test_wrap_text_at_given_spots() {
     let contents = std::fs::read_to_string
         ("tests/resource/pages/咖啡.md")
         .expect("Should have been able to read the file");
-    assert_eq!(164, contents.len()); // Returns the length of this String, in bytes, not chars or graphemes
+
+    // Returns the length of this String, in bytes, not chars or graphemes
+    // Win 164, mac & linux 163
+    assert(contents.len() == 164 || contents.len() == 163);
     let token = "咖啡";
     assert_eq!(token.len(),6);
     let mats = locate_single_keyword(&contents, token);
