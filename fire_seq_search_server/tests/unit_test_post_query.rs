@@ -1,4 +1,4 @@
-use fire_seq_search_server::post_query::{highlight_keywords_in_body, highlight_sentence_with_keywords, split_body_to_blocks};
+use fire_seq_search_server::post_query::{highlight_keywords_in_body, highlight_sentence_with_keywords, locate_single_keyword, split_body_to_blocks, wrap_text_at_given_spots};
 
 fn get_english_text() -> String {
     std::fs::read_to_string("tests/resource/pages/International Language, Past, Present & Future by Walter John Clark.md")
@@ -56,4 +56,26 @@ fn test_highlight_sentence_with_keywords() {
         .expect("Should have been able to read the file");
     let tokens = vec!["咖啡"];
     let _r = highlight_sentence_with_keywords(&contents, &tokens, 300);
+}
+
+
+#[test]
+fn test_wrap_text_at_given_spots() {
+    let contents = std::fs::read_to_string
+        ("tests/resource/pages/咖啡.md")
+        .expect("Should have been able to read the file");
+    assert_eq!(164, contents.len()); // Returns the length of this String, in bytes, not chars or graphemes
+    let token = "咖啡";
+    assert_eq!(token.len(),6);
+    let mats = locate_single_keyword(&contents, token);
+    assert_eq!(2, mats.len());
+
+    for m in &mats {
+        let left: usize = m.0;
+        let right: usize = m.1;
+        let sub = &contents[left..right];
+        assert_eq!(sub, token);
+        assert_eq!(right-left, 6);
+    }
+    let _r = wrap_text_at_given_spots(&contents, &mats, 320);
 }

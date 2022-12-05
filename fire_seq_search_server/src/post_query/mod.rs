@@ -51,7 +51,7 @@ pub fn highlight_sentence_with_keywords(sentence: &str,
 
 }
 
-fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>,
+pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>,
                             show_summary_single_line_chars_limit: usize) -> String {
 
     debug!("Wrap with span, origin len={}, match number = {}",
@@ -145,7 +145,7 @@ fn safe_generate_brief_for_too_long_segment(remained: &str, too_long_segment_rem
 
 
 // TODO: conjugation is not considered here
-fn locate_single_keyword<'a>(sentence: &'a str, token: &'a str) -> Vec<(usize,usize)> {
+pub fn locate_single_keyword<'a>(sentence: &'a str, token: &'a str) -> Vec<(usize,usize)> {
     let mut result = Vec::new();
     let needle = RegexBuilder::new(token)
         .case_insensitive(true)
