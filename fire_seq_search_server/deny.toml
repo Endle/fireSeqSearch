@@ -97,14 +97,15 @@ ignore = [
 # https://embarkstudios.github.io/cargo-deny/checks/licenses/cfg.html
 [licenses]
 # The lint level for crates which do not have a detectable license
-unlicensed = "deny"
+unlicensed = "warn"
 # List of explicitly allowed licenses
 # See https://spdx.org/licenses/ for list of possible licenses
 # [possible values: any SPDX 3.11 short identifier (+ optional exception)].
 allow = [
-    "MIT",
-    "Apache-2.0",
-    "Apache-2.0 WITH LLVM-exception",
+#    "MIT",
+#    "Apache-2.0",
+#    "Apache-2.0 WITH LLVM-exception",
+#    "BSD-3-Clause",
 ]
 # List of explicitly disallowed licenses
 # See https://spdx.org/licenses/ for list of possible licenses
@@ -120,7 +121,7 @@ copyleft = "warn"
 # * osi-only - The license will be approved if is OSI-approved *AND NOT* FSF
 # * fsf-only - The license will be approved if is FSF *AND NOT* OSI-approved
 # * neither - This predicate is ignored and the default lint level is used
-allow-osi-fsf-free = "neither"
+allow-osi-fsf-free = "both"
 # Lint level used when no other predicates are matched
 # 1. License isn't in the allow or deny lists
 # 2. License isn't copyleft
