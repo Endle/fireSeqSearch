@@ -67,7 +67,7 @@ fn test_wrap_text_at_given_spots() {
 
     // Returns the length of this String, in bytes, not chars or graphemes
     // Win 164, mac & linux 163
-    assert(contents.len() == 164 || contents.len() == 163);
+    assert!(contents.len() == 164 || contents.len() == 163);
     let token = "咖啡";
     assert_eq!(token.len(),6);
     let mats = locate_single_keyword(&contents, token);
