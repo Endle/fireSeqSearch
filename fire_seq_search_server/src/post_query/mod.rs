@@ -1,3 +1,4 @@
+use std::ops::Range;
 use log::{debug, error, info, warn};
 use stopwords;
 use regex::RegexBuilder;
@@ -51,6 +52,19 @@ pub fn highlight_sentence_with_keywords(sentence: &str,
 
 }
 
+// pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>,
+//                             show_summary_single_line_chars_limit: usize) -> String {
+//
+//     let result = std::panic::catch_unwind(|| {
+//         wrap_text_at_given_spots_dangerous(sentence, mats_found, show_summary_single_line_chars_limit);
+//     });
+//     match result {
+//         Ok(x) => x,
+//         Err(e) => {
+//             String::from("Error")
+//         }
+//     }
+// }
 pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>,
                             show_summary_single_line_chars_limit: usize) -> String {
 
@@ -83,7 +97,8 @@ pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>
             error!("Unexpected Cursor = {}, highlight_start = {}", cursor, highlight_start);
         }
 
-        let remain_seg = &sentence[cursor..highlight_start];
+        let remain_seg = safe_string_slice(sentence, cursor..highlight_start);
+
         if remain_seg.len() > show_summary_single_line_chars_limit {
             let brief: String = safe_generate_brief_for_too_long_segment(
                 &remain_seg, too_long_segment_remained_len);
@@ -107,7 +122,8 @@ pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>
         debug!("Wrapping {}-th: ({},{})", mat_pos, highlight_start, highlight_end);
         // [start, end) be wrapped
         builder.push(span_start.to_string());
-        let wrapped_word = &sentence[highlight_start..highlight_end];
+        let wrapped_word = safe_string_slice(sentence,
+                                             highlight_start..highlight_end);
         debug!("\tWrapping ({})", &wrapped_word);
         builder.push(wrapped_word.to_string());
         builder.push(span_end.to_string());
@@ -119,7 +135,7 @@ pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>
 
 
     if cursor < sentence.len() {
-        let remain_seg = &sentence[cursor..];
+        let remain_seg = safe_string_slice(sentence,cursor..sentence.len());
         if remain_seg.len() > show_summary_single_line_chars_limit {
             let brief = safe_generate_brief_for_too_long_segment(
                 remain_seg, too_long_segment_remained_len
@@ -131,6 +147,16 @@ pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>
     }
 
     builder.concat()
+}
+
+fn safe_string_slice(sentence: &str, range: Range<usize>) -> &str {
+    match &sentence.get(range.to_owned()) {
+        None => {
+            error!("Wrong char boundary, {} at range({:?})", sentence, range);
+            ""
+        }
+        Some(x) => { x }
+    }
 }
 
 fn safe_generate_brief_for_too_long_segment(remained: &str, too_long_segment_remained_len: usize) -> String {
