@@ -26,18 +26,14 @@ jobs:
             ${{ runner.os }}-cargo-stable-
             ${{ runner.os }}-cargo-
     - name: Install cargo deny
-      continue-on-error: true
       run: |
           cargo install --locked cargo-deny
           cd fire_seq_search_server
-          cargo deny init
     - name: cargo deny license
-      continue-on-error: true
       run: |
           cd fire_seq_search_server
           cargo deny check licenses
     - name: cargo deny advisories
-      continue-on-error: true
       run: |
           cd fire_seq_search_server
           cargo deny check advisories          
