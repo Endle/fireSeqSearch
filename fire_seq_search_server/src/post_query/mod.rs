@@ -149,6 +149,10 @@ pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>
     builder.concat()
 }
 
+/*
+This is a temporary mitigation. I'll try to find out why it cuts the char at wrong boundary.
+    - Zhenbo Li 2022-12-05
+ */
 fn safe_string_slice(sentence: &str, range: Range<usize>) -> &str {
     match &sentence.get(range.to_owned()) {
         None => {
