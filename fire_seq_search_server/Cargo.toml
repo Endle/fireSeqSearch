@@ -2,7 +2,7 @@
 name = "fire_seq_search_server"
 version = "0.0.23"
 edition = "2021"
-
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
