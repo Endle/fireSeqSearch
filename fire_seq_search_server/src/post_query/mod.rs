@@ -1,3 +1,5 @@
+pub mod logseq_uri;
+
 use std::ops::Range;
 use log::{debug, error, info, warn};
 use stopwords;
@@ -52,19 +54,7 @@ pub fn highlight_sentence_with_keywords(sentence: &str,
 
 }
 
-// pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>,
-//                             show_summary_single_line_chars_limit: usize) -> String {
-//
-//     let result = std::panic::catch_unwind(|| {
-//         wrap_text_at_given_spots_dangerous(sentence, mats_found, show_summary_single_line_chars_limit);
-//     });
-//     match result {
-//         Ok(x) => x,
-//         Err(e) => {
-//             String::from("Error")
-//         }
-//     }
-// }
+
 pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>,
                             show_summary_single_line_chars_limit: usize) -> String {
 
@@ -233,43 +223,3 @@ pub fn split_body_to_blocks(body: &str, show_summary_single_line_chars_limit: us
     result
 }
 
-use crate::ServerInformation;
-
-pub fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &ServerInformation) -> String {
-
-    return if *is_page_hit {
-        let uri = format!("logseq://graph/{}?page={}",
-                          server_info.notebook_name, title);
-        uri
-    } else {
-        warn!("Not implemented for journal page yet: {}", title);
-        let uri = format!("logseq://graph/{}",
-                          server_info.notebook_name);
-        uri
-    };
-    // logseq://graph/logseq_notebook?page=Nov%2026th%2C%202022
-}
-#[cfg(test)]
-mod test_logseq_uri {
-    use crate::post_query::generate_logseq_uri;
-    use crate::ServerInformation;
-
-    #[test]
-    fn test_generate() {
-        let server_info = ServerInformation {
-            notebook_path: "stub_path".to_string(),
-            notebook_name: "logseq_notebook".to_string(),
-            enable_journal_query: false,
-            show_top_hits: 0,
-            show_summary_single_line_chars_limit: 0,
-        };
-
-        // Don't encode / at here. It would be processed by serde. - 2022-11-27
-        let r = generate_logseq_uri("Games/EU4", &true, &server_info);
-        assert_eq!(&r, "logseq://graph/logseq_notebook?page=Games/EU4");
-
-        let r = generate_logseq_uri("Games/赛马娘", &true, &server_info);
-        assert_eq!(&r,
-        "logseq://graph/logseq_notebook?page=Games/赛马娘");
-    }
-}
