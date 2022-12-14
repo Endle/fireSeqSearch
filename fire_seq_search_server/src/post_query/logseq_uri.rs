@@ -20,6 +20,59 @@ struct JournalDate {
     pub date: u32,
 }
 
+impl JournalDate {
+    pub fn to_str(&self, _: &ServerInformation) -> String {
+        let mut result = Vec::new();
+        result.push(match self.month {
+            1 => "Jan",
+            2 => "Feb",
+            3 => "Mar",
+            4 => "Apr",
+            5 => "May",
+            6 => "Jun",
+            7 => "Jul",
+            8 => "Aug",
+            9 => "Sep",
+            10 => "Oct",
+            11 => "Nov",
+            12 => "Dec",
+            _ => {
+                error!("Unexpected month {}", self.month);
+                "ErrMonth"
+            }
+        }.to_string());
+
+        result.push(" ".to_string());
+        match  self.date {
+            1|21|31 => {
+                let s = self.date.to_string();
+                result.push(s);
+                result.push("st".to_string());
+            },
+            2|22 => {
+                let s = self.date.to_string();
+                result.push(s);
+                result.push("nd".to_string());
+            },
+            3|23 => {
+                let s = self.date.to_string();
+                result.push(s);
+                result.push("rd".to_string());
+            },
+            _ => {
+                let s = self.date.to_string();
+                result.push(s);
+                result.push("th".to_string());
+            }
+        };
+
+        result.push(", ".to_string());
+        result.push(self.year.to_string());
+
+        result.concat()
+    }
+}
+
 fn generate_logseq_journal_uri(title: &str, server_info: &ServerInformation) -> String {
 
     log::info!("Not implemented for journal page yet: {}", title);
@@ -103,14 +156,7 @@ mod test_logseq_uri {
     use crate::post_query::logseq_uri::parse_date_from_str;
     use crate::ServerInformation;
 
-    #[test]
-    fn test_parse() {
-        assert_eq!(None, parse_date_from_str("22"));
-        let d = parse_date_from_str("2022_12_05");
-        println!("{:?}", &d);
-    }
-    #[test]
-    fn test_generate() {
+    fn generate_server_info() -> ServerInformation {
         let server_info = ServerInformation {
             notebook_path: "stub_path".to_string(),
             notebook_name: "logseq_notebook".to_string(),
@@ -118,6 +164,21 @@ mod test_logseq_uri {
             show_top_hits: 0,
             show_summary_single_line_chars_limit: 0,
         };
+        server_info
+    }
+    #[test]
+    fn test_parse() {
+        let server_info = generate_server_info();
+        assert_eq!(None, parse_date_from_str("22"));
+        let d = parse_date_from_str("2022_12_05");
+        assert!(d.is_some());
+        let d = d.unwrap();
+        assert_eq!(d.to_str(&server_info), "Dec 5th, 2022");
+    }
+    #[test]
+    fn test_generate() {
+
+        let server_info = generate_server_info();
 
         // Don't encode / at here. It would be processed by serde. - 2022-11-27
         let r = generate_logseq_uri("Games/EU4", &true, &server_info);
