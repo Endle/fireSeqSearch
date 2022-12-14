@@ -5,7 +5,7 @@ mod language_detect;
 
 
 use log::{debug, info};
-use crate::post_query::{generate_logseq_uri, highlight_keywords_in_body};
+use crate::post_query::{highlight_keywords_in_body};
 use serde::Serialize;
 
 #[macro_use]
@@ -96,6 +96,7 @@ lazy_static! {
 pub const TOKENIZER_ID: &str = "fss_tokenizer";
 
 use tantivy::tokenizer::{BoxTokenStream, Token, TokenStream, Tokenizer};
+use crate::post_query::logseq_uri::generate_logseq_uri;
 
 pub struct JiebaTokenStream {
     tokens: Vec<Token>,
