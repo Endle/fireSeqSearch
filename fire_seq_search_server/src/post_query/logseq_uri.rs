@@ -1,4 +1,3 @@
-use std::num::ParseIntError;
 use log::error;
 use crate::ServerInformation;
 
@@ -16,9 +15,9 @@ pub fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &Server
 }
 #[derive(PartialEq, Debug)]
 struct JournalDate {
-    pub year: u8,
-    pub month: u8,
-    pub date: u8,
+    pub year: u32,
+    pub month: u32,
+    pub date: u32,
 }
 
 fn generate_logseq_journal_uri(title: &str, server_info: &ServerInformation) -> String {
@@ -47,10 +46,10 @@ fn generate_logseq_journal_uri(title: &str, server_info: &ServerInformation) -> 
             server_info.notebook_name)
 }
 
-fn parse_slice_to_u8(slice: Option<&str>) -> Option<u8> {
+fn parse_slice_to_u8(slice: Option<&str>) -> Option<u32> {
     match slice{
         Some(x) => {
-            let y = x.parse::<u8>();
+            let y = x.parse::<u32>();
             match y {
                 Ok(i) => Some(i),
                 Err(e) => {
@@ -73,42 +72,24 @@ fn parse_date_from_str(title: &str) -> Option<JournalDate> {
         return None;
     }
 
-    let year = parse_slice_to_u8(title.get(0..4));
-    let year = match title.get(0..4){
-        Some(x) => {
-            let y = x.parse::<u8>();
-            match y {
-                Ok(i) => i,
-                Err(_) => {
-                    return None;
-                }
-            }
-        },
-        None => {return None}
+    let year = match parse_slice_to_u8(title.get(0..4)) {
+        Some(x) => x,
+        None => {
+            return None;
+        }
     };
-
-    let month = match title.get(5..=6){
-        Some(x) => {
-            let y = x.parse::<u8>();
-            match y {
-                Ok(i) => i,
-                Err(_) => {return None;}
-            }
-        },
-        None => {return None}
+    let month = match parse_slice_to_u8(title.get(5..=6)) {
+        Some(x) => x,
+        None => {
+            return None;
+        }
     };
-
-    let date = match title.get(8..=9){
-        Some(x) => {
-            let y = x.parse::<u8>();
-            match y {
-                Ok(i) => i,
-                Err(_) => {return None;}
-            }
-        },
-        None => {return None}
+    let date = match parse_slice_to_u8(title.get(8..=9)) {
+        Some(x) => x,
+        None => {
+            return None;
+        }
     };
-
     Some(JournalDate{
         year,
         month,
