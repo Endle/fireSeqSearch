@@ -77,26 +77,16 @@ fn generate_logseq_journal_uri(title: &str, server_info: &ServerInformation) -> 
 
     log::info!("Not implemented for journal page yet: {}", title);
     let dt = parse_date_from_str(title);
-    // use chrono::DateTime;
-    // let dt = chrono::DateTime::parse_from_str(
-    //     title, "%Y_%m_%d"
-    // );
-    // let dt = match dt {
-    //     Ok(t) => {
-    //         t
-    //     },
-    //     Err(e) => {
-    //         // Failed(ParseError(NotEnough))
-    //         error!("Failed({:?}) to parse journal page: {}, use default URI", e, title);
-    //         return format!("logseq://graph/{}",
-    //                        server_info.notebook_name);
-    //     }
-    // };
-    // // logseq://graph/logseq_notebook?page=Dec%2013th%2C%202022
-    // let dt_str = dt.format("%b , %Y");
-    // println!("{}", &dt_str);
-    format!("logseq://graph/{}",
-            server_info.notebook_name)
+    let dt = match dt {
+        None => {
+            error!("Failed to gen JournalDate from {}", title);
+            return format!("logseq://graph/{}", server_info.notebook_name);
+        }
+        Some(x) => x
+    };
+    let journal_name = dt.to_str(server_info);
+    format!("logseq://graph/{}?page={}",
+            server_info.notebook_name, journal_name)
 }
 
 fn parse_slice_to_u8(slice: Option<&str>) -> Option<u32> {
@@ -152,7 +142,7 @@ fn parse_date_from_str(title: &str) -> Option<JournalDate> {
 
 #[cfg(test)]
 mod test_logseq_uri {
-    use crate::post_query::logseq_uri::generate_logseq_uri;
+    use crate::post_query::logseq_uri::{generate_logseq_journal_uri, generate_logseq_uri};
     use crate::post_query::logseq_uri::parse_date_from_str;
     use crate::ServerInformation;
 
@@ -187,5 +177,7 @@ mod test_logseq_uri {
         let r = generate_logseq_uri("Games/赛马娘", &true, &server_info);
         assert_eq!(&r,
                    "logseq://graph/logseq_notebook?page=Games/赛马娘");
+        let r = generate_logseq_journal_uri("2022_12_14", &server_info);
+        assert_eq!(&r,"logseq://graph/logseq_notebook?page=Dec 14th, 2022");
     }
 }
