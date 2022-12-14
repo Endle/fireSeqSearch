@@ -1,3 +1,4 @@
+use std::num::ParseIntError;
 use log::error;
 use crate::ServerInformation;
 
@@ -13,10 +14,17 @@ pub fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &Server
     };
     // logseq://graph/logseq_notebook?page=Nov%2026th%2C%202022
 }
+#[derive(PartialEq, Debug)]
+struct JournalDate {
+    pub year: u8,
+    pub month: u8,
+    pub date: u8,
+}
 
 fn generate_logseq_journal_uri(title: &str, server_info: &ServerInformation) -> String {
 
     log::info!("Not implemented for journal page yet: {}", title);
+    let dt = parse_date_from_str(title);
     // use chrono::DateTime;
     // let dt = chrono::DateTime::parse_from_str(
     //     title, "%Y_%m_%d"
@@ -39,11 +47,87 @@ fn generate_logseq_journal_uri(title: &str, server_info: &ServerInformation) -> 
             server_info.notebook_name)
 }
 
+fn parse_slice_to_u8(slice: Option<&str>) -> Option<u8> {
+    match slice{
+        Some(x) => {
+            let y = x.parse::<u8>();
+            match y {
+                Ok(i) => Some(i),
+                Err(e) => {
+                    error!("Parse({}) Int Error:  ({:?})", x, e);
+                    None
+                }
+            }
+        },
+        None => {
+            error!("Invalid slice");
+            None
+        }
+
+    }
+}
+
+fn parse_date_from_str(title: &str) -> Option<JournalDate> {
+    if title.len() != 10 {
+        error!("Journal length unexpected: {}", title);
+        return None;
+    }
+
+    let year = parse_slice_to_u8(title.get(0..4));
+    let year = match title.get(0..4){
+        Some(x) => {
+            let y = x.parse::<u8>();
+            match y {
+                Ok(i) => i,
+                Err(_) => {
+                    return None;
+                }
+            }
+        },
+        None => {return None}
+    };
+
+    let month = match title.get(5..=6){
+        Some(x) => {
+            let y = x.parse::<u8>();
+            match y {
+                Ok(i) => i,
+                Err(_) => {return None;}
+            }
+        },
+        None => {return None}
+    };
+
+    let date = match title.get(8..=9){
+        Some(x) => {
+            let y = x.parse::<u8>();
+            match y {
+                Ok(i) => i,
+                Err(_) => {return None;}
+            }
+        },
+        None => {return None}
+    };
+
+    Some(JournalDate{
+        year,
+        month,
+        date
+    })
+}
+
 #[cfg(test)]
 mod test_logseq_uri {
-    use crate::post_query::generate_logseq_uri;
+    use crate::post_query::logseq_uri::generate_logseq_uri;
+    use crate::post_query::logseq_uri::parse_date_from_str;
     use crate::ServerInformation;
 
+    #[test]
+    fn test_parse() {
+        assert_eq!(None, parse_date_from_str("22"));
+        let d = parse_date_from_str("2022_12_05");
+        println!("{:?}", &d);
+    }
     #[test]
     fn test_generate() {
         let server_info = ServerInformation {
