@@ -5,7 +5,7 @@ mod language_detect;
 
 
 use log::{debug, info};
-use crate::post_query::{highlight_keywords_in_body};
+use crate::post_query::highlight_keywords_in_body;
 use serde::Serialize;
 
 #[macro_use]
