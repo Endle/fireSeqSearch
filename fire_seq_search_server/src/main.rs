@@ -50,22 +50,31 @@ async fn main() {
         .init();
 
     let matches = Cli::parse();
-
     let server_info: ServerInformation = build_server_info(matches);
+
+
     let document_setting: DocumentSetting = build_document_setting();
 
     let index = indexing_documents(&server_info, &document_setting);
     let (reader, query_parser) = build_reader_parser(&index, &document_setting);
 
+    let server_info_arc = std::sync::Arc::new(server_info);
     // TODO clone server_info is so ugly here
-    let server_info_dup = server_info.clone();
+    let server_info_for_query = server_info_arc.clone();
     let call_query = warp::path!("query" / String)
-        .map(move |name| fire_seq_search_server::http_client::endpoints::query(name, &server_info_dup, document_setting.schema.clone(),
-                               &reader, &query_parser) );
+        .map(move |name|
+            fire_seq_search_server::http_client::endpoints::query(
+                name,
+                server_info_for_query,
+                document_setting.schema.clone(),
+                &reader, &query_parser)
+        );
 
-    let server_info_dup2 = server_info.clone();
+    let server_info_dup = server_info_arc.clone();
     let get_server_info = warp::path("server_info")
-        .map(move || serde_json::to_string( &server_info_dup2 ).unwrap() );
+        .map(move || {
+            serde_json::to_string( &server_info_dup ).unwrap()
+        } );
 
     let routes = warp::get().and(
         call_query
@@ -112,7 +121,7 @@ fn build_server_info(args: Cli) -> ServerInformation {
     let notebook_name = match args.notebook_name {
         Some(x) => x.to_string(),
         None => {
-            let chunks: Vec<&str> = args.notebook_path.split("/").collect();
+            let chunks: Vec<&str> = args.notebook_path.split('/').collect();
             let guess: &str = *chunks.last().unwrap();
             info!("fire_seq_search guess the notebook name is {}", guess);
             String::from(guess)
