@@ -59,16 +59,15 @@ async fn main() {
     let (reader, query_parser) = build_reader_parser(&index, &document_setting);
 
     let server_info_arc = std::sync::Arc::new(server_info);
-    // TODO clone server_info is so ugly here
     let server_info_for_query = server_info_arc.clone();
     let call_query = warp::path!("query" / String)
-        .map(move |name|
+        .map(move |name| {
             fire_seq_search_server::http_client::endpoints::query(
                 name,
-                server_info_for_query,
+                server_info_for_query.clone(),
                 document_setting.schema.clone(),
                 &reader, &query_parser)
-        );
+        });
 
     let server_info_dup = server_info_arc.clone();
     let get_server_info = warp::path("server_info")
