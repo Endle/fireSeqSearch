@@ -112,7 +112,7 @@ fn build_server_info(args: Cli) -> ServerInformation {
     let notebook_name = match args.notebook_name {
         Some(x) => x.to_string(),
         None => {
-            let chunks: Vec<&str> = args.notebook_path.split("/").collect();
+            let chunks: Vec<&str> = args.notebook_path.split('/').collect();
             let guess: &str = *chunks.last().unwrap();
             info!("fire_seq_search guess the notebook name is {}", guess);
             String::from(guess)
