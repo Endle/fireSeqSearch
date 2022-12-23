@@ -1,21 +1,12 @@
 use warp::Filter;
 
 use tantivy::schema::*;
-use tantivy::{ReloadPolicy, doc, DocAddress, LeasedItem, Searcher};
-use rayon::prelude::*;
-
-
-
+use tantivy::{ReloadPolicy, doc};
 use serde_json;
-
-
-use log::{info,debug};
-
-
+use log::info;
 
 use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer, TOKENIZER_ID, tokenize_default, ServerInformation, JOURNAL_PREFIX};
 use fire_seq_search_server::load_notes::read_specific_directory;
-
 
 
 use clap::Parser;
