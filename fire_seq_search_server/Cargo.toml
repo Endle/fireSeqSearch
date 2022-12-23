@@ -11,7 +11,10 @@ license = "MIT"
 tokio = { version = "1", features = ["full"] }
 warp = "0.3"
 serde_json = "1.0"
-serde = { version = "1.0", features = ["derive"] } # https://serde.rs/derive.html
+# Serde
+#   https://serde.rs/derive.html
+#   https://stackoverflow.com/a/49313680/1166518
+serde = { version = "1.0", features = ["derive", "rc"] }
 
 # Search Engine
 tantivy = "0.18"

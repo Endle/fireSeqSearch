@@ -1,22 +1,12 @@
 use warp::Filter;
 
 use tantivy::schema::*;
-use tantivy::{ReloadPolicy, doc, DocAddress, LeasedItem, Searcher};
-use rayon::prelude::*;
-
-
-
+use tantivy::{ReloadPolicy, doc};
 use serde_json;
-
-
-use log::{info,debug};
-
-use urlencoding::decode;
-
+use log::info;
 
 use fire_seq_search_server::{FireSeqSearchHitParsed, JiebaTokenizer, TOKENIZER_ID, tokenize_default, ServerInformation, JOURNAL_PREFIX};
 use fire_seq_search_server::load_notes::read_specific_directory;
-
 
 
 use clap::Parser;
@@ -60,22 +50,30 @@ async fn main() {
         .init();
 
     let matches = Cli::parse();
-
     let server_info: ServerInformation = build_server_info(matches);
+
+
     let document_setting: DocumentSetting = build_document_setting();
 
     let index = indexing_documents(&server_info, &document_setting);
     let (reader, query_parser) = build_reader_parser(&index, &document_setting);
 
-    // TODO clone server_info is so ugly here
-    let server_info_dup = server_info.clone();
+    let server_info_arc = std::sync::Arc::new(server_info);
+    let server_info_for_query = server_info_arc.clone();
     let call_query = warp::path!("query" / String)
-        .map(move |name| query(name, &server_info_dup, document_setting.schema.clone(),
-                               &reader, &query_parser) );
+        .map(move |name| {
+            fire_seq_search_server::http_client::endpoints::query(
+                name,
+                server_info_for_query.clone(),
+                document_setting.schema.clone(),
+                &reader, &query_parser)
+        });
 
-    let server_info_dup2 = server_info.clone();
+    let server_info_dup = server_info_arc.clone();
     let get_server_info = warp::path("server_info")
-        .map(move || serde_json::to_string( &server_info_dup2 ).unwrap() );
+        .map(move || {
+            serde_json::to_string( &server_info_dup ).unwrap()
+        } );
 
     let routes = warp::get().and(
         call_query
@@ -122,7 +120,7 @@ fn build_server_info(args: Cli) -> ServerInformation {
     let notebook_name = match args.notebook_name {
         Some(x) => x.to_string(),
         None => {
-            let chunks: Vec<&str> = args.notebook_path.split("/").collect();
+            let chunks: Vec<&str> = args.notebook_path.split('/').collect();
             let guess: &str = *chunks.last().unwrap();
             info!("fire_seq_search guess the notebook name is {}", guess);
             String::from(guess)
@@ -139,73 +137,10 @@ fn build_server_info(args: Cli) -> ServerInformation {
 }
 
 
-fn decode_cjk_str(original: String) -> Vec<String> {
-    let mut result = Vec::new();
-    for s in original.split(' ') {
-        let t = decode(s).expect("UTF-8");
-        debug!("Decode {}  ->   {}", s, t);
-        result.push(String::from(t));
-    }
-
-    result
-}
-
-
-// I can't remember why I need this schema parameter. To satisfy compiler, I added _ on 2022-11-06
-fn query(term: String, server_info: &ServerInformation, _schema: tantivy::schema::Schema,
-         reader: &tantivy::IndexReader, query_parser: &tantivy::query::QueryParser)
-    -> String {
-
-    debug!("Original Search term {}", term);
-
-    // in the future, I would use tokenize_sentence_to_text_vec here
-    let term = term.replace("%20", " ");
-    let term_vec = decode_cjk_str(term);
-    let term = term_vec.join(" ");
-
-    info!("Searching {}", term);
-    let searcher = reader.searcher();
 
 
 
-    let query: Box<dyn tantivy::query::Query> = query_parser.parse_query(&term).unwrap();
-    let top_docs: Vec<(f32, tantivy::DocAddress)> =
-        searcher.search(&query,
-                        &tantivy::collector::TopDocs::with_limit(server_info.show_top_hits))
-        .unwrap();
 
-
-
-    let result: Vec<String> = post_query_wrapper(top_docs, &term, &searcher, &server_info);
-
-
-
-    let json = serde_json::to_string(&result).unwrap();
-
-    // info!("Search result {}", &json);
-    json
-    // result[0].clone()
-}
-
-fn post_query_wrapper(top_docs: Vec<(f32, DocAddress)>,
-                      term: &String,
-                      searcher: &LeasedItem<Searcher>,
-                      server_info: &ServerInformation) -> Vec<String> {
-    let term_tokens = tokenize_default(&term);
-    info!("get term tokens {:?}", &term_tokens);
-    // let mut result;
-    let result: Vec<String> = top_docs.par_iter()
-        .map(|&x| FireSeqSearchHitParsed::from_tantivy
-            (&searcher.doc(x.1).unwrap(),
-             x.0,
-             &term_tokens,
-            server_info)
-        )
-        // .map(|x| FireSeqSearchHitParsed::from_hit(&x))
-        .map(|p| serde_json::to_string(&p).unwrap())
-        .collect();
-    result
-}
 
 fn build_reader_parser(index: &tantivy::Index, document_setting: &DocumentSetting)
     -> (tantivy::IndexReader, tantivy::query::QueryParser) {
