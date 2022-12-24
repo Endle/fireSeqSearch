@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use log::{debug, info};
-use crate::{decode_cjk_str, post_query_wrapper};
-use crate::query_engine::{QueryEngine, ServerInformation};
+use crate::query_engine::QueryEngine;
 use serde_json;
 
 pub fn get_server_info(engine_arc: Arc<QueryEngine>) -> String {
