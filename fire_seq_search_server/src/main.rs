@@ -2,7 +2,7 @@ use warp::Filter;
 
 use tantivy::schema::*;
 use tantivy::{ReloadPolicy, doc};
-use serde_json;
+
 use log::info;
 
 use fire_seq_search_server::{JiebaTokenizer, TOKENIZER_ID, JOURNAL_PREFIX};
@@ -59,12 +59,19 @@ async fn main() {
             fire_seq_search_server::http_client::endpoints::query(
                 name, arc_for_query.clone() )
         });
-/*
-    let server_info_dup = server_info_arc.clone();
+
+    let arc_for_server_info = engine_arc.clone();
     let get_server_info = warp::path("server_info")
-        .map(move || {
+        .map(move ||
+                 fire_seq_search_server::http_client::endpoints::get_server_info(
+                     arc_for_server_info.clone()
+                 ));
+            /*{
             serde_json::to_string( &server_info_dup ).unwrap()
         } );
+
+             */
+
 
     let routes = warp::get().and(
         call_query
@@ -74,7 +81,6 @@ async fn main() {
         .run(([127, 0, 0, 1], 3030))
         .await;
 
- */
 
 
 }

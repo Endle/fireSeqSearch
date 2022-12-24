@@ -2,8 +2,11 @@ use std::sync::Arc;
 use log::{debug, info};
 use crate::{decode_cjk_str, post_query_wrapper};
 use crate::query_engine::{QueryEngine, ServerInformation};
+use serde_json;
 
-// I can't remember why I need this schema parameter. To satisfy compiler, I added _ on 2022-11-06
+pub fn get_server_info(engine_arc: Arc<QueryEngine>) -> String {
+    serde_json::to_string( &engine_arc.server_info ).unwrap()
+}
 pub fn query(term: String, engine_arc: Arc<QueryEngine>)
              -> String {
 
