@@ -1,12 +1,5 @@
 use warp::Filter;
-
-use tantivy::schema::*;
-use tantivy::{ReloadPolicy, doc};
-
 use log::info;
-
-use fire_seq_search_server::{JiebaTokenizer, TOKENIZER_ID, JOURNAL_PREFIX};
-use fire_seq_search_server::load_notes::read_specific_directory;
 use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
 
 
