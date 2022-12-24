@@ -11,32 +11,8 @@ pub fn query(term: String, engine_arc: Arc<QueryEngine>)
              -> String {
 
     debug!("Original Search term {}", term);
+    engine_arc.query_pipeline(term)
 
-    // in the future, I would use tokenize_sentence_to_text_vec here
-    let term = term.replace("%20", " ");
-    let term_vec = decode_cjk_str(term);
-    let term = term_vec.join(" ");
-
-    info!("Searching {}", term);
-    let searcher = engine_arc.reader.searcher();
-    let server_info: &ServerInformation = &engine_arc.server_info;
-
-    let query: Box<dyn tantivy::query::Query> = engine_arc.query_parser.parse_query(&term).unwrap();
-    let top_docs: Vec<(f32, tantivy::DocAddress)> =
-        searcher.search(&query,
-                        &tantivy::collector::TopDocs::with_limit(server_info.show_top_hits))
-            .unwrap();
-
-
-    let result: Vec<String> = post_query_wrapper(top_docs, &term, &searcher, &server_info);
-
-
-
-    let json = serde_json::to_string(&result).unwrap();
-
-    // info!("Search result {}", &json);
-    json
-    // result[0].clone()
 }
 
 
