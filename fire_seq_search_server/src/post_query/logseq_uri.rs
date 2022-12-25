@@ -144,7 +144,7 @@ fn parse_date_from_str(title: &str) -> Option<JournalDate> {
 mod test_logseq_uri {
     use crate::post_query::logseq_uri::{generate_logseq_journal_uri, generate_logseq_uri};
     use crate::post_query::logseq_uri::parse_date_from_str;
-    use crate::ServerInformation;
+    use crate::query_engine::ServerInformation;
 
     fn generate_server_info() -> ServerInformation {
         let server_info = ServerInformation {

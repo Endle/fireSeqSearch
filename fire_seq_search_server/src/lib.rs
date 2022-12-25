@@ -3,24 +3,17 @@ pub mod load_notes;
 pub mod markdown_parser;
 mod language_detect;
 pub mod http_client;
+pub mod query_engine;
 
 
 use log::{debug, info};
 use crate::post_query::highlight_keywords_in_body;
-use serde::Serialize;
+use crate::query_engine::ServerInformation;
 
 
 #[macro_use]
 extern crate lazy_static;
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ServerInformation {
-    pub notebook_path: String,
-    pub notebook_name: String,
-    pub enable_journal_query: bool,
-    pub show_top_hits: usize,
-    pub show_summary_single_line_chars_limit: usize,
-}
 
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]

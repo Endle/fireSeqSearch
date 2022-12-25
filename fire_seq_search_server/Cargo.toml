@@ -16,7 +16,7 @@ serde_json = "1.0"
 #   https://stackoverflow.com/a/49313680/1166518
 serde = { version = "1.0", features = ["derive", "rc"] }
 
-# Search Engine
+# QueryEngine
 tantivy = "0.18"
 
 
