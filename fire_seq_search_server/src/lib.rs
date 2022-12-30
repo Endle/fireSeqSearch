@@ -226,7 +226,7 @@ pub fn decode_cjk_str(original: String) -> Vec<String> {
 
 use rayon::prelude::*;
 fn post_query_wrapper(top_docs: Vec<(f32, tantivy::DocAddress)>,
-                      term: &String,
+                      term: &str,
                       searcher: &tantivy::LeasedItem<tantivy::Searcher>,
                       server_info: &ServerInformation) -> Vec<String> {
     let term_tokens = tokenize_default(&term);

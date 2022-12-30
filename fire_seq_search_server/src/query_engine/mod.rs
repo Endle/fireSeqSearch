@@ -1,6 +1,7 @@
 // Everything about Tantivy should be hidden behind this component
 
 use log::info;
+use tantivy::DocAddress;
 use crate::{decode_cjk_str, JiebaTokenizer, post_query_wrapper};
 use crate::load_notes::read_specific_directory;
 
@@ -38,32 +39,43 @@ impl QueryEngine {
         }
     }
 
-    pub fn query_pipeline(self: &Self, term: String) -> String {
-        // in the future, I would use tokenize_sentence_to_text_vec here
-        let term = term.replace("%20", " ");
-        let term_vec = decode_cjk_str(term);
-        let term = term_vec.join(" ");
 
-        info!("Searching {}", term);
+
+    pub fn query_pipeline(self: &Self, term: String) -> String {
+        let term: String = term_preprocess(term);
+        info!("Searching {}", &term);
+
+
         let searcher = self.reader.searcher();
         let server_info: &ServerInformation = &self.server_info;
 
-        let query: Box<dyn tantivy::query::Query> = self.query_parser.parse_query(&term).unwrap();
-        let top_docs: Vec<(f32, tantivy::DocAddress)> =
-            searcher.search(&query,
-                            &tantivy::collector::TopDocs::with_limit(server_info.show_top_hits))
-                .unwrap();
-
-
+        let top_docs: Vec<(f32, tantivy::DocAddress)> = self.get_top_docs(&term);
         let result: Vec<String> = post_query_wrapper(top_docs, &term, &searcher, &server_info);
-
-
 
         let json = serde_json::to_string(&result).unwrap();
 
         // info!("Search result {}", &json);
         json
     }
+    fn get_top_docs(&self, term: &str) -> Vec<(f32, DocAddress)> {
+        let searcher = self.reader.searcher();
+        let server_info: &ServerInformation = &self.server_info;
+        let query: Box<dyn tantivy::query::Query> = self.query_parser.parse_query(&term).unwrap();
+        let top_docs: Vec<(f32, tantivy::DocAddress)> =
+            searcher.search(&query,
+                            &tantivy::collector::TopDocs::with_limit(server_info.show_top_hits))
+                .unwrap();
+
+        top_docs
+    }
+}
+
+fn term_preprocess(term:String) -> String {
+    // in the future, I would use tokenize_sentence_to_text_vec here
+    let term = term.replace("%20", " ");
+    let term_vec = decode_cjk_str(term);
+    let term = term_vec.join(" ");
+    term
 }
 
 
