@@ -44,7 +44,7 @@ pub fn read_specific_directory(path: &str) -> Vec<(String, String)> {
 ///
 /// returns: Option<(String, String)>
 ///
-/// First: title
+/// First: title (filename)
 /// Second: full text (parsed)
 ///
 /// If input is a directory or DS_STORE, return None
