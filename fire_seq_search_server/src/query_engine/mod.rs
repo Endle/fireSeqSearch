@@ -114,9 +114,9 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
     let body = schema.get_field("body").unwrap();
 
     for (file_name, contents) in read_specific_directory(&pages_path) {
-        let note_title = process_note_title(file_name, &server_info);
+        // let note_title = process_note_title(file_name, &server_info);
         index_writer.add_document(
-            tantivy::doc!{ title => note_title, body => contents}
+            tantivy::doc!{ title => file_name, body => contents}
         ).unwrap();
     }
 
@@ -135,12 +135,7 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
     index
 }
 
-pub fn process_note_title(file_name: String, server_info: &ServerInformation) -> String {
-    if server_info.convert_underline_hierarchy {
-        return file_name.replace("__", "%2F");
-    }
-    file_name
-}
+
 
 fn build_document_setting() -> DocumentSetting {
     let (schema, tokenizer) = build_schema_tokenizer();

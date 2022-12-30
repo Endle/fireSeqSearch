@@ -1,9 +1,21 @@
 use log::error;
 use crate::ServerInformation;
 
+// I tried to put this part when loading the notebooks, and it reduced the query sensitivity
+// https://github.com/Endle/fireSeqSearch/issues/99
+// 2022-12-30
+fn process_note_title(file_name: &str, server_info: &ServerInformation) -> String {
+    if server_info.convert_underline_hierarchy {
+        //Home In Canada___Clothes
+        return file_name.replace("___", "%2F");
+    }
+    file_name.to_owned()
+}
+
 pub fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &ServerInformation) -> String {
 
     return if *is_page_hit {
+        let title = process_note_title(title, server_info);
         let uri = format!("logseq://graph/{}?page={}",
                           server_info.notebook_name, title);
         uri
@@ -13,6 +25,7 @@ pub fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &Server
     };
     // logseq://graph/logseq_notebook?page=Nov%2026th%2C%202022
 }
+
 #[derive(PartialEq, Debug)]
 struct JournalDate {
     pub year: u32,
@@ -73,9 +86,8 @@ impl JournalDate {
     }
 }
 
-fn generate_logseq_journal_uri(title: &str, server_info: &ServerInformation) -> String {
 
-    log::info!("Not implemented for journal page yet: {}", title);
+fn generate_logseq_journal_uri(title: &str, server_info: &ServerInformation) -> String {
     let dt = parse_date_from_str(title);
     let dt = match dt {
         None => {
@@ -171,5 +183,8 @@ mod test_logseq_uri {
                    "logseq://graph/logseq_notebook?page=Games/赛马娘");
         let r = generate_logseq_journal_uri("2022_12_14", &server_info);
         assert_eq!(&r,"logseq://graph/logseq_notebook?page=Dec 14th, 2022");
+
+        let r = generate_logseq_uri("fireSeqSearch___test___5", &true, &server_info);
+        assert_eq!(&r,"logseq://graph/logseq_notebook?page=fireSeqSearch%2Ftest%2F5");
     }
 }
