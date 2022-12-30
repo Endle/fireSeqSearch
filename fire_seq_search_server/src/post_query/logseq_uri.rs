@@ -142,23 +142,15 @@ fn parse_date_from_str(title: &str) -> Option<JournalDate> {
 
 #[cfg(test)]
 mod test_logseq_uri {
+    use crate::generate_server_info_for_test;
     use crate::post_query::logseq_uri::{generate_logseq_journal_uri, generate_logseq_uri};
     use crate::post_query::logseq_uri::parse_date_from_str;
     use crate::query_engine::ServerInformation;
 
-    fn generate_server_info() -> ServerInformation {
-        let server_info = ServerInformation {
-            notebook_path: "stub_path".to_string(),
-            notebook_name: "logseq_notebook".to_string(),
-            enable_journal_query: false,
-            show_top_hits: 0,
-            show_summary_single_line_chars_limit: 0,
-        };
-        server_info
-    }
+
     #[test]
     fn test_parse() {
-        let server_info = generate_server_info();
+        let server_info = generate_server_info_for_test();
         assert_eq!(None, parse_date_from_str("22"));
         let d = parse_date_from_str("2022_12_05");
         assert!(d.is_some());
@@ -168,7 +160,7 @@ mod test_logseq_uri {
     #[test]
     fn test_generate() {
 
-        let server_info = generate_server_info();
+        let server_info = generate_server_info_for_test();
 
         // Don't encode / at here. It would be processed by serde. - 2022-11-27
         let r = generate_logseq_uri("Games/EU4", &true, &server_info);

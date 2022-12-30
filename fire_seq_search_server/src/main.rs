@@ -99,6 +99,8 @@ fn build_server_info(args: Cli) -> ServerInformation {
         show_top_hits: args.show_top_hits,
         show_summary_single_line_chars_limit:
             args.show_summary_single_line_chars_limit,
+
+        convert_underline_hierarchy: true,
     }
 }
 

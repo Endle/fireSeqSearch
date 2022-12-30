@@ -12,6 +12,9 @@ pub struct ServerInformation {
     pub enable_journal_query: bool,
     pub show_top_hits: usize,
     pub show_summary_single_line_chars_limit: usize,
+
+    /// Experimental. Not sure if I should use this global config - 2022-12-30
+    pub convert_underline_hierarchy: bool,
 }
 
 struct DocumentSetting {
