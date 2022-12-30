@@ -57,6 +57,7 @@ impl QueryEngine {
         // info!("Search result {}", &json);
         json
     }
+
     fn get_top_docs(&self, term: &str) -> Vec<(f32, DocAddress)> {
         let searcher = self.reader.searcher();
         let server_info: &ServerInformation = &self.server_info;
