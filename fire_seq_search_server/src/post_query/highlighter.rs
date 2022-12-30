@@ -1,14 +1,21 @@
+use std::collections::HashSet;
 use std::ops::Range;
 use log::{debug, error, info, warn};
 use stopwords;
 use regex::RegexBuilder;
 
+use lazy_static::lazy_static;
+
+lazy_static! {
+    static ref STOPWORDS_LIST: HashSet<String> = generate_stopwords_list();
+}
 
 pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
                                   show_summary_single_line_chars_limit: usize) -> String {
 
     let blocks = split_body_to_blocks(body, show_summary_single_line_chars_limit);
-    let nltk = generate_stopwords_list();
+    // let nltk = generate_stopwords_list();
+    let nltk = &STOPWORDS_LIST;
 
     let term_ref: Vec<&str> = term_tokens.iter().map(|s| &**s).collect();
     let terms_selected: Vec<&str> = term_ref.into_iter()
@@ -185,8 +192,7 @@ pub fn locate_single_keyword<'a>(sentence: &'a str, token: &'a str) -> Vec<(usiz
 
 
 
-fn generate_stopwords_list<'a>() -> std::collections::HashSet<&'a str> {
-    //TODO Avoid collect it repeatedly
+fn generate_stopwords_list<'a>() -> std::collections::HashSet<String> {
     use stopwords::Stopwords;
     let mut nltk: std::collections::HashSet<&str> = stopwords::NLTK::stopwords(stopwords::Language::English).unwrap().iter().cloned().collect();
     nltk.insert("span");
@@ -195,6 +201,17 @@ fn generate_stopwords_list<'a>() -> std::collections::HashSet<&'a str> {
 
     nltk.insert("theorem");
     nltk.insert("-");
+
+
+    let mut nltk: HashSet<String> = nltk.iter().map(|&s|s.into()).collect();
+
+    for c in 'a'..='z' {
+        nltk.insert(String::from(c));
+    }
+
+    for c in '0'..='9' {
+        nltk.insert(String::from(c));
+    }
     nltk
 }
 
