@@ -192,7 +192,7 @@ pub fn locate_single_keyword<'a>(sentence: &'a str, token: &'a str) -> Vec<(usiz
 
 
 
-fn generate_stopwords_list<'a>() -> std::collections::HashSet<String> {
+fn generate_stopwords_list() -> std::collections::HashSet<String> {
     use stopwords::Stopwords;
     let mut nltk: std::collections::HashSet<&str> = stopwords::NLTK::stopwords(stopwords::Language::English).unwrap().iter().cloned().collect();
     nltk.insert("span");
