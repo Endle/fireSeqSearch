@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use log::{debug, info};
+use log::debug;
 use crate::query_engine::QueryEngine;
 use serde_json;
 

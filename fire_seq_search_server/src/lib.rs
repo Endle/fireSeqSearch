@@ -7,7 +7,7 @@ pub mod query_engine;
 
 
 use log::{debug, info};
-use crate::post_query::highlight_keywords_in_body;
+use crate::post_query::highlighter::highlight_keywords_in_body;
 use crate::query_engine::ServerInformation;
 
 
