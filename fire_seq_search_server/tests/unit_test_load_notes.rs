@@ -1,10 +1,16 @@
 use fire_seq_search_server::load_notes::{exclude_advanced_query, read_specific_directory};
 use fire_seq_search_server::markdown_parser::parse_to_plain_text;
 
-#[test]
-fn load_articles() {
+
+fn load_articles() -> Vec<(String, String)> {
     let r = read_specific_directory("tests/resource/pages");
-    assert_eq!(r.len(), 10);
+    r
+}
+
+#[test]
+fn test_load_articles() {
+    let r = load_articles();
+    assert_eq!(r.len(), 11);
     for (title,body) in &r{
         assert!(title.len()>0);
         assert!(body.len()>0);

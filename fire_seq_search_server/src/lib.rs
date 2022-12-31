@@ -60,7 +60,11 @@ impl FireSeqSearchHitParsed {
             title.to_string()
         };
 
+
         let logseq_uri = generate_logseq_uri(&title, &is_page_hit, &server_info);
+
+        debug!("Processing a hit, title={}, uri={}", &title, &logseq_uri);
+
         let metadata: String = if is_page_hit {
             String::from("page_hit")
         } else {
@@ -226,7 +230,7 @@ pub fn decode_cjk_str(original: String) -> Vec<String> {
 
 use rayon::prelude::*;
 fn post_query_wrapper(top_docs: Vec<(f32, tantivy::DocAddress)>,
-                      term: &String,
+                      term: &str,
                       searcher: &tantivy::LeasedItem<tantivy::Searcher>,
                       server_info: &ServerInformation) -> Vec<String> {
     let term_tokens = tokenize_default(&term);
@@ -248,7 +252,17 @@ fn post_query_wrapper(top_docs: Vec<(f32, tantivy::DocAddress)>,
 
 
 // ============= BELOW IS TEST CASES ====================
-
+pub fn generate_server_info_for_test() -> ServerInformation {
+    let server_info = ServerInformation {
+        notebook_path: "stub_path".to_string(),
+        notebook_name: "logseq_notebook".to_string(),
+        enable_journal_query: false,
+        show_top_hits: 0,
+        show_summary_single_line_chars_limit: 0,
+        convert_underline_hierarchy: true
+    };
+    server_info
+}
 
 #[cfg(test)]
 mod test_tokenizer {
