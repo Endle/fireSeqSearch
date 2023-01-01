@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use warp::Filter;
 use log::info;
 use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
@@ -86,10 +88,14 @@ fn build_server_info(args: Cli) -> ServerInformation {
     let notebook_name = match args.notebook_name {
         Some(x) => x.to_string(),
         None => {
-            let chunks: Vec<&str> = args.notebook_path.split('/').collect();
-            let guess: &str = *chunks.last().unwrap();
+            let guess = PathBuf::from(&args.notebook_path)
+                .file_name()
+                .expect("notebook_path terminates with \"..\"")
+                .to_str()
+                .expect("notebook_path is not valid utf-8")
+                .to_string();
             info!("fire_seq_search guess the notebook name is {}", guess);
-            String::from(guess)
+            guess
         }
     };
     ServerInformation{
