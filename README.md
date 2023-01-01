@@ -29,6 +29,18 @@ This project is in **VERY EARLY** DEVELOPMENT! But don't panic. fireSeqSearch wi
 
 ### Install Local Server
 
+#### Docker
+
+```
+git clone https://github.com/Endle/fireSeqSearch && cd fireSeqSearch
+```
+
+Edit `docker-compose.yml` to change the path to your logseq notebook
+
+```
+docker-compose up -d
+```
+
 #### Windows
 Steps:  
 1. Download the latest release at <https://github.com/Endle/fireSeqSearch/releases>
