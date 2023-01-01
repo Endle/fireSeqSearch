@@ -29,7 +29,7 @@ This project is in **VERY EARLY** DEVELOPMENT! But don't panic. fireSeqSearch wi
 
 ### Install Local Server
 
-#### Docker
+#### Docker (experimental)
 
 ```
 git clone https://github.com/Endle/fireSeqSearch && cd fireSeqSearch
@@ -47,6 +47,13 @@ Finally run
 
 ```
 docker-compose up -d
+```
+
+> **Note**: Alternatively, you can also run docker directly without docker-compose via:
+
+```bash
+export $(cat .env | xargs)
+docker run -d -v $NOTEBOOK_DIR:$NOTEBOOK_DIR -p 127.0.0.1:3030:3030 --env-file .env ghcr.io/endle/fireseqsearch:latest
 ```
 
 #### Windows
