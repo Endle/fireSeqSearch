@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use warp::Filter;
 use log::info;
 use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
@@ -29,6 +31,9 @@ struct Cli{
  */
     #[arg(long,default_value_t = 120*2, value_name="LEN")]
     show_summary_single_line_chars_limit: usize,
+
+    #[arg(long="host")]
+    host: Option<String>,
 }
 
 
@@ -41,6 +46,10 @@ async fn main() {
         .init();
 
     let matches = Cli::parse();
+    let host = matches.host.clone().unwrap_or_else(|| "127.0.0.1:3030".to_string());
+    let host: SocketAddr = host.parse().unwrap_or_else(
+        |_| panic!("Invalid host: {}", host)
+    );
     let server_info: ServerInformation = build_server_info(matches);
     let engine = QueryEngine::construct(server_info);
 
@@ -71,7 +80,7 @@ async fn main() {
             .or(get_server_info)
     );
     warp::serve(routes)
-        .run(([127, 0, 0, 1], 3030))
+        .run(host)
         .await;
 
 

@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  fire_seq_search_server:
+    image: ghcr.io/endle/fireseqsearch:latest
+    environment:
+      - NOTEBOOK_DIR
+    restart: always
+    ports:
+      - "127.0.0.1:3030:3030"
+    volumes:
+      - ${NOTEBOOK_DIR}:${NOTEBOOK_DIR}
