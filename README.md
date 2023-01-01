@@ -21,7 +21,7 @@ With [logseq 0.6.6](https://discuss.logseq.com/t/done-deep-linking-or-url-scheme
 
 How to use it
 ------------------
-This project is in **VERY EARLY** DEVELOPMENT! But don't panic. fireSeqSearch will only read your logseq notebooks, which is unlikely to cause data loss.
+This project is IN DEVELOPMENT! But don't panic. fireSeqSearch will only read your logseq notebooks, which is unlikely to cause data loss.
 
 ### Install Browser Extension  
 1. Install latest web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>   
