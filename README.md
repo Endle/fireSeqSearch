@@ -35,7 +35,15 @@ This project is in **VERY EARLY** DEVELOPMENT! But don't panic. fireSeqSearch wi
 git clone https://github.com/Endle/fireSeqSearch && cd fireSeqSearch
 ```
 
-Edit `docker-compose.yml` to change the path to your logseq notebook
+Configure the path to your logseq notebook by
+
+```
+cp example.env .env
+```
+
+and edit `.env`.
+
+Finally run
 
 ```
 docker-compose up -d

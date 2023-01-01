@@ -9,4 +9,4 @@ FROM ubuntu:20.04
 COPY --from=builder /usr/local/cargo/bin/fire_seq_search_server /usr/local/bin/fire_seq_search_server
 
 ENV RUST_LOG=debug
-CMD ["fire_seq_search_server", "--notebook_path", "/notebook", "--host", "0.0.0.0:3030"]
+CMD ["sh", "-c", "fire_seq_search_server --notebook_path $NOTEBOOK_DIR --host 0.0.0.0:3030"]
