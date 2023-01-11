@@ -135,11 +135,10 @@ function checkUserOptions() {
 }
 
 
-async function appendResultToSearchResult(fetchResultArray, container) {
+async function appendResultToSearchResult(fetchResultArray, _container) {
     const serverInfo = fetchResultArray[0];
     const rawSearchResult = fetchResultArray[1];
     const firefoxExtensionUserOption = await checkUserOptions();
-
 
     consoleLogForDebug(firefoxExtensionUserOption);
 
@@ -162,16 +161,9 @@ async function appendResultToSearchResult(fetchResultArray, container) {
         titleBar.appendChild(btn);
         return titleBar;
     }
-
-
-
     function createFireSeqDom() {
-
         const div = document.createElement("div");
-        // div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
         div.setAttribute("id", fireSeqSearchDomId);
-
-
         return div;
     }
 
@@ -218,12 +210,20 @@ async function appendResultToSearchResult(fetchResultArray, container) {
 
         dom.classList.add("experimentalLayout");
     }
-    let contextId = "rcnt";
-    if (window.location.href.includes("duckduckgo.com")) {
-        contextId = "web_content_wrapper";
-    }
-    document.getElementById(contextId).insertAdjacentElement("beforebegin", dom);
 
+    function insertDivToWebpage(result) {
+        let contextId = "rcnt";
+        if (window.location.href.includes("duckduckgo.com")) {
+            contextId = "web_content_wrapper";
+        }
+        if (window.location.href.includes("searx")) { // https://github.com/Endle/fireSeqSearch/issues/103
+            contextId = "results";
+        }
+        document.getElementById(contextId).insertAdjacentElement("beforebegin", result);
+
+    }
+
+    insertDivToWebpage(dom);
 }
 
 function getSearchParameterFromCurrentPage() {
@@ -270,9 +270,9 @@ function getSearchParameterFromCurrentPage() {
         highlightedItems.forEach((element) => {
             element.style.color = 'red';
         });
-    }).catch(function (error) {
-        consoleLogForDebug(error);
-    });
+    }).catch(
+        error => {consoleLogForDebug(error)}
+    );
 
 
 })();
