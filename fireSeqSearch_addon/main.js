@@ -135,7 +135,7 @@ function checkUserOptions() {
 }
 
 
-async function appendResultToSearchResult(fetchResultArray, container) {
+async function appendResultToSearchResult(fetchResultArray, _container) {
     const serverInfo = fetchResultArray[0];
     const rawSearchResult = fetchResultArray[1];
     const firefoxExtensionUserOption = await checkUserOptions();
@@ -270,9 +270,9 @@ function getSearchParameterFromCurrentPage() {
         highlightedItems.forEach((element) => {
             element.style.color = 'red';
         });
-    }).catch(function (error) {
-        consoleLogForDebug(error);
-    });
+    }).catch(
+        error => {consoleLogForDebug(error)}
+    );
 
 
 })();
