@@ -208,6 +208,10 @@ fn generate_stopwords_list() -> std::collections::HashSet<String> {
     for c in 'a'..='z' {
         nltk.insert(String::from(c));
     }
+    // To Improve: I should be aware about the upper/lower case for terms. -Zhenbo Li 2023-Jan-19
+    for c in 'A'..='Z' {
+        nltk.insert(String::from(c));
+    }
 
     for c in '0'..='9' {
         nltk.insert(String::from(c));
