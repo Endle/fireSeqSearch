@@ -18,7 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        rust: [stable, "1.60", 1.61, 1.62, 1.63]
+        rust: [stable, 1.64, 1.65, 1.66]
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust ${{ matrix.rust }}
