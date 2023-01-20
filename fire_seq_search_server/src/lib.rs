@@ -228,27 +228,6 @@ pub fn decode_cjk_str(original: String) -> Vec<String> {
     result
 }
 
-use rayon::prelude::*;
-fn post_query_wrapper(top_docs: Vec<(f32, tantivy::DocAddress)>,
-                      term: &str,
-                      searcher: &tantivy::LeasedItem<tantivy::Searcher>,
-                      server_info: &ServerInformation) -> Vec<String> {
-    let term_tokens = tokenize_default(&term);
-    info!("get term tokens {:?}", &term_tokens);
-    // let mut result;
-    let result: Vec<String> = top_docs.par_iter()
-        .map(|&x| FireSeqSearchHitParsed::from_tantivy
-            (&searcher.doc(x.1).unwrap(),
-             x.0,
-             &term_tokens,
-             server_info)
-        )
-        // .map(|x| FireSeqSearchHitParsed::from_hit(&x))
-        .map(|p| serde_json::to_string(&p).unwrap())
-        .collect();
-    result
-}
-
 
 
 // ============= BELOW IS TEST CASES ====================
