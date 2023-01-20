@@ -30,15 +30,7 @@ pub struct FireSeqSearchHitParsed {
 pub static JOURNAL_PREFIX: &str = "@journal@";
 
 impl FireSeqSearchHitParsed {
-    /*
-    pub fn from_hit(hit: &FireSeqSearchHit) -> FireSeqSearchHitParsed {
-        FireSeqSearchHitParsed {
-            title: String::from(hit.title),
-            score: hit.score
-        }
-    }
 
-     */
     pub fn from_tantivy(doc: &tantivy::schema::Document,
                         score: f32, term_tokens: &Vec<String>,
                         server_info: &ServerInformation) ->FireSeqSearchHitParsed {
