@@ -68,12 +68,6 @@ async fn main() {
                  fire_seq_search_server::http_client::endpoints::get_server_info(
                      arc_for_server_info.clone()
                  ));
-            /*{
-            serde_json::to_string( &server_info_dup ).unwrap()
-        } );
-
-             */
-
 
     let routes = warp::get().and(
         call_query

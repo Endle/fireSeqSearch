@@ -157,7 +157,6 @@ mod test_logseq_uri {
     use crate::generate_server_info_for_test;
     use crate::post_query::logseq_uri::{generate_logseq_journal_uri, generate_logseq_uri};
     use crate::post_query::logseq_uri::parse_date_from_str;
-    use crate::query_engine::ServerInformation;
 
 
     #[test]
@@ -179,12 +178,14 @@ mod test_logseq_uri {
         assert_eq!(&r, "logseq://graph/logseq_notebook?page=Games/EU4");
 
         let r = generate_logseq_uri("Games/赛马娘", &true, &server_info);
-        assert_eq!(&r,
-                   "logseq://graph/logseq_notebook?page=Games/赛马娘");
+        assert_eq!(&r, "logseq://graph/logseq_notebook?page=Games/赛马娘");
         let r = generate_logseq_journal_uri("2022_12_14", &server_info);
         assert_eq!(&r,"logseq://graph/logseq_notebook?page=Dec 14th, 2022");
 
         let r = generate_logseq_uri("fireSeqSearch___test___5", &true, &server_info);
         assert_eq!(&r,"logseq://graph/logseq_notebook?page=fireSeqSearch%2Ftest%2F5");
+
+        let r = generate_logseq_uri("C++", &true, &server_info);
+        assert_eq!(&r, "logseq://graph/logseq_notebook?page=C++");
     }
 }

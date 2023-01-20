@@ -2,8 +2,9 @@
 
 use log::info;
 use tantivy::DocAddress;
-use crate::{decode_cjk_str, JiebaTokenizer, post_query_wrapper};
+use crate::{decode_cjk_str, JiebaTokenizer};
 use crate::load_notes::read_specific_directory;
+use crate::post_query::post_query_wrapper;
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ServerInformation {
