@@ -1,12 +1,14 @@
 use log::info;
 use crate::query_engine::ServerInformation;
-use crate::{FireSeqSearchHitParsed, tokenize_default};
+use crate::tokenize_default;
 
 pub mod logseq_uri;
 pub mod highlighter;
+pub mod hit_parsed;
 
 use rayon::prelude::*;
 use tantivy::{LeasedItem, Searcher};
+use crate::post_query::hit_parsed::FireSeqSearchHitParsed;
 
 pub fn post_query_wrapper(top_docs: Vec<(f32, tantivy::DocAddress)>,
                       term: &str,
@@ -41,6 +43,5 @@ fn parse_and_serde(x: &(f32, tantivy::DocAddress),
         &doc, score, term_tokens, server_info
     ); // it also provides the highlight
 
-
-    serde_json::to_string(&hit_parsed).unwrap()
+    hit_parsed.serde_to_string()
 }
