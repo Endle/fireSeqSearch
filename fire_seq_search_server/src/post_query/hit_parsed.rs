@@ -60,9 +60,42 @@ impl FireSeqSearchHitParsed {
         }
     }
 
+    // Wrap this part into a function, so I can document it and add tests - ZLi 2023-Jan
     pub fn serde_to_string(self: &Self) -> String {
         serde_json::to_string(&self).unwrap()
     }
 
 }
 
+#[cfg(test)]
+mod test_serde {
+    use crate::generate_server_info_for_test;
+    use crate::post_query::hit_parsed::FireSeqSearchHitParsed;
+    use crate::post_query::logseq_uri::generate_logseq_uri;
+
+
+    fn get_parsed_hit(title: &str) -> FireSeqSearchHitParsed {
+        let server_info = generate_server_info_for_test();
+        let logseq_uri = generate_logseq_uri(title, &true, &server_info);
+        FireSeqSearchHitParsed{
+            title: title.to_owned(),
+            summary: String::from("summary"),
+            score: 1.0,
+            logseq_uri,
+            metadata: String::from("meta")
+        }
+    }
+    fn serde(title: &str) -> String {
+        let h = get_parsed_hit(title);
+        h.serde_to_string()
+    }
+
+    // TODO: This solution is buggy. Consider PR#100, which might be a better idea. -Zli, 2023-Jan
+    #[test]
+    fn test_serde_uri() {
+        assert!(serde("EU4").contains("\"logseq://graph/logseq_notebook?page=EU4\""));
+
+        assert!(serde("Games/EU4").contains("\"logseq://graph/logseq_notebook?page=Games/EU4\""));
+
+    }
+}

@@ -19,17 +19,6 @@ pub fn post_query_wrapper(top_docs: Vec<(f32, tantivy::DocAddress)>,
     let result: Vec<String> = top_docs.par_iter()
         .map(|x| parse_and_serde(x, searcher, &term_tokens, server_info))
         .collect();
-
-    // let result: Vec<String> = top_docs.par_iter()
-    //     .map(|&x| FireSeqSearchHitParsed::from_tantivy
-    //         (&searcher.doc(x.1).unwrap(),
-    //          x.0,
-    //          &term_tokens,
-    //          server_info)
-    //     )
-    //     // .map(|x| FireSeqSearchHitParsed::from_hit(&x))
-    //     .map(|p| serde_json::to_string(&p).unwrap())
-    //     .collect();
     result
 }
 
