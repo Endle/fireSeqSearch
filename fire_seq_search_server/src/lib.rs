@@ -176,10 +176,6 @@ pub fn generate_server_info_for_test() -> ServerInformation {
 }
 
 #[cfg(test)]
-mod test_serde {
-
-}
-#[cfg(test)]
 mod test_tokenizer {
     #[test]
     fn english() {
