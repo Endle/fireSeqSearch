@@ -9,9 +9,6 @@ env:
 jobs:
   cargo-deny:
     runs-on: ubuntu-latest
-
-
-
     steps:
     - uses: actions/checkout@v2
     - name: Install Rust 
@@ -20,16 +17,16 @@ jobs:
           toolchain: stable
           profile: minimal
           override: true
-      - name: Run sccache-cache
+    - name: Run sccache-cache
         uses: Xuanwo/sccache-action@c94e27bef21ab3fb4a5152c8a878c53262b4abb0
         with:
           version: "v0.4.0-pre.6"
-      - name: Get Date
+    - name: Get Date
         id: get-date
         run: |
           echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
         shell: bash
-      - name: Cache cargo registry
+    - name: Cache cargo registry
         uses: actions/cache@v3
         continue-on-error: false
         with:
