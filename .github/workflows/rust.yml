@@ -9,6 +9,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUSTC_WRAPPER: "sccache"
 
 jobs:
   build:
@@ -18,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        rust: [stable, 1.64, 1.65, 1.66]
+        rust: [stable, 1.64, 1.65, 1.66, 1.67]
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust ${{ matrix.rust }}
@@ -27,20 +28,26 @@ jobs:
           toolchain: ${{ matrix.rust }}
           profile: minimal
           override: true
-      - name: Cache cargo registry
-        uses: actions/cache@v2
+      - name: Run sccache-cache
+        uses: mozilla/sccache-action@v0.0.1
+        with:
+          version: "v0.3.3"
+      - name: Get Date
+        id: get-date
+        run: |
+          echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+        shell: bash
+      - name: Cache cargo registry and sccache
+        uses: actions/cache@v3
         continue-on-error: false
         with:
           path: |
             ~/.cargo/registry
-            ~/.cargo/git
-          key: rust-${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-build
+            ~/.cache/sccache
+          key: rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-${{ steps.get-date.outputs.date }}-build
           restore-keys: |
-            rust-${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-
-            rust-${{ runner.os }}-cargo-${{ matrix.rust }}-
-            rust-${{ runner.os }}-cargo-
-            rust-
-
+            rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-
+            rust-${{ runner.os }}
 # Real tests starts here
       - name: Check version
         run: rustup --version && rustc --version && cargo --version
@@ -64,7 +71,9 @@ jobs:
         run: |
           cd fire_seq_search_server
           cargo package --verbose
-
+      - name: Run sccache stat for check
+        shell: bash
+        run: ${SCCACHE_PATH} --show-stats
         
 
 
@@ -79,18 +88,26 @@ jobs:
           toolchain: stable
           profile: minimal
           override: true
-      - name: Cache cargo registry
-        uses: actions/cache@v2
+      - name: Run sccache-cache
+        uses: mozilla/sccache-action@v0.0.1
+        with:
+          version: "v0.3.3"
+      - name: Get Date
+        id: get-date
+        run: |
+          echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+        shell: bash
+      - name: Cache cargo registry and sccache
+        uses: actions/cache@v3
         continue-on-error: false
         with:
           path: |
             ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.toml') }}-release
+            ~/.cache/sccache
+          key: rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-${{ steps.get-date.outputs.date }}-build
           restore-keys: |
-            ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.toml') }}-
-            ${{ runner.os }}-cargo-stable-
-            ${{ runner.os }}-cargo-
+            rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-
+            rust-${{ runner.os }}
       - name: Build
         run: |
           cd fire_seq_search_server
@@ -104,6 +121,8 @@ jobs:
         with:
           name: logseq-${{ runner.os }}-builds
           path: builds
-
+      - name: Run sccache stat for check
+        shell: bash
+        run: ${SCCACHE_PATH} --show-stats
 
 
