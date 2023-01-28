@@ -10,6 +10,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUSTC_WRAPPER: "sccache"
+  SCCACHE_GHA_ENABLED: "true"
 
 jobs:
   build:
@@ -37,13 +38,12 @@ jobs:
         run: |
           echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
         shell: bash
-      - name: Cache cargo registry and sccache
+      - name: Cache cargo registry
         uses: actions/cache@v3
         continue-on-error: false
         with:
           path: |
             ~/.cargo/registry
-            ~/.cache/sccache
           key: rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-${{ steps.get-date.outputs.date }}-build
           restore-keys: |
             rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-
@@ -97,13 +97,12 @@ jobs:
         run: |
           echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
         shell: bash
-      - name: Cache cargo registry and sccache
+      - name: Cache cargo registry
         uses: actions/cache@v3
         continue-on-error: false
         with:
           path: |
             ~/.cargo/registry
-            ~/.cache/sccache
           key: rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-${{ steps.get-date.outputs.date }}-build
           restore-keys: |
             rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-
