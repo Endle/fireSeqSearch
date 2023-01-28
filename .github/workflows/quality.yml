@@ -18,28 +18,27 @@ jobs:
           profile: minimal
           override: true
     - name: Run sccache-cache
-        uses: Xuanwo/sccache-action@c94e27bef21ab3fb4a5152c8a878c53262b4abb0
-        with:
-          version: "v0.4.0-pre.6"
+      uses: Xuanwo/sccache-action@c94e27bef21ab3fb4a5152c8a878c53262b4abb0
+      with:
+        version: "v0.4.0-pre.6"
     - name: Get Date
-        id: get-date
-        run: |
-          echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
-        shell: bash
+      id: get -date
+      run: |
+        echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+      shell: bash
     - name: Cache cargo registry
-        uses: actions/cache@v3
-        continue-on-error: false
-        with:
-          path: |
-            ~/.cargo/registry
-          key: rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-${{ steps.get-date.outputs.date }}-qc
-          restore-keys: |
-            rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-
-            rust-${{ runner.os }}
+      uses: actions/cache@v3
+      continue-on-error: false
+      with:
+        path: |
+          ~/.cargo/registry
+        key: rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-${{ steps.get-date.outputs.date }}-qc
+        restore-keys: |
+          rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-
+          rust-${{ runner.os }}
     - name: Install cargo deny
       run: |
           cargo install --locked cargo-deny
-          cd fire_seq_search_server
     - name: cargo deny license
       run: |
           cd fire_seq_search_server
