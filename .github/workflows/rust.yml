@@ -29,9 +29,9 @@ jobs:
           profile: minimal
           override: true
       - name: Run sccache-cache
-        uses: mozilla/sccache-action@v0.0.1
+        uses: Xuanwo/sccache-action@c94e27bef21ab3fb4a5152c8a878c53262b4abb0
         with:
-          version: "v0.3.3"
+          version: "v0.4.0-pre.6"
       - name: Get Date
         id: get-date
         run: |
@@ -89,9 +89,9 @@ jobs:
           profile: minimal
           override: true
       - name: Run sccache-cache
-        uses: mozilla/sccache-action@v0.0.1
+        uses: Xuanwo/sccache-action@c94e27bef21ab3fb4a5152c8a878c53262b4abb0
         with:
-          version: "v0.3.3"
+          version: "v0.4.0-pre.6"
       - name: Get Date
         id: get-date
         run: |
