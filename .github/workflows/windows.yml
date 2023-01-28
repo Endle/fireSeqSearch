@@ -9,6 +9,10 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  CARGO_TERM_COLOR: always
+  RUSTC_WRAPPER: "sccache"
+
 jobs:
   build:
     runs-on: windows-latest
@@ -33,19 +37,6 @@ jobs:
         run: git config --global core.autocrlf false
       - name: checkout
         uses: actions/checkout@v3
-        
-      - name: Cache cargo registry
-        uses: actions/cache@v2
-        continue-on-error: true
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: rust-${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-build
-          restore-keys: |
-            rust-${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-
-            rust-${{ runner.os }}-cargo-${{ matrix.target }}-
-            rust-${{ runner.os }}-cargo-
 
         # Run build
       - name: Install Rustup using win.rustup.rs
@@ -58,7 +49,22 @@ jobs:
           rustup target add ${{ matrix.target }}
         shell: powershell
 
-      # Nightly config has been removed
+      - name: Get Date
+        id: get-date
+        run: |
+          echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+        shell: bash
+      - name: Cache cargo registry and sccache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cache/sccache
+          key: rust-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-${{ steps.get-date.outputs.date }}-build
+          restore-keys: |
+            rust-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}
+            rust-${{ runner.os }}
 
       - name: build
         run: |
@@ -78,6 +84,9 @@ jobs:
           cd fire_seq_search_server
           cargo package --verbose
         shell: cmd
+      - name: Run sccache stat for check
+        shell: bash
+        run: ${SCCACHE_PATH} --show-stats
 
 
   release:
@@ -99,18 +108,6 @@ jobs:
         run: git config --global core.autocrlf false
       - name: checkout
         uses: actions/checkout@v3
-      - name: Cache cargo registry
-        uses: actions/cache@v2
-        continue-on-error: true
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: rust-${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-release
-          restore-keys: |
-            rust-${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-
-            rust-${{ runner.os }}-cargo-${{ matrix.target }}-
-            rust-${{ runner.os }}-cargo-
       - name: Install Rustup using win.rustup.rs
         run: |
           # Disable the download progress bar which can cause perf issues
@@ -120,6 +117,22 @@ jobs:
           del rustup-init.exe
           rustup target add ${{ matrix.target }}
         shell: powershell
+      - name: Get Date
+        id: get-date
+        run: |
+          echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+        shell: bash
+      - name: Cache cargo registry and sccache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cache/sccache
+          key: rust-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-${{ steps.get-date.outputs.date }}-build
+          restore-keys: |
+            rust-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}
+            rust-${{ runner.os }}
       - name: build
         run: |
           rustc -Vv
@@ -147,3 +160,6 @@ jobs:
         with:
           name: logseq-${{ runner.os }}-builds
           path: builds
+      - name: Run sccache stat for check
+        shell: bash
+        run: ${SCCACHE_PATH} --show-stats
