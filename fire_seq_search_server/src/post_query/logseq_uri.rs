@@ -2,13 +2,30 @@ use log::error;
 use crate::ServerInformation;
 use url::Url;
 
+///
+///
+/// # Arguments
+///
+/// * `file_name`: File name of the Logseq page, without .md
+/// * `server_info`:
+///
+/// returns: String
+///
+/// # Examples
+///
+/// ```
+/// use fire_seq_search_server::post_query::logseq_uri::process_note_title;
+/// let server_info = fire_seq_search_server::generate_server_info_for_test();
+/// let r = process_note_title("Canada___Clothes", &server_info);
+/// assert_eq!("Canada/Clothes", &r);
+/// ```
 // I tried to put this part when loading the notebooks, and it reduced the query sensitivity
 // https://github.com/Endle/fireSeqSearch/issues/99
 // 2022-12-30
-fn process_note_title(file_name: &str, server_info: &ServerInformation) -> String {
+pub fn process_note_title(file_name: &str, server_info: &ServerInformation) -> String {
+    error!("Fname: {}", file_name);
     let file_name = file_name.replace("%2F", "/");
     if server_info.convert_underline_hierarchy {
-        //Home In Canada___Clothes
         return file_name.replace("___", "/");
     }
     file_name.to_owned()
