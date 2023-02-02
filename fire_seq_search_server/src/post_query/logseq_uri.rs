@@ -32,7 +32,7 @@ pub fn process_note_title(file_name: &str, server_info: &ServerInformation) -> S
     if server_info.convert_underline_hierarchy {
         return file_name.replace("___", "/");
     }
-    file_name.to_owned()
+    file_name
 }
 
 pub fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &ServerInformation) -> String {

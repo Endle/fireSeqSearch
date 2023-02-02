@@ -79,8 +79,7 @@ fn term_preprocess(term:String) -> String {
     // in the future, I would use tokenize_sentence_to_text_vec here
     let term = term.replace("%20", " ");
     let term_vec = decode_cjk_str(term);
-    let term = term_vec.join(" ");
-    term
+    term_vec.join(" ")
 }
 
 
