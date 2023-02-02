@@ -18,12 +18,16 @@ use url::Url;
 /// let server_info = fire_seq_search_server::generate_server_info_for_test();
 /// let r = process_note_title("Canada___Clothes", &server_info);
 /// assert_eq!("Canada/Clothes", &r);
+/// let r = process_note_title("C++", &server_info);
+/// assert_eq!("C++", &r);
+/// let r = process_note_title("Programming Languages%2FTypes", &server_info);
+/// assert_eq!("Programming Languages/Types", &r);
+///
 /// ```
 // I tried to put this part when loading the notebooks, and it reduced the query sensitivity
 // https://github.com/Endle/fireSeqSearch/issues/99
 // 2022-12-30
 pub fn process_note_title(file_name: &str, server_info: &ServerInformation) -> String {
-    error!("Fname: {}", file_name);
     let file_name = file_name.replace("%2F", "/");
     if server_info.convert_underline_hierarchy {
         return file_name.replace("___", "/");
