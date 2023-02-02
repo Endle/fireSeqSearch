@@ -22,13 +22,15 @@ use url::Url;
 /// assert_eq!("C++", &r);
 /// let r = process_note_title("Programming Languages%2FTypes", &server_info);
 /// assert_eq!("Programming Languages/Types", &r);
-///
+/// let r = process_note_title("Context of Std%3A%3Astring (highlights)", &server_info);
+/// assert_eq!("Context of Std::string (highlights)", &r);
 /// ```
 // I tried to put this part when loading the notebooks, and it reduced the query sensitivity
 // https://github.com/Endle/fireSeqSearch/issues/99
 // 2022-12-30
 pub fn process_note_title(file_name: &str, server_info: &ServerInformation) -> String {
-    let file_name = file_name.replace("%2F", "/");
+    // let file_name = file_name.replace("%2F", "/");
+    let file_name = urlencoding::decode(file_name).expect("UTF-8").to_string();
     if server_info.convert_underline_hierarchy {
         return file_name.replace("___", "/");
     }
