@@ -36,11 +36,8 @@ pub fn process_note_title(file_name: &str, server_info: &ServerInformation) -> S
 }
 
 pub fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &ServerInformation) -> String {
-
     return if *is_page_hit {
         let title = process_note_title(title, server_info);
-        let uri = format!("logseq://graph/{}?page={}",
-                          server_info.notebook_name, title);
         let mut uri = Url::parse("logseq://graph/").unwrap();
         uri.set_path(&server_info.notebook_name);
         uri.query_pairs_mut()
