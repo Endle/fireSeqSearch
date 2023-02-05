@@ -170,6 +170,7 @@ pub fn generate_server_info_for_test() -> ServerInformation {
         enable_journal_query: false,
         show_top_hits: 0,
         show_summary_single_line_chars_limit: 0,
+        obsidian_md: false,
         convert_underline_hierarchy: true
     };
     server_info

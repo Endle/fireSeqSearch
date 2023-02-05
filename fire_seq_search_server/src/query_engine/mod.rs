@@ -1,6 +1,6 @@
 // Everything about Tantivy should be hidden behind this component
 
-use log::info;
+use log::{info, warn};
 use tantivy::DocAddress;
 use crate::{decode_cjk_str, JiebaTokenizer};
 use crate::load_notes::read_specific_directory;
@@ -13,6 +13,10 @@ pub struct ServerInformation {
     pub enable_journal_query: bool,
     pub show_top_hits: usize,
     pub show_summary_single_line_chars_limit: usize,
+
+
+    pub obsidian_md: bool,
+
 
     /// Experimental. Not sure if I should use this global config - 2022-12-30
     pub convert_underline_hierarchy: bool,
@@ -105,9 +109,18 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
     let mut index_writer = index.writer(50_000_000).unwrap();
 
 
+    if server_info.obsidian_md {
+        warn!("Obsidian mode.");
+        assert!(!server_info.enable_journal_query);
+    }
+
     // I should remove the unwrap and convert it into map
     let path = path.to_owned();
-    let pages_path = path.clone() + "/pages";
+    let pages_path = if server_info.obsidian_md {
+        path.clone()
+    } else{
+        path.clone() + "/pages"
+    };
 
 
     let title = schema.get_field("title").unwrap();
