@@ -17,6 +17,9 @@ struct Cli{
     #[arg(long="notebook_name")]
     notebook_name: Option<String>,
 
+    #[arg(long, default_value_t = false)]
+    obsidian_md: bool,
+
     #[arg(long,default_value_t = false)]
     enable_journal_query: bool,
 
@@ -102,7 +105,7 @@ fn build_server_info(args: Cli) -> ServerInformation {
         show_top_hits: args.show_top_hits,
         show_summary_single_line_chars_limit:
             args.show_summary_single_line_chars_limit,
-
+        obsidian_md: args.obsidian_md,
         convert_underline_hierarchy: true,
     }
 }
