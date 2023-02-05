@@ -17,6 +17,9 @@ struct Cli{
     #[arg(long="notebook_name")]
     notebook_name: Option<String>,
 
+    #[arg(long, default_value_t = false)]
+    obsidian_md: bool,
+
     #[arg(long,default_value_t = false)]
     enable_journal_query: bool,
 
