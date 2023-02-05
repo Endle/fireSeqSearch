@@ -2,7 +2,6 @@ use log::debug;
 use crate::JOURNAL_PREFIX;
 use crate::post_query::app_uri::generate_uri;
 use crate::post_query::highlighter::highlight_keywords_in_body;
-use crate::post_query::logseq_uri::generate_logseq_uri;
 use crate::query_engine::ServerInformation;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
