@@ -1,5 +1,6 @@
 use log::debug;
 use crate::JOURNAL_PREFIX;
+use crate::post_query::app_uri::generate_uri;
 use crate::post_query::highlighter::highlight_keywords_in_body;
 use crate::post_query::logseq_uri::generate_logseq_uri;
 use crate::query_engine::ServerInformation;
@@ -41,7 +42,8 @@ impl FireSeqSearchHitParsed {
         };
 
 
-        let logseq_uri = generate_logseq_uri(&title, &is_page_hit, &server_info);
+        let logseq_uri = generate_uri(&title, &is_page_hit, &server_info);
+
 
         debug!("Processing a hit, title={}, uri={}", &title, &logseq_uri);
 
@@ -66,6 +68,8 @@ impl FireSeqSearchHitParsed {
     }
 
 }
+
+
 
 #[cfg(test)]
 mod test_serde {

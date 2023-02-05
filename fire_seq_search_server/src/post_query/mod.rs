@@ -5,6 +5,8 @@ use crate::tokenize_default;
 pub mod logseq_uri;
 pub mod highlighter;
 pub mod hit_parsed;
+pub mod app_uri;
+pub mod obsidian_uri;
 
 use rayon::prelude::*;
 use tantivy::{LeasedItem, Searcher};

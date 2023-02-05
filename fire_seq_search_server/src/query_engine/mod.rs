@@ -1,7 +1,6 @@
 // Everything about Tantivy should be hidden behind this component
 
 use log::{info, warn};
-use tantivy::DocAddress;
 use crate::{decode_cjk_str, JiebaTokenizer};
 use crate::load_notes::read_specific_directory;
 use crate::post_query::post_query_wrapper;
@@ -66,7 +65,7 @@ impl QueryEngine {
         json
     }
 
-    fn get_top_docs(&self, term: &str) -> Vec<(f32, DocAddress)> {
+    fn get_top_docs(&self, term: &str) -> Vec<(f32, tantivy::DocAddress)> {
         let searcher = self.reader.searcher();
         let server_info: &ServerInformation = &self.server_info;
         let query: Box<dyn tantivy::query::Query> = self.query_parser.parse_query(&term).unwrap();
