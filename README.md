@@ -21,13 +21,31 @@ With [logseq 0.6.6](https://discuss.logseq.com/t/done-deep-linking-or-url-scheme
 
 How to use it
 ------------------
-This project is IN DEVELOPMENT! But don't panic. fireSeqSearch will only read your logseq notebooks, which is unlikely to cause data loss.
+fireSeqSearch will only read your logseq notebooks, which is unlikely to cause data loss.
+
+fireSeqSearch has a server-side app and a browser extension.
 
 ### Install Browser Extension  
 1. Install latest web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>   
 2. If you're using other browser, you can install [Tampermonkey](https://www.tampermonkey.net/), then install the [script version](https://github.com/Endle/fireSeqSearch/raw/master/fireSeqSearch_addon/monkeyscript.user.js)
 
 ### Install Local Server
+
+
+#### Windows
+Steps:  
+1. Download the latest release at <https://github.com/Endle/fireSeqSearch/releases>
+2. If you're using PowerShell, run `.\fire_seq_search_server.exe  --notebook_path C:\Users\li\logseq_notebook`
+3. If you're using Msys2, run `./fire_seq_search_server --notebook_path /c/Users/li/logseq_notebook`
+4. Please remember to change the path to your notebook
+
+#### Linux and macOS
+1. Install rust. See <https://doc.rust-lang.org/cargo/getting-started/installation.html>
+2. `git clone https://github.com/Endle/fireSeqSearch`
+3. `cd fire_seq_search_server && cargo build`
+4. `target/debug/fire_seq_search_server --notebook_path /home/li/my_notebook`
+5. Min rust version: See https://github.com/Endle/fireSeqSearch/blob/master/.github/workflows/rust.yml#L21
+
 
 #### Docker (experimental)
 
@@ -56,19 +74,6 @@ export $(cat .env | xargs)
 docker run -d -v $NOTEBOOK_DIR:$NOTEBOOK_DIR -p 127.0.0.1:3030:3030 --env-file .env ghcr.io/endle/fireseqsearch:latest
 ```
 
-#### Windows
-Steps:  
-1. Download the latest release at <https://github.com/Endle/fireSeqSearch/releases>
-2. If you're using PowerShell, run `.\fire_seq_search_server.exe  --notebook_path C:\Users\li\logseq_notebook`
-3. If you're using Msys2, run `./fire_seq_search_server --notebook_path /c/Users/li/logseq_notebook`
-4. Please remember to change the path to your notebook
-
-#### Linux and macOS
-1. Install rust. See https://doc.rust-lang.org/cargo/getting-started/installation.html
-2. `git clone https://github.com/Endle/fireSeqSearch`
-3. `cd fire_seq_search_server && cargo build`
-4. `target/debug/fire_seq_search_server --notebook_path /home/li/my_notebook`
-5. Min rust version: See https://github.com/Endle/fireSeqSearch/blob/master/.github/workflows/rust.yml#L21
 
 License
 ----------------

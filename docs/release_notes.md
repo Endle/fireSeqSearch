@@ -1,3 +1,13 @@
+## 0.1.1  
+This is the first time for bumping the **MINOR version** for a big new feature:
+
+ObsidianMD support!
+
+Bug fixes with contribution of xxchan.
+Dev change: Added sccache with the support of xuanwo.
+
+This a server side update.
+
 ### 0.0.22
 This is both server-side and client-side update.  
 
