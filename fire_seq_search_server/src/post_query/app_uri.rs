@@ -1,5 +1,5 @@
 use log::{error, info};
-use crate::post_query::logseq_uri::{generate_logseq_uri};
+use crate::post_query::logseq_uri::generate_logseq_uri;
 use crate::post_query::obsidian_uri::generate_obsidian_uri;
 use crate::query_engine::ServerInformation;
 
