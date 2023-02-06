@@ -24,6 +24,8 @@ fireSeqSearch has a server-side app and a browser extension.
 
 ### Install Local Server
 
+**Obsidian MD** users: Run `fire_seq_search_server --notebook_path <path> --obsidian-md`. [Example obsidian.sh](https://github.com/Endle/fireSeqSearch/blob/master/fire_seq_search_server/obsidian.sh)  
+
 
 #### Windows
 Steps:  
