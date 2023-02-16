@@ -106,7 +106,7 @@ Similar Projects
 
 Star History
 --------
-## Star History
+
 
 [![Star History Chart](https://api.star-history.com/svg?repos=Endle/fireSeqSearch&type=Date)](https://star-history.com/#Endle/fireSeqSearch&Date)
 
