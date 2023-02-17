@@ -1,6 +1,5 @@
 use std::fs::DirEntry;
 use log::{debug, error, info, warn};
-use regex::Regex;
 use std::process;
 
 use rayon::prelude::*;

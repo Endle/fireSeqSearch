@@ -126,7 +126,7 @@ mod tests {
     #[test]
     fn links_to_pdf() {
         let markdown = r#"Refer to ![order.pdf](../assets/buy_00000_0.pdf)"#;
-        let expected = "Hello";
+        let expected = "Refer to order.pdf";
         assert_eq!(convert(markdown), expected);
     }
 
