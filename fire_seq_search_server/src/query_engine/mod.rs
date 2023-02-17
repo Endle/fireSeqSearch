@@ -14,7 +14,7 @@ pub struct ServerInformation {
     pub enable_journal_query: bool,
     pub show_top_hits: usize,
     pub show_summary_single_line_chars_limit: usize,
-
+    pub parse_pdf_links: bool,
 
     pub obsidian_md: bool,
 

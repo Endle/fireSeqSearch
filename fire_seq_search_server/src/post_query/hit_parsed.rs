@@ -88,10 +88,10 @@ mod test_serde {
             metadata: String::from("meta")
         }
     }
-    fn serde(title: &str) -> String {
-        let h = get_parsed_hit(title);
-        h.serde_to_string()
-    }
+    // fn serde(title: &str) -> String {
+    //     let h = get_parsed_hit(title);
+    //     h.serde_to_string()
+    // }
 
     // TODO: This solution is buggy. Consider PR#100, which might be a better idea. -Zli, 2023-Jan
     // This test disabled on 2023-Feb-02 for PR #112

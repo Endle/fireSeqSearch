@@ -39,7 +39,7 @@ pub fn convert_from_logseq(markdown:&str, server_info: &ServerInformation) -> St
 
     // For each event we push into the buffer to produce the plain text version.
     for event in parser {
-        println!("{:?}", &event);
+        // println!("{:?}", &event);
         match event {
             // The start and end events don't contain the text inside the tag. That's handled by the `Event::Text` arm.
             // However, pdf is considered as Image, and will be specially handled when parsing end tag
@@ -50,7 +50,7 @@ pub fn convert_from_logseq(markdown:&str, server_info: &ServerInformation) -> St
             Event::End(tag) => {
                 tags_stack.pop();
                 end_tag(&tag, &mut buffer, &tags_stack);
-
+                // if server_info
             }
             Event::Text(content) => {
                 if !tags_stack.iter().any(is_strikethrough) {
@@ -168,7 +168,7 @@ mod tests {
         let expected = "Refer to order.pdf";
         assert_eq!(convert(markdown), expected);
 
-        let _a = convert_from_logseq(markdown, true);
+        // let _a = convert_from_logseq(markdown, true);
     }
 
     #[test]
