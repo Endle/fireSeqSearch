@@ -124,6 +124,13 @@ mod tests {
     use super::convert;
 
     #[test]
+    fn links_to_pdf() {
+        let markdown = r#"Refer to ![order.pdf](../assets/buy_00000_0.pdf)"#;
+        let expected = "Hello";
+        assert_eq!(convert(markdown), expected);
+    }
+
+    #[test]
     fn basic_inline_strong() {
         let markdown = r#"**Hello**"#;
         let expected = "Hello";

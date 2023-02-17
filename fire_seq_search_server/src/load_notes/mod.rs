@@ -5,7 +5,7 @@ use std::process;
 
 use rayon::prelude::*;
 
-use crate::markdown_parser::parse_to_plain_text;
+
 
 pub fn read_specific_directory(path: &str) -> Vec<(String, String)> {
     info!("Try to read {}", &path);
@@ -84,33 +84,10 @@ pub fn read_md_file_and_parse(note: &std::fs::DirEntry) -> Option<(String, Strin
         }
     };
 
+    let content : String = crate::markdown_parser::parse_logseq_notebook(content);
 
-    // Now we do some parsing for this file
-    let content: String = exclude_advanced_query(content);
-    let content: String = parse_to_plain_text(&content);
+
 
     Some((note_title.to_string(),content))
 }
 
-// https://docs.rs/regex/latest/regex/#repetitions
-// https://stackoverflow.com/a/8303552/1166518
-pub fn exclude_advanced_query(md: String) -> String {
-    if !md.contains('#') {
-        return md;
-    }
-
-    lazy_static! {
-        static ref RE: Regex = Regex::new(
-            r"\#\+BEGIN_QUERY[\S\s]+?\#\+END_QUERY")
-            .unwrap();
-    }
-    let result = RE.replace_all(&md, "    ");
-    String::from(result)
-    // let mat = RE.find(&md);
-    // match mat {
-    //     Some(m) => {
-    //         todo!()
-    //     },
-    //     None => md
-    // }
-}
