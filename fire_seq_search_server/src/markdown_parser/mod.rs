@@ -3,7 +3,7 @@ use regex::Regex;
 
 // https://docs.rs/regex/latest/regex/#repetitions
 // https://stackoverflow.com/a/8303552/1166518
-fn exclude_advanced_query(md: String) -> String {
+pub fn exclude_advanced_query(md: String) -> String {
     if !md.contains('#') {
         return md;
     }
