@@ -5,7 +5,7 @@ use regex::Regex;
 
 // https://docs.rs/regex/latest/regex/#repetitions
 // https://stackoverflow.com/a/8303552/1166518
-pub fn exclude_advanced_query<'a>(md: &'a str) -> std::borrow::Cow<'a, str> {
+pub fn exclude_advanced_query(md: &str) -> std::borrow::Cow<str> {
     if !md.contains('#') {
         return std::borrow::Cow::Borrowed(md);
     }
@@ -20,7 +20,6 @@ pub fn exclude_advanced_query<'a>(md: &'a str) -> std::borrow::Cow<'a, str> {
 }
 
 pub fn parse_logseq_notebook(md: &str, parse_pdf: bool) -> String {
-
     // Now we do some parsing for this file
     let content = exclude_advanced_query(md);
     let content: String = parse_to_plain_text(&content);
