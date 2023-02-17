@@ -129,7 +129,7 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
 
     let pages: Vec<(String, String)> = read_specific_directory(&pages_path).par_iter()
         .map(|(title,md)| {
-            let content = parse_logseq_notebook(md.to_string(), false);
+            let content = parse_logseq_notebook(md, false);
             (title.to_string(), content)
         }).collect();
 

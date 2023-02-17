@@ -5,9 +5,9 @@ use regex::Regex;
 
 // https://docs.rs/regex/latest/regex/#repetitions
 // https://stackoverflow.com/a/8303552/1166518
-pub fn exclude_advanced_query(md: String) -> String {
+pub fn exclude_advanced_query<'a>(md: &'a str) -> std::borrow::Cow<'a, str> {
     if !md.contains('#') {
-        return md;
+        return std::borrow::Cow::Borrowed(md);
     }
 
     lazy_static! {
@@ -15,14 +15,14 @@ pub fn exclude_advanced_query(md: String) -> String {
             r"\#\+BEGIN_QUERY[\S\s]+?\#\+END_QUERY")
             .unwrap();
     }
-    let result = RE.replace_all(&md, "    ");
-    String::from(result)
+    // return RE.replace_all(&md, "    ")
+    return RE.replace_all(&md, "    ");
 }
 
-pub fn parse_logseq_notebook(md: String, parse_pdf: bool) -> String {
+pub fn parse_logseq_notebook(md: &str, parse_pdf: bool) -> String {
 
     // Now we do some parsing for this file
-    let content: String = exclude_advanced_query(md);
+    let content = exclude_advanced_query(md);
     let content: String = parse_to_plain_text(&content);
     content
 }
