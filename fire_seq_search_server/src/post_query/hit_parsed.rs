@@ -77,17 +77,17 @@ mod test_serde {
     use crate::post_query::logseq_uri::generate_logseq_uri;
 
 
-    fn get_parsed_hit(title: &str) -> FireSeqSearchHitParsed {
-        let server_info = generate_server_info_for_test();
-        let logseq_uri = generate_logseq_uri(title, &true, &server_info);
-        FireSeqSearchHitParsed{
-            title: title.to_owned(),
-            summary: String::from("summary"),
-            score: 1.0,
-            logseq_uri,
-            metadata: String::from("meta")
-        }
-    }
+    // fn get_parsed_hit(title: &str) -> FireSeqSearchHitParsed {
+    //     let server_info = generate_server_info_for_test();
+    //     let logseq_uri = generate_logseq_uri(title, &true, &server_info);
+    //     FireSeqSearchHitParsed{
+    //         title: title.to_owned(),
+    //         summary: String::from("summary"),
+    //         score: 1.0,
+    //         logseq_uri,
+    //         metadata: String::from("meta")
+    //     }
+    // }
     // fn serde(title: &str) -> String {
     //     let h = get_parsed_hit(title);
     //     h.serde_to_string()

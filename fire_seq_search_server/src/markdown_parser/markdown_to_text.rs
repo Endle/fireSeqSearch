@@ -25,7 +25,7 @@
 
 #![warn(clippy::all, clippy::pedantic)]
 
-use log::warn;
+use log::{debug, warn};
 use pulldown_cmark::{Event, Options, Parser, Tag};
 use crate::query_engine::ServerInformation;
 
@@ -50,7 +50,13 @@ pub fn convert_from_logseq(markdown:&str, server_info: &ServerInformation) -> St
             Event::End(tag) => {
                 tags_stack.pop();
                 end_tag(&tag, &mut buffer, &tags_stack);
-                // if server_info
+                if server_info.parse_pdf_links {
+                    let pdf_str = try_parse_pdf(&tag, server_info);
+                    match pdf_str {
+                        Some(s) => buffer.push_str(&s),
+                        None => ()
+                    }
+                }
             }
             Event::Text(content) => {
                 if !tags_stack.iter().any(is_strikethrough) {
@@ -63,6 +69,22 @@ pub fn convert_from_logseq(markdown:&str, server_info: &ServerInformation) -> St
         }
     }
     buffer.trim().to_string()
+}
+
+fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Option<String> {
+
+    let destination_uri = match tag {
+        Tag::Image(link_type, destination_uri, title) => {
+            if !destination_uri.ends_with(".pdf") {
+                return None;
+            }
+            debug!("Trying to parse PDF {:?}", tag);
+            println!("{:?}", &tag);
+            destination_uri
+        },
+        _ => {return None;}
+    };
+    None
 }
 
 #[must_use]
@@ -159,16 +181,21 @@ fn is_strikethrough(tag: &Tag) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::generate_server_info_for_test;
     use super::convert;
     use super::convert_from_logseq;
 
     #[test]
     fn links_to_pdf() {
-        let markdown = r#"Refer to ![order.pdf](../assets/buy_00000_0.pdf)"#;
+        let markdown = r#"Refer to ![order.pdf](../assets/readings_1634910859348_0.pdf)"#;
         let expected = "Refer to order.pdf";
         assert_eq!(convert(markdown), expected);
 
-        // let _a = convert_from_logseq(markdown, true);
+        let mut info = generate_server_info_for_test();
+        info.notebook_path = "C:\\Users\\z2369li\\Nextcloud\\logseq_notebook".to_string();
+        info.parse_pdf_links = true;
+        println!("{:?}", &info);
+        let _a = convert_from_logseq(markdown, &info);
     }
 
     #[test]
