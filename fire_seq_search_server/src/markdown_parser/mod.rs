@@ -1,4 +1,6 @@
 mod markdown_to_text;
+mod markdown_to_text_fireseqsearch;
+
 use regex::Regex;
 
 // https://docs.rs/regex/latest/regex/#repetitions

@@ -22,7 +22,7 @@ pub fn read_specific_directory(path: &str) -> Vec<(String, String)> {
     }
     // debug!("Note titles: {:?}", &note_filenames);
     let result: Vec<(String,String)> = note_filenames.par_iter()
-        .map(|note|  read_md_file_and_parse(&note))
+        .map(|note|  read_md_file_wo_parse(&note))
         .filter(|x| (&x).is_some())
         .map(|x| x.unwrap())
         .collect();
@@ -44,11 +44,12 @@ pub fn read_specific_directory(path: &str) -> Vec<(String, String)> {
 /// returns: Option<(String, String)>
 ///
 /// First: title (filename)
-/// Second: full text (parsed)
+/// Second: full raw text
 ///
+/// I would delay the parsing job, so it could be couples with server info. -Zhenbo Li 2023-02-17
 /// If input is a directory or DS_STORE, return None
 ///
-pub fn read_md_file_and_parse(note: &std::fs::DirEntry) -> Option<(String, String)> {
+pub fn read_md_file_wo_parse(note: &std::fs::DirEntry) -> Option<(String, String)> {
     if let Ok(file_type) = note.file_type() {
         // Now let's show our entry's file type!
         debug!("{:?}: {:?}", note.path(), file_type);
@@ -83,7 +84,7 @@ pub fn read_md_file_and_parse(note: &std::fs::DirEntry) -> Option<(String, Strin
         }
     };
 
-    let content : String = crate::markdown_parser::parse_logseq_notebook(content);
+    // let content : String = crate::markdown_parser::parse_logseq_notebook(content);
 
 
 
