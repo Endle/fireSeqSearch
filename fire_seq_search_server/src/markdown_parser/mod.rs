@@ -1,13 +1,14 @@
 mod markdown_to_text;
 mod markdown_to_text_fireseqsearch;
 
+use std::borrow::Cow;
 use regex::Regex;
 
 // https://docs.rs/regex/latest/regex/#repetitions
 // https://stackoverflow.com/a/8303552/1166518
-pub fn exclude_advanced_query(md: &str) -> std::borrow::Cow<str> {
+pub fn exclude_advanced_query(md: &str) -> Cow<str> {
     if !md.contains('#') {
-        return std::borrow::Cow::Borrowed(md);
+        return Cow::Borrowed(md);
     }
 
     lazy_static! {
@@ -19,17 +20,22 @@ pub fn exclude_advanced_query(md: &str) -> std::borrow::Cow<str> {
     return RE.replace_all(&md, "    ");
 }
 
+fn hack_specific_chars_cow(text: Cow<str>) -> String {
+    //https://www.compart.com/en/unicode/U+2022
+    let bullet = char::from_u32(0x00002022).unwrap();
+    text.replace(bullet, " ")
+}
+
 pub fn parse_logseq_notebook(md: &str, parse_pdf: bool) -> String {
     // Now we do some parsing for this file
     let content = exclude_advanced_query(md);
+    let content = hack_specific_chars_cow(content);
     let content: String = parse_to_plain_text(&content);
     content
 }
 
 
 pub fn parse_to_plain_text(md: &str) -> String {
-
-
     let plain_text: String = markdown_to_text::convert(&md);
     let plain_text = hack_specific_chars(plain_text);
 
