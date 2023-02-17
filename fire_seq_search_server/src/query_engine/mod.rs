@@ -4,6 +4,8 @@ use log::{info, warn};
 use crate::{decode_cjk_str, JiebaTokenizer};
 use crate::load_notes::read_specific_directory;
 use crate::post_query::post_query_wrapper;
+use rayon::prelude::*;
+use crate::markdown_parser::parse_logseq_notebook;
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ServerInformation {
@@ -124,6 +126,12 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
 
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
+
+    let pages: Vec<(String, String)> = read_specific_directory(&pages_path).par_iter()
+        .map(|(title,md)| {
+            let content = parse_logseq_notebook(md.to_string(), false);
+            (title.to_string(), content)
+        }).collect();
 
     for (file_name, contents) in read_specific_directory(&pages_path) {
         // let note_title = process_note_title(file_name, &server_info);

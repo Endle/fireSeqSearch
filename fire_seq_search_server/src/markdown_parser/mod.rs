@@ -19,7 +19,7 @@ pub fn exclude_advanced_query(md: String) -> String {
     String::from(result)
 }
 
-pub fn parse_logseq_notebook(md: String) -> String {
+pub fn parse_logseq_notebook(md: String, parse_pdf: bool) -> String {
 
     // Now we do some parsing for this file
     let content: String = exclude_advanced_query(md);

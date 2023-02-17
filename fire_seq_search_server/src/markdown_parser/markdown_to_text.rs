@@ -27,7 +27,9 @@
 
 use pulldown_cmark::{Event, Options, Parser, Tag};
 
-// pub fn convert_from_logseq
+pub fn convert_from_logseq(markdown:&str, parse_pdf: bool) -> String {
+    todo!()
+}
 #[must_use]
 pub fn convert(markdown: &str) -> String {
     // GFM tables and tasks lists are not enabled.
