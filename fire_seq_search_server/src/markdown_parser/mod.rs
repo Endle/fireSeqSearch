@@ -3,6 +3,7 @@ mod markdown_to_text_fireseqsearch;
 
 use std::borrow::Cow;
 use regex::Regex;
+use crate::query_engine::ServerInformation;
 
 // https://docs.rs/regex/latest/regex/#repetitions
 // https://stackoverflow.com/a/8303552/1166518
@@ -26,11 +27,11 @@ fn hack_specific_chars_cow(text: Cow<str>) -> String {
     text.replace(bullet, " ")
 }
 
-pub fn parse_logseq_notebook(md: &str, parse_pdf: bool) -> String {
+pub fn parse_logseq_notebook(md: &str, server_info: &ServerInformation) -> String {
     // Now we do some parsing for this file
     let content = exclude_advanced_query(md);
     let content = hack_specific_chars_cow(content);
-    let content: String = parse_to_plain_text(&content);
+    let content: String = markdown_to_text::convert_from_logseq(&content, server_info);
     content
 }
 

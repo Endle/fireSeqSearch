@@ -25,11 +25,46 @@
 
 #![warn(clippy::all, clippy::pedantic)]
 
+use log::warn;
 use pulldown_cmark::{Event, Options, Parser, Tag};
+use crate::query_engine::ServerInformation;
 
-pub fn convert_from_logseq(markdown:&str, parse_pdf: bool) -> String {
-    todo!()
+pub fn convert_from_logseq(markdown:&str, server_info: &ServerInformation) -> String {
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_STRIKETHROUGH);
+
+    let parser = Parser::new_ext(&markdown, options);
+    let mut tags_stack = Vec::new();
+    let mut buffer = String::new();
+
+    // For each event we push into the buffer to produce the plain text version.
+    for event in parser {
+        println!("{:?}", &event);
+        match event {
+            // The start and end events don't contain the text inside the tag. That's handled by the `Event::Text` arm.
+            // However, pdf is considered as Image, and will be specially handled when parsing end tag
+            Event::Start(tag) => {
+                start_tag(&tag, &mut buffer, &mut tags_stack);
+                tags_stack.push(tag);
+            }
+            Event::End(tag) => {
+                tags_stack.pop();
+                end_tag(&tag, &mut buffer, &tags_stack);
+
+            }
+            Event::Text(content) => {
+                if !tags_stack.iter().any(is_strikethrough) {
+                    buffer.push_str(&content)
+                }
+            }
+            Event::Code(content) => buffer.push_str(&content),
+            Event::SoftBreak => buffer.push(' '),
+            _ => (),
+        }
+    }
+    buffer.trim().to_string()
 }
+
 #[must_use]
 pub fn convert(markdown: &str) -> String {
     // GFM tables and tasks lists are not enabled.
@@ -125,12 +160,15 @@ fn is_strikethrough(tag: &Tag) -> bool {
 #[cfg(test)]
 mod tests {
     use super::convert;
+    use super::convert_from_logseq;
 
     #[test]
     fn links_to_pdf() {
         let markdown = r#"Refer to ![order.pdf](../assets/buy_00000_0.pdf)"#;
         let expected = "Refer to order.pdf";
         assert_eq!(convert(markdown), expected);
+
+        let _a = convert_from_logseq(markdown, true);
     }
 
     #[test]

@@ -127,13 +127,14 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
 
+    //TODO always parse pdf
     let pages: Vec<(String, String)> = read_specific_directory(&pages_path).par_iter()
         .map(|(title,md)| {
-            let content = parse_logseq_notebook(md, false);
+            let content = parse_logseq_notebook(md, server_info);
             (title.to_string(), content)
         }).collect();
 
-    for (file_name, contents) in read_specific_directory(&pages_path) {
+    for (file_name, contents) in pages {
         // let note_title = process_note_title(file_name, &server_info);
         index_writer.add_document(
             tantivy::doc!{ title => file_name, body => contents}
