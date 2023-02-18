@@ -25,7 +25,8 @@
 
 #![warn(clippy::all, clippy::pedantic)]
 
-use log::{debug, warn};
+use std::path::Path;
+use log::{debug, error, warn};
 use pulldown_cmark::{Event, Options, Parser, Tag};
 use crate::query_engine::ServerInformation;
 
@@ -80,10 +81,21 @@ fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Option<String> {
             }
             debug!("Trying to parse PDF {:?}", tag);
             println!("{:?}", &tag);
-            destination_uri
+            destination_uri.replace("../", "")
         },
         _ => {return None;}
     };
+
+    let path = Path::new(&server_info.notebook_path);
+    let pdf_path = path.join(destination_uri);
+    println!("{:?}, {:?}", &pdf_path, pdf_path.is_file());
+    if !pdf_path.is_file() {
+        error!("pdf_path is not a file, skipping {:?}", &pdf_path);
+        return None;
+    }
+
+
+
     None
 }
 
