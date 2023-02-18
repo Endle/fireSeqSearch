@@ -1,4 +1,19 @@
-## 0.1.1  
+### 0.1.2  
+New server-side feature: [Read and Search PDF contents](https://github.com/Endle/fireSeqSearch/issues/63)! In a logseq page, the PDF link `![title](../assets/doc_000123_0.pdf)` will be parsed, and appended to the document.
+
+#### How to use it  
+This feature is turned off by default. Adding `--parse-pdf-links` to enable PDF parsing. [See example](https://github.com/Endle/fireSeqSearch/blob/81a9c2fc53ef589e8e63d19467825d63a84bd404/fire_seq_search_server/debug_server.sh#L8)
+
+Deficient: Performance. It needs further evaluation.
+
+#### Thanks  
+The crate [PDF-extract](https://github.com/jrmuizel/pdf-extract) makes this new feature possible. Thanks [Jeff Muizelaar](https://github.com/jrmuizel) and [Joep Meindertsma](https://github.com/joepio) for it.  
+
+
+[Clifford Enoc](https://github.com/cliffordx) created this feature request.  
+
+
+### 0.1.1  
 This is the first time for bumping the **MINOR version** for a big new feature:
 
 ObsidianMD support!
