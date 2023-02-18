@@ -1,7 +1,6 @@
 use std::ffi::OsStr;
 use std::path::Path;
 use log::{debug, error, info};
-use pdf_extract::OutputError;
 use pulldown_cmark::Tag;
 use crate::query_engine::ServerInformation;
 
