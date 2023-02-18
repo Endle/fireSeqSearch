@@ -5,9 +5,7 @@ use pulldown_cmark::Tag;
 use crate::query_engine::ServerInformation;
 
 extern crate pdf_extract;
-// extern crate lopdf;
-// use pdf_extract::*;
-// use lopdf::*;
+
 
 pub(crate) fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Option<String> {
 
@@ -17,7 +15,7 @@ pub(crate) fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Optio
                 return None;
             }
             debug!("Trying to parse PDF {:?}", tag);
-            println!("{:?}", &tag);
+            // println!("{:?}", &tag);
             destination_uri.replace("../", "")
         },
         _ => {return None;}
@@ -25,7 +23,7 @@ pub(crate) fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Optio
 
     let path = Path::new(&server_info.notebook_path);
     let pdf_path = path.join(destination_uri);
-    println!("{:?}, {:?}", &pdf_path, pdf_path.is_file());
+    // println!("{:?}, {:?}", &pdf_path, pdf_path.is_file());
     if !pdf_path.is_file() {
         error!("pdf_path is not a file, skipping {:?}", &pdf_path);
         return None;
