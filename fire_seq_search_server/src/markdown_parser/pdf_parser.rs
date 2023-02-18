@@ -1,4 +1,4 @@
-use std::ffi::OsStr;
+
 use std::path::Path;
 use log::{debug, error, info};
 use pulldown_cmark::Tag;
@@ -10,7 +10,7 @@ extern crate pdf_extract;
 pub(crate) fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Option<String> {
 
     let destination_uri = match tag {
-        Tag::Image(link_type, destination_uri, title) => {
+        Tag::Image(_link_type, destination_uri, _title) => {
             if !destination_uri.ends_with(".pdf") {
                 return None;
             }

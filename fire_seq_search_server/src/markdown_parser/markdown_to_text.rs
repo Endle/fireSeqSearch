@@ -25,8 +25,8 @@
 
 #![warn(clippy::all, clippy::pedantic)]
 
-use std::path::Path;
-use log::{debug, error, warn};
+
+use log::{debug, warn};
 use pulldown_cmark::{Event, Options, Parser, Tag};
 use crate::markdown_parser::pdf_parser::try_parse_pdf;
 use crate::query_engine::ServerInformation;
