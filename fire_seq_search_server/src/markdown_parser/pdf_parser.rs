@@ -1,12 +1,13 @@
 use std::path::Path;
 use log::{debug, error};
+use pdf_extract::OutputError;
 use pulldown_cmark::Tag;
 use crate::query_engine::ServerInformation;
 
 extern crate pdf_extract;
-extern crate lopdf;
-use pdf_extract::*;
-use lopdf::*;
+// extern crate lopdf;
+// use pdf_extract::*;
+// use lopdf::*;
 
 pub(crate) fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Option<String> {
 
@@ -29,9 +30,24 @@ pub(crate) fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Optio
         error!("pdf_path is not a file, skipping {:?}", &pdf_path);
         return None;
     }
+    //
+    // let doc = match Document::load(pdf_path) {
+    //     Ok(s) => {s}
+    //     Err(e) => {
+    //         error!("Failed({:?} to load pdf {:?}", e, pdf_path);
+    //         return None;
+    //     }
+    // };
+    // println!("{:?}", &doc);
 
-    let doc = Document::load(pdf_path).unwrap();
+    let text = match pdf_extract::extract_text(&pdf_path) {
+            Ok(s) => {s}
+            Err(e) => {
+                error!("Failed({:?} to load pdf {:?}", e, pdf_path);
+                return None;
+            }
+    };
+    println!("{:?}", &text);
 
-
-    None
+    Some(text)
 }
