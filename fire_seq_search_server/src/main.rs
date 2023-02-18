@@ -18,6 +18,9 @@ struct Cli{
     notebook_name: Option<String>,
 
     #[arg(long, default_value_t = false)]
+    parse_pdf_links: bool,
+
+    #[arg(long, default_value_t = false)]
     obsidian_md: bool,
 
     #[arg(long,default_value_t = false)]
@@ -105,6 +108,7 @@ fn build_server_info(args: Cli) -> ServerInformation {
         show_top_hits: args.show_top_hits,
         show_summary_single_line_chars_limit:
             args.show_summary_single_line_chars_limit,
+        parse_pdf_links: args.parse_pdf_links,
         obsidian_md: args.obsidian_md,
         convert_underline_hierarchy: true,
     }

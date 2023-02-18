@@ -25,7 +25,58 @@
 
 #![warn(clippy::all, clippy::pedantic)]
 
+
+use log::{debug, warn};
 use pulldown_cmark::{Event, Options, Parser, Tag};
+use crate::markdown_parser::pdf_parser::try_parse_pdf;
+use crate::query_engine::ServerInformation;
+
+pub fn convert_from_logseq(markdown:&str, document_title: &str, server_info: &ServerInformation) -> String {
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_STRIKETHROUGH);
+
+    let parser = Parser::new_ext(&markdown, options);
+    let mut tags_stack = Vec::new();
+    let mut buffer = String::default();
+
+    // For each event we push into the buffer to produce the plain text version.
+    for event in parser {
+        // println!("{:?}", &event);
+        match event {
+            // The start and end events don't contain the text inside the tag. That's handled by the `Event::Text` arm.
+            // However, pdf is considered as Image, and will be specially handled when parsing end tag
+            Event::Start(tag) => {
+                start_tag(&tag, &mut buffer, &mut tags_stack);
+                tags_stack.push(tag);
+            }
+            Event::End(tag) => {
+                tags_stack.pop();
+                end_tag(&tag, &mut buffer, &tags_stack);
+                if server_info.parse_pdf_links {
+                    let pdf_str = try_parse_pdf(&tag, server_info);
+                    match pdf_str {
+                        Some(s) => {
+                            debug!("PDF document {:?} appended to {}", &tag, document_title);
+                            buffer.push_str(&s)
+                        },
+                        None => ()
+                    }
+                }
+            }
+            Event::Text(content) => {
+                if !tags_stack.iter().any(is_strikethrough) {
+                    buffer.push_str(&content)
+                }
+            }
+            Event::Code(content) => buffer.push_str(&content),
+            Event::SoftBreak => buffer.push(' '),
+            _ => (),
+        }
+    }
+    buffer.trim().to_string()
+}
+
+
 
 #[must_use]
 pub fn convert(markdown: &str) -> String {
@@ -35,7 +86,7 @@ pub fn convert(markdown: &str) -> String {
 
     let parser = Parser::new_ext(&markdown, options);
     let mut tags_stack = Vec::new();
-    let mut buffer = String::new();
+    let mut buffer = String::default();
 
     // For each event we push into the buffer to produce the plain text version.
     for event in parser {
@@ -121,7 +172,22 @@ fn is_strikethrough(tag: &Tag) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::generate_server_info_for_test;
     use super::convert;
+    use super::convert_from_logseq;
+
+    #[test]
+    fn links_to_pdf() {
+        let markdown = r#"Refer to ![order.pdf](../assets/readings_1634910859348_0.pdf)"#;
+        let expected = "Refer to order.pdf";
+        assert_eq!(convert(markdown), expected);
+
+        let mut info = generate_server_info_for_test();
+        info.notebook_path = "C:\\Users\\z2369li\\Nextcloud\\logseq_notebook".to_string();
+        info.parse_pdf_links = true;
+        // println!("{:?}", &info);
+        let _a = convert_from_logseq(markdown, "title", &info);
+    }
 
     #[test]
     fn basic_inline_strong() {

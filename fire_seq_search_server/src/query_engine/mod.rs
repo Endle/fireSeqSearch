@@ -4,6 +4,8 @@ use log::{info, warn};
 use crate::{decode_cjk_str, JiebaTokenizer};
 use crate::load_notes::read_specific_directory;
 use crate::post_query::post_query_wrapper;
+use rayon::prelude::*;
+use crate::markdown_parser::parse_logseq_notebook;
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ServerInformation {
@@ -12,7 +14,7 @@ pub struct ServerInformation {
     pub enable_journal_query: bool,
     pub show_top_hits: usize,
     pub show_summary_single_line_chars_limit: usize,
-
+    pub parse_pdf_links: bool,
 
     pub obsidian_md: bool,
 
@@ -125,7 +127,14 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
 
-    for (file_name, contents) in read_specific_directory(&pages_path) {
+
+    let pages: Vec<(String, String)> = read_specific_directory(&pages_path).par_iter()
+        .map(|(title,md)| {
+            let content = parse_logseq_notebook(md, title, server_info);
+            (title.to_string(), content)
+        }).collect();
+
+    for (file_name, contents) in pages {
         // let note_title = process_note_title(file_name, &server_info);
         index_writer.add_document(
             tantivy::doc!{ title => file_name, body => contents}
@@ -135,7 +144,12 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
     if server_info.enable_journal_query {
         info!("Loading journals");
         let journals_page = path.clone() + "/journals";
-        for (note_title, contents) in read_specific_directory(&journals_page) {
+        let journals: Vec<(String, String)> = read_specific_directory(&journals_page).par_iter()
+            .map(|(title,md)| {
+                let content = parse_logseq_notebook(md, title, server_info);
+                (title.to_string(), content)
+            }).collect();
+        for (note_title, contents) in journals {
             let tantivy_title = crate::JOURNAL_PREFIX.to_owned() + &note_title;
             index_writer.add_document(
                 tantivy::doc!{ title => tantivy_title, body => contents}
