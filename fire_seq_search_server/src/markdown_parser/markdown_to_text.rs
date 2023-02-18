@@ -28,6 +28,7 @@
 use std::path::Path;
 use log::{debug, error, warn};
 use pulldown_cmark::{Event, Options, Parser, Tag};
+use crate::markdown_parser::pdf_parser::try_parse_pdf;
 use crate::query_engine::ServerInformation;
 
 pub fn convert_from_logseq(markdown:&str, server_info: &ServerInformation) -> String {
@@ -72,32 +73,7 @@ pub fn convert_from_logseq(markdown:&str, server_info: &ServerInformation) -> St
     buffer.trim().to_string()
 }
 
-fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Option<String> {
 
-    let destination_uri = match tag {
-        Tag::Image(link_type, destination_uri, title) => {
-            if !destination_uri.ends_with(".pdf") {
-                return None;
-            }
-            debug!("Trying to parse PDF {:?}", tag);
-            println!("{:?}", &tag);
-            destination_uri.replace("../", "")
-        },
-        _ => {return None;}
-    };
-
-    let path = Path::new(&server_info.notebook_path);
-    let pdf_path = path.join(destination_uri);
-    println!("{:?}, {:?}", &pdf_path, pdf_path.is_file());
-    if !pdf_path.is_file() {
-        error!("pdf_path is not a file, skipping {:?}", &pdf_path);
-        return None;
-    }
-
-
-
-    None
-}
 
 #[must_use]
 pub fn convert(markdown: &str) -> String {

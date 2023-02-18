@@ -1,5 +1,6 @@
 mod markdown_to_text;
 mod markdown_to_text_fireseqsearch;
+mod pdf_parser;
 
 use std::borrow::Cow;
 use regex::Regex;
