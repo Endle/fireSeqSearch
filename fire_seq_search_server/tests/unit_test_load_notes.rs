@@ -39,12 +39,12 @@ fn parse() {
 #[test]
 fn exclude_advance_query() {
     let md = read_file_to_line("advanced_query.md");
-    let result = exclude_advanced_query(md);
+    let result = exclude_advanced_query(&md);
     assert!(!result.contains("exempli"));
     assert!(result.contains("In this test page we have"));
 
 
     let md = read_file_to_line("blog_thunderbird_zh.md");
-    let result = exclude_advanced_query(md.clone());
+    let result = exclude_advanced_query(&md);
     assert_eq!(md, result);
 }
