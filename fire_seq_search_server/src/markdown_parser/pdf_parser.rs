@@ -3,6 +3,11 @@ use log::{debug, error};
 use pulldown_cmark::Tag;
 use crate::query_engine::ServerInformation;
 
+extern crate pdf_extract;
+extern crate lopdf;
+use pdf_extract::*;
+use lopdf::*;
+
 pub(crate) fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Option<String> {
 
     let destination_uri = match tag {
@@ -25,8 +30,7 @@ pub(crate) fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Optio
         return None;
     }
 
-    // use lopdf::*;
-    // let doc = pdf_extract::Document::load(pdf_path).unwrap();
+    let doc = Document::load(pdf_path).unwrap();
 
 
     None
