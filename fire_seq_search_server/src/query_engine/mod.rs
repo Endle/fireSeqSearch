@@ -127,10 +127,10 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
 
-    //TODO always parse pdf
+
     let pages: Vec<(String, String)> = read_specific_directory(&pages_path).par_iter()
         .map(|(title,md)| {
-            let content = parse_logseq_notebook(md, server_info);
+            let content = parse_logseq_notebook(md, title, server_info);
             (title.to_string(), content)
         }).collect();
 

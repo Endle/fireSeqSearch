@@ -1,5 +1,6 @@
+use std::ffi::OsStr;
 use std::path::Path;
-use log::{debug, error};
+use log::{debug, error, info};
 use pdf_extract::OutputError;
 use pulldown_cmark::Tag;
 use crate::query_engine::ServerInformation;
@@ -30,15 +31,7 @@ pub(crate) fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Optio
         error!("pdf_path is not a file, skipping {:?}", &pdf_path);
         return None;
     }
-    //
-    // let doc = match Document::load(pdf_path) {
-    //     Ok(s) => {s}
-    //     Err(e) => {
-    //         error!("Failed({:?} to load pdf {:?}", e, pdf_path);
-    //         return None;
-    //     }
-    // };
-    // println!("{:?}", &doc);
+
 
     let text = match pdf_extract::extract_text(&pdf_path) {
             Ok(s) => {s}
@@ -47,7 +40,12 @@ pub(crate) fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Optio
                 return None;
             }
     };
-    println!("{:?}", &text);
+
+    match pdf_path.file_name() {
+        None => {error!("Extracted text len {}, file_name() failed", text.len());}
+        Some(f) => {info!("Extracted text from {:?} len {}", f, text.len());}
+    };
+
 
     Some(text)
 }

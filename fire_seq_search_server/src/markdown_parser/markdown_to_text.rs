@@ -31,7 +31,7 @@ use pulldown_cmark::{Event, Options, Parser, Tag};
 use crate::markdown_parser::pdf_parser::try_parse_pdf;
 use crate::query_engine::ServerInformation;
 
-pub fn convert_from_logseq(markdown:&str, server_info: &ServerInformation) -> String {
+pub fn convert_from_logseq(markdown:&str, document_title: &str, server_info: &ServerInformation) -> String {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
 
@@ -55,7 +55,10 @@ pub fn convert_from_logseq(markdown:&str, server_info: &ServerInformation) -> St
                 if server_info.parse_pdf_links {
                     let pdf_str = try_parse_pdf(&tag, server_info);
                     match pdf_str {
-                        Some(s) => buffer.push_str(&s),
+                        Some(s) => {
+                            debug!("PDF document {:?} appended to {}", &tag, document_title);
+                            buffer.push_str(&s)
+                        },
                         None => ()
                     }
                 }
@@ -182,8 +185,8 @@ mod tests {
         let mut info = generate_server_info_for_test();
         info.notebook_path = "C:\\Users\\z2369li\\Nextcloud\\logseq_notebook".to_string();
         info.parse_pdf_links = true;
-        println!("{:?}", &info);
-        let _a = convert_from_logseq(markdown, &info);
+        // println!("{:?}", &info);
+        let _a = convert_from_logseq(markdown, "title", &info);
     }
 
     #[test]
