@@ -144,7 +144,12 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
     if server_info.enable_journal_query {
         info!("Loading journals");
         let journals_page = path.clone() + "/journals";
-        for (note_title, contents) in read_specific_directory(&journals_page) {
+        let journals: Vec<(String, String)> = read_specific_directory(&journals_page).par_iter()
+            .map(|(title,md)| {
+                let content = parse_logseq_notebook(md, title, server_info);
+                (title.to_string(), content)
+            }).collect();
+        for (note_title, contents) in journals {
             let tantivy_title = crate::JOURNAL_PREFIX.to_owned() + &note_title;
             index_writer.add_document(
                 tantivy::doc!{ title => tantivy_title, body => contents}
