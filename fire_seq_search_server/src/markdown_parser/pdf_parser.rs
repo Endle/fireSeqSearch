@@ -4,8 +4,9 @@ use log::{debug, error, info};
 use pulldown_cmark::Tag;
 use crate::query_engine::ServerInformation;
 
-extern crate pdf_extract;
-
+// extern crate pdf_extract;
+extern crate pdf_extract_temporary_migitation_panic;
+use pdf_extract_temporary_migitation_panic::extract_text;
 
 pub(crate) fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Option<String> {
 
@@ -30,7 +31,7 @@ pub(crate) fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Optio
     }
 
 
-    let text = match pdf_extract::extract_text(&pdf_path) {
+    let text = match extract_text(&pdf_path) {
             Ok(s) => {s}
             Err(e) => {
                 error!("Failed({:?} to load pdf {:?}", e, pdf_path);
