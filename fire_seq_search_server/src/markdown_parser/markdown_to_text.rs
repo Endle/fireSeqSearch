@@ -37,7 +37,7 @@ pub fn convert_from_logseq(markdown:&str, document_title: &str, server_info: &Se
 
     let parser = Parser::new_ext(&markdown, options);
     let mut tags_stack = Vec::new();
-    let mut buffer = String::new();
+    let mut buffer = String::default();
 
     // For each event we push into the buffer to produce the plain text version.
     for event in parser {
@@ -86,7 +86,7 @@ pub fn convert(markdown: &str) -> String {
 
     let parser = Parser::new_ext(&markdown, options);
     let mut tags_stack = Vec::new();
-    let mut buffer = String::new();
+    let mut buffer = String::default();
 
     // For each event we push into the buffer to produce the plain text version.
     for event in parser {
