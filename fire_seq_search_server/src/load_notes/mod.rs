@@ -84,10 +84,6 @@ pub fn read_md_file_wo_parse(note: &std::fs::DirEntry) -> Option<(String, String
         }
     };
 
-    // let content : String = crate::markdown_parser::parse_logseq_notebook(content);
-
-
-
     Some((note_title.to_string(),content))
 }
 
