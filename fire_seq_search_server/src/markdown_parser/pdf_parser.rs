@@ -5,8 +5,8 @@ use pulldown_cmark::Tag;
 use crate::query_engine::ServerInformation;
 
 // extern crate pdf_extract;
-extern crate pdf_extract_temporary_migitation_panic;
-use pdf_extract_temporary_migitation_panic::extract_text;
+extern crate pdf_extract_temporary_mitigation_panic;
+use pdf_extract_temporary_mitigation_panic::extract_text;
 
 pub(crate) fn try_parse_pdf(tag: &Tag, server_info: &ServerInformation) -> Option<String> {
 
