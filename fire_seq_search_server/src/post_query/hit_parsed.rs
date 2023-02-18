@@ -72,9 +72,9 @@ impl FireSeqSearchHitParsed {
 
 #[cfg(test)]
 mod test_serde {
-    use crate::generate_server_info_for_test;
-    use crate::post_query::hit_parsed::FireSeqSearchHitParsed;
-    use crate::post_query::logseq_uri::generate_logseq_uri;
+    // use crate::generate_server_info_for_test;
+    // use crate::post_query::hit_parsed::FireSeqSearchHitParsed;
+    // use crate::post_query::logseq_uri::generate_logseq_uri;
 
 
     // fn get_parsed_hit(title: &str) -> FireSeqSearchHitParsed {
