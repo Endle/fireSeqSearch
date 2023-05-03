@@ -5,6 +5,7 @@ use stopwords;
 use regex::RegexBuilder;
 
 use lazy_static::lazy_static;
+use crate::post_query::highlighter::HighlightStatusWithWords::{Highlight, Lowlight};
 
 lazy_static! {
     static ref STOPWORDS_LIST: HashSet<String> = generate_stopwords_list();
@@ -81,7 +82,20 @@ pub fn apply_html_escape(s: &str) -> String {
     t.to_string()
 }
 
-
+enum HighlightStatusWithWords {
+    Highlight(String),
+    Lowlight(String)
+}
+fn get_lowlight_brief(s:&str, show_summary_single_line_chars_limit:usize,
+                      too_long_segment_remained_len:usize) -> HighlightStatusWithWords {
+    if s.len() > show_summary_single_line_chars_limit {
+        let brief: String = safe_generate_brief_for_too_long_segment(
+            s, too_long_segment_remained_len);
+        Lowlight(apply_html_escape(&brief))
+    } else {
+        Lowlight(apply_html_escape(s) )
+    }
+}
 
 pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>,
                                 show_summary_single_line_chars_limit: usize) -> String {
@@ -96,10 +110,10 @@ pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>
     // arbitrary seg
     let too_long_segment_remained_len = show_summary_single_line_chars_limit / 3;
 
-
+    let mut bricks: Vec<HighlightStatusWithWords> = Vec::with_capacity(mats_found.len() + 1);
 
     // I feel that this is not quite elegant
-    let mut builder: Vec<String> = Vec::with_capacity(mats_found.len() + 1);
+    // let mut builder: Vec<String> = Vec::with_capacity(mats_found.len() + 1);
     let mut cursor = 0;
     let mut mat_pos = 0;
 
@@ -117,17 +131,17 @@ pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>
 
         let remain_seg = safe_string_slice(sentence, cursor..highlight_start);
 
-        if remain_seg.len() > show_summary_single_line_chars_limit {
-            let brief: String = safe_generate_brief_for_too_long_segment(
-                &remain_seg, too_long_segment_remained_len);
-            builder.push(apply_html_escape(&brief));
-            // builder.push(&remain_seg[..too_long_segment_remained_len]);
-            // builder.push("...");
-            // builder.push(&remain_seg[
-            //     remain_seg.len()-too_long_segment_remained_len..]);
-        } else {
-            builder.push(apply_html_escape(remain_seg) );
-        }
+        bricks.push(
+            get_lowlight_brief(remain_seg, show_summary_single_line_chars_limit,
+                               too_long_segment_remained_len));
+
+        // if remain_seg.len() > show_summary_single_line_chars_limit {
+        //     let brief: String = safe_generate_brief_for_too_long_segment(
+        //         &remain_seg, too_long_segment_remained_len);
+        //     bricks.push(Lowlight(apply_html_escape(&brief)));
+        // } else {
+        //     bricks.push(Lowlight(apply_html_escape(remain_seg) ));
+        // }
 
         if mats_found[mat_pos].1 > sentence.len() {
             error!("This match {:?} exceeded the sentence {}",
@@ -139,12 +153,12 @@ pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>
 
         debug!("Wrapping {}-th: ({},{})", mat_pos, highlight_start, highlight_end);
         // [start, end) be wrapped
-        builder.push(span_start.to_string());
+
         let wrapped_word = safe_string_slice(sentence,
                                              highlight_start..highlight_end);
         debug!("\tWrapping ({})", &wrapped_word);
-        builder.push(apply_html_escape(wrapped_word));
-        builder.push(span_end.to_string());
+        bricks.push(Highlight(apply_html_escape(wrapped_word)));
+
 
         //[end..) remains
         cursor = highlight_end;
@@ -154,16 +168,32 @@ pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>
 
     if cursor < sentence.len() {
         let remain_seg = safe_string_slice(sentence,cursor..sentence.len());
-        if remain_seg.len() > show_summary_single_line_chars_limit {
-            let brief = safe_generate_brief_for_too_long_segment(
-                remain_seg, too_long_segment_remained_len
-            );
-            builder.push(apply_html_escape(&brief));
-        } else {
-            builder.push(apply_html_escape(remain_seg));
-        }
+        bricks.push(
+            get_lowlight_brief(remain_seg, show_summary_single_line_chars_limit,
+                               too_long_segment_remained_len));
+        // if remain_seg.len() > show_summary_single_line_chars_limit {
+        //     let brief = safe_generate_brief_for_too_long_segment(
+        //         remain_seg, too_long_segment_remained_len
+        //     );
+        //     builder.push(apply_html_escape(&brief));
+        // } else {
+        //     builder.push(apply_html_escape(remain_seg));
+        // }
     }
 
+    let mut builder: Vec<String> = Vec::with_capacity(mats_found.len() * 3);
+    for x in bricks {
+        match x {
+            Highlight(s) => {
+                builder.push(span_start.to_string());
+                builder.push(s);
+                builder.push(span_end.to_string());
+            },
+            Lowlight(s) => {
+                builder.push(s);
+            }
+        }
+    }
     builder.concat()
 }
 
