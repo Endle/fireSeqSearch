@@ -60,6 +60,29 @@ pub fn highlight_sentence_with_keywords(sentence: &str,
 }
 
 
+///
+///
+/// # Arguments
+///
+/// * `s`: snip from the notes
+///
+/// returns: String
+///
+/// # Examples
+///
+/// ```
+/// use fire_seq_search_server::post_query::highlighter::apply_html_escape;
+/// let s = "i < j; i > k;";
+/// let t = apply_html_escape(s);
+/// assert_eq!(&t, "i &lt; j; i &gt; k;");
+/// ```
+pub fn apply_html_escape(s: &str) -> String {
+    let t = html_escape::encode_safe(s);
+    t.to_string()
+}
+
+
+
 pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>,
                                 show_summary_single_line_chars_limit: usize) -> String {
 
@@ -97,13 +120,13 @@ pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>
         if remain_seg.len() > show_summary_single_line_chars_limit {
             let brief: String = safe_generate_brief_for_too_long_segment(
                 &remain_seg, too_long_segment_remained_len);
-            builder.push(brief);
+            builder.push(apply_html_escape(&brief));
             // builder.push(&remain_seg[..too_long_segment_remained_len]);
             // builder.push("...");
             // builder.push(&remain_seg[
             //     remain_seg.len()-too_long_segment_remained_len..]);
         } else {
-            builder.push(remain_seg.to_string());
+            builder.push(apply_html_escape(remain_seg) );
         }
 
         if mats_found[mat_pos].1 > sentence.len() {
@@ -120,7 +143,7 @@ pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>
         let wrapped_word = safe_string_slice(sentence,
                                              highlight_start..highlight_end);
         debug!("\tWrapping ({})", &wrapped_word);
-        builder.push(wrapped_word.to_string());
+        builder.push(apply_html_escape(wrapped_word));
         builder.push(span_end.to_string());
 
         //[end..) remains
@@ -135,9 +158,9 @@ pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>
             let brief = safe_generate_brief_for_too_long_segment(
                 remain_seg, too_long_segment_remained_len
             );
-            builder.push(brief);
+            builder.push(apply_html_escape(&brief));
         } else {
-            builder.push(remain_seg.to_string());
+            builder.push(apply_html_escape(remain_seg));
         }
     }
 

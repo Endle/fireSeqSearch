@@ -26,7 +26,13 @@ fn test_highlight_wrap() {
     assert_eq!(&r, "使用 git shallow clone 下载并编译 <span class=\"fireSeqSearchHighlight\">Thunderbird</span>");
 }
 
-
+#[test]
+fn test_highlight_latex() {
+    let contents = "$\\vec{q_i}^T \\vec{a_j}, i<j$".to_string();
+    let v = vec![String::from("vec")];
+    let r = highlight_keywords_in_body(&contents, &v, 120);
+    println!("{:?}", &r);
+}
 #[test]
 fn test_split_to_block() {
     // This part is still hacky
