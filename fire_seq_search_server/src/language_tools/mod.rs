@@ -1,3 +1,5 @@
+pub mod search_term;
+
 use lingua::{Language, LanguageDetector, LanguageDetectorBuilder};
 use lingua::Language::{Chinese, English};
 

@@ -18,10 +18,12 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
     // let nltk = generate_stopwords_list();
     let nltk = &STOPWORDS_LIST;
 
-    let term_ref: Vec<&str> = term_tokens.iter().map(|s| &**s).collect();
-    let terms_selected: Vec<&str> = term_ref.into_iter()
-        .filter(|&s| !nltk.contains(s))
-        .collect();
+    let terms_selected: Vec<&str> = crate::language_tools::search_term::filter_out_stopwords(
+        &term_tokens, nltk);
+    // let term_ref: Vec<&str> = term_tokens.iter().map(|s| &**s).collect();
+    // let terms_selected: Vec<&str> = term_ref.into_iter()
+    //     .filter(|&s| !nltk.contains(s))
+    //     .collect();
     info!("Highlight terms: {:?}", &terms_selected);
 
 
@@ -225,7 +227,6 @@ pub fn locate_single_keyword<'a>(sentence: &'a str, token: &'a str) -> Vec<(usiz
 
 
 /// ```
-/// /// Some documentation.
 /// let l = fire_seq_search_server::post_query::highlighter::generate_stopwords_list();
 /// assert!(l.contains("the"));
 /// assert!(!l.contains("thex"));

@@ -1,7 +1,7 @@
 pub mod post_query;
 pub mod load_notes;
 pub mod markdown_parser;
-mod language_tools;
+pub mod language_tools;
 pub mod http_client;
 pub mod query_engine;
 
