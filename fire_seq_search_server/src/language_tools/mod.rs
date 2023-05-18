@@ -19,7 +19,7 @@ pub fn is_chinese(sentence: &str) -> bool {
 mod test_language_detect {
     #[test]
     fn zh() {
-        use crate::language_detect::is_chinese;
+        use crate::language_tools::is_chinese;
         assert!(is_chinese("李华"));
         assert!(!is_chinese("rust"));
         assert!(!is_chinese("Это статья ."));

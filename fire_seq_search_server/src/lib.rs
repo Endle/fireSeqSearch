@@ -1,7 +1,7 @@
 pub mod post_query;
 pub mod load_notes;
 pub mod markdown_parser;
-mod language_detect;
+mod language_tools;
 pub mod http_client;
 pub mod query_engine;
 
@@ -105,7 +105,7 @@ pub fn tokenize_default(sentence: &str) -> Vec<String> {
     lazy_static! {
         static ref TK: JiebaTokenizer = crate::JiebaTokenizer {};
     }
-    if language_detect::is_chinese(sentence) {
+    if language_tools::is_chinese(sentence) {
         info!("Use Tokenizer for Chinese term {}", sentence);
         tokenize_sentence_to_text_vec(&TK, sentence)
     } else {
