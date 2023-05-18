@@ -224,8 +224,13 @@ pub fn locate_single_keyword<'a>(sentence: &'a str, token: &'a str) -> Vec<(usiz
 }
 
 
-
-fn generate_stopwords_list() -> std::collections::HashSet<String> {
+/// ```
+/// /// Some documentation.
+/// let l = fire_seq_search_server::post_query::highlighter::generate_stopwords_list();
+/// assert!(l.contains("the"));
+/// assert!(!l.contains("thex"));
+/// ```
+pub fn generate_stopwords_list() -> std::collections::HashSet<String> {
     use stopwords::Stopwords;
     let mut nltk: std::collections::HashSet<&str> = stopwords::NLTK::stopwords(stopwords::Language::English).unwrap().iter().cloned().collect();
     nltk.insert("span");
