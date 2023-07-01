@@ -3,8 +3,41 @@ use log::{debug, error, info, warn};
 use std::process;
 
 use rayon::prelude::*;
+use crate::query_engine::ServerInformation;
 
 
+pub fn read_all_notes(server_info: &ServerInformation) -> Vec<(String, String)> {
+    // I should remove the unwrap and convert it into map
+    let path: &str = &server_info.notebook_path;
+    let path = path.to_owned();
+    let pages_path = if server_info.obsidian_md {
+        path.clone()
+    } else{
+        path.clone() + "/pages"
+    };
+    let mut pages: Vec<(String, String)> = read_specific_directory(&pages_path).par_iter()
+        .map(|(title,md)| {
+            let content = crate::markdown_parser::parse_logseq_notebook(md, title, server_info);
+            (title.to_string(), content)
+        }).collect();
+    if server_info.enable_journal_query {
+        info!("Loading journals");
+        let journals_page = path.clone() + "/journals";
+        let journals_iter:Vec<(String, String)>
+            = read_specific_directory(&journals_page).par_iter()
+            .map(|(title,md)| {
+                let content = crate::markdown_parser::parse_logseq_notebook(md, title, server_info);
+                (title.to_string(), content)
+            }).collect();
+        for (file_name, contents) in journals_iter {
+            pages.push((file_name,contents));
+        }
+
+    }
+
+    pages
+
+}
 
 pub fn read_specific_directory(path: &str) -> Vec<(String, String)> {
     info!("Try to read {}", &path);
