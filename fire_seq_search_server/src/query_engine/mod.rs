@@ -55,7 +55,7 @@ impl QueryEngine {
 
 
     pub fn generate_wordcount(self: &Self) -> String {
-        crate::word_frequency::generate_wordlist(&self.articles)
+        crate::word_frequency::generate_wordcloud(&self.articles)
     }
 
     pub fn query_pipeline(self: &Self, term: String) -> String {

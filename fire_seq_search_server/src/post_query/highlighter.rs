@@ -18,7 +18,7 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
     // let nltk = generate_stopwords_list();
     let nltk = &STOPWORDS_LIST;
 
-    let terms_selected: Vec<&str> = crate::language_tools::search_term::filter_out_stopwords(
+    let terms_selected: Vec<&str> = crate::language_tools::tokenizer::filter_out_stopwords(
         &term_tokens, nltk);
     // let term_ref: Vec<&str> = term_tokens.iter().map(|s| &**s).collect();
     // let terms_selected: Vec<&str> = term_ref.into_iter()

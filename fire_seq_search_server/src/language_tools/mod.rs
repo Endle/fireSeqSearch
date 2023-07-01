@@ -1,4 +1,4 @@
-pub mod search_term;
+pub mod tokenizer;
 
 use lingua::{Language, LanguageDetector, LanguageDetectorBuilder};
 use lingua::Language::{Chinese, English};
