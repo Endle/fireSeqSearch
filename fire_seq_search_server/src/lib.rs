@@ -16,7 +16,10 @@ extern crate lazy_static;
 pub static JOURNAL_PREFIX: &str = "@journal@";
 
 
-
+pub struct Article {
+    file_name: String,
+    content: String
+}
 
 // Based on https://github.com/jiegec/tantivy-jieba
 // tantivy-jieba is licensed under MIT, Copyright 2019-2020 Jiajie Chen

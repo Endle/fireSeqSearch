@@ -1,8 +1,7 @@
 // Everything about Tantivy should be hidden behind this component
 
 use log::{info, warn};
-use crate::{decode_cjk_str, JiebaTokenizer};
-use crate::load_notes::read_specific_directory;
+use crate::{Article, decode_cjk_str, JiebaTokenizer};
 use crate::post_query::post_query_wrapper;
 
 
@@ -39,7 +38,10 @@ impl QueryEngine {
     pub fn construct(server_info: ServerInformation) -> Self {
         let document_setting: DocumentSetting = build_document_setting();
         let loaded_notes = crate::load_notes::read_all_notes(&server_info);
-        let index = indexing_documents(&server_info, &document_setting, &loaded_notes);
+        let loaded_articles: Vec<Article> = loaded_notes.into_iter().map(
+            |x| Article{file_name:x.0, content:x.1}
+        ).collect();
+        let index = indexing_documents(&server_info, &document_setting, &loaded_articles);
         let (reader, query_parser) = build_reader_parser(&index, &document_setting);
 
         QueryEngine {
@@ -103,7 +105,7 @@ fn build_reader_parser(index: &tantivy::Index, document_setting: &DocumentSettin
 
 fn indexing_documents(server_info: &ServerInformation,
                       document_setting: &DocumentSetting,
-                      pages:&Vec<(String,String)>) -> tantivy::Index {
+                      pages:&Vec<crate::Article>) -> tantivy::Index {
 
     let schema = &document_setting.schema;
     let index = tantivy::Index::create_in_ram(schema.clone());
@@ -118,18 +120,14 @@ fn indexing_documents(server_info: &ServerInformation,
         assert!(!server_info.enable_journal_query);
     }
 
-
-
-
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
 
 
-
-    for (file_name, contents) in pages {
-        // let note_title = process_note_title(file_name, &server_info);
+    for article in pages {
         index_writer.add_document(
-            tantivy::doc!{ title => file_name.clone(), body => contents.clone()}
+            tantivy::doc!{ title => article.file_name.clone(),
+                body => article.content.clone()}
         ).unwrap();
     }
 
