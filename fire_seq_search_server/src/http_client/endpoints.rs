@@ -11,8 +11,10 @@ pub fn query(term: String, engine_arc: Arc<QueryEngine>)
 
     debug!("Original Search term {}", term);
     engine_arc.query_pipeline(term)
-
 }
 
 
+pub fn generate_word_cloud(engine_arc: Arc<QueryEngine>) -> String {
+    engine_arc.generate_wordcount()
 
+}

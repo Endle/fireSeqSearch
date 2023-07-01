@@ -1,11 +1,11 @@
 // Everything about Tantivy should be hidden behind this component
 
 use log::{info, warn};
-use crate::{decode_cjk_str, JiebaTokenizer};
-use crate::load_notes::read_specific_directory;
+use crate::{Article, decode_cjk_str, JiebaTokenizer};
 use crate::post_query::post_query_wrapper;
-use rayon::prelude::*;
-use crate::markdown_parser::parse_logseq_notebook;
+
+
+
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ServerInformation {
@@ -31,24 +31,32 @@ struct DocumentSetting {
 pub struct QueryEngine {
     pub server_info: ServerInformation,
     reader: tantivy::IndexReader,
-    query_parser: tantivy::query::QueryParser
+    query_parser: tantivy::query::QueryParser,
+    articles: Vec<Article>,
 }
 
 impl QueryEngine {
     pub fn construct(server_info: ServerInformation) -> Self {
         let document_setting: DocumentSetting = build_document_setting();
-
-        let index = indexing_documents(&server_info, &document_setting);
+        let loaded_notes = crate::load_notes::read_all_notes(&server_info);
+        let loaded_articles: Vec<Article> = loaded_notes.into_iter().map(
+            |x| Article{file_name:x.0, content:x.1}
+        ).collect();
+        let index = indexing_documents(&server_info, &document_setting, &loaded_articles);
         let (reader, query_parser) = build_reader_parser(&index, &document_setting);
 
         QueryEngine {
             server_info,
             reader,
-            query_parser
+            query_parser,
+            articles: loaded_articles,
         }
     }
 
 
+    pub fn generate_wordcount(self: &Self) -> String {
+        crate::word_frequency::generate_wordcloud(&self.articles)
+    }
 
     pub fn query_pipeline(self: &Self, term: String) -> String {
         let term: String = term_preprocess(term);
@@ -100,8 +108,10 @@ fn build_reader_parser(index: &tantivy::Index, document_setting: &DocumentSettin
     (reader, query_parser)
 }
 
-fn indexing_documents(server_info: &ServerInformation, document_setting: &DocumentSetting) -> tantivy::Index {
-    let path: &str = &server_info.notebook_path;
+fn indexing_documents(server_info: &ServerInformation,
+                      document_setting: &DocumentSetting,
+                      pages:&Vec<crate::Article>) -> tantivy::Index {
+
     let schema = &document_setting.schema;
     let index = tantivy::Index::create_in_ram(schema.clone());
 
@@ -115,47 +125,18 @@ fn indexing_documents(server_info: &ServerInformation, document_setting: &Docume
         assert!(!server_info.enable_journal_query);
     }
 
-    // I should remove the unwrap and convert it into map
-    let path = path.to_owned();
-    let pages_path = if server_info.obsidian_md {
-        path.clone()
-    } else{
-        path.clone() + "/pages"
-    };
-
-
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
 
 
-    let pages: Vec<(String, String)> = read_specific_directory(&pages_path).par_iter()
-        .map(|(title,md)| {
-            let content = parse_logseq_notebook(md, title, server_info);
-            (title.to_string(), content)
-        }).collect();
-
-    for (file_name, contents) in pages {
-        // let note_title = process_note_title(file_name, &server_info);
+    for article in pages {
         index_writer.add_document(
-            tantivy::doc!{ title => file_name, body => contents}
+            tantivy::doc!{ title => article.file_name.clone(),
+                body => article.content.clone()}
         ).unwrap();
     }
 
-    if server_info.enable_journal_query {
-        info!("Loading journals");
-        let journals_page = path.clone() + "/journals";
-        let journals: Vec<(String, String)> = read_specific_directory(&journals_page).par_iter()
-            .map(|(title,md)| {
-                let content = parse_logseq_notebook(md, title, server_info);
-                (title.to_string(), content)
-            }).collect();
-        for (note_title, contents) in journals {
-            let tantivy_title = crate::JOURNAL_PREFIX.to_owned() + &note_title;
-            index_writer.add_document(
-                tantivy::doc!{ title => tantivy_title, body => contents}
-            ).unwrap();
-        }
-    }
+
 
     index_writer.commit().unwrap();
     index

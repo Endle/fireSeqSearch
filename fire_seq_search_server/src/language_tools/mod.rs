@@ -1,5 +1,6 @@
-pub mod search_term;
+pub mod tokenizer;
 
+use std::collections::HashSet;
 use lingua::{Language, LanguageDetector, LanguageDetectorBuilder};
 use lingua::Language::{Chinese, English};
 
@@ -17,6 +18,56 @@ pub fn is_chinese(sentence: &str) -> bool {
         None => false
     }
 }
+
+
+
+/// ```
+/// let l = fire_seq_search_server::post_query::highlighter::generate_stopwords_list();
+/// assert!(l.contains("the"));
+/// assert!(!l.contains("thex"));
+/// ```
+pub fn generate_stopwords_list() -> std::collections::HashSet<String> {
+    use stopwords::Stopwords;
+    let mut nltk: std::collections::HashSet<&str> = stopwords::NLTK::stopwords(stopwords::Language::English).unwrap().iter().cloned().collect();
+    nltk.insert("span");
+    nltk.insert("class");
+    nltk.insert("fireSeqSearchHighlight");
+
+    nltk.insert("theorem");
+    nltk.insert("-");
+
+
+
+    let mut nltk: HashSet<String> = nltk.iter().map(|&s|s.into()).collect();
+
+    for c in 'a'..='z' {
+        nltk.insert(String::from(c));
+    }
+    // To Improve: I should be aware about the upper/lower case for terms. -Zhenbo Li 2023-Jan-19
+    for c in 'A'..='Z' {
+        nltk.insert(String::from(c));
+    }
+
+    for c in '0'..='9' {
+        nltk.insert(String::from(c));
+    }
+
+
+    let words = stop_words::get(stop_words::LANGUAGE::English);
+    for w in words {
+        nltk.insert(w);
+    }
+    let words = stop_words::get(stop_words::LANGUAGE::Chinese);
+    for w in words {
+        nltk.insert(w);
+    }
+
+    nltk
+}
+
+
+
+
 #[cfg(test)]
 mod test_language_detect {
     #[test]

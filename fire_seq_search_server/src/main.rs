@@ -75,9 +75,17 @@ async fn main() {
                      arc_for_server_info.clone()
                  ));
 
+    let arc_for_wordcloud = engine_arc.clone();
+    let create_word_cloud = warp::path("wordcloud")
+        .map(move ||
+            fire_seq_search_server::http_client::endpoints::generate_word_cloud(
+                arc_for_wordcloud.clone()
+            ));
+
     let routes = warp::get().and(
         call_query
             .or(get_server_info)
+            .or(create_word_cloud)
     );
     warp::serve(routes)
         .run(host)
