@@ -14,6 +14,7 @@ pub fn query(term: String, engine_arc: Arc<QueryEngine>)
 }
 
 
-pub fn create_word_cloud(engine_arc: Arc<QueryEngine>) -> String {
-    "word_cloud".to_string()
+pub fn generate_word_cloud(engine_arc: Arc<QueryEngine>) -> String {
+    engine_arc.generate_wordcount()
+
 }

@@ -78,7 +78,7 @@ async fn main() {
     let arc_for_wordcloud = engine_arc.clone();
     let create_word_cloud = warp::path("wordcloud")
         .map(move ||
-            fire_seq_search_server::http_client::endpoints::create_word_cloud(
+            fire_seq_search_server::http_client::endpoints::generate_word_cloud(
                 arc_for_wordcloud.clone()
             ));
 

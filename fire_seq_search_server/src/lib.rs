@@ -4,6 +4,7 @@ pub mod markdown_parser;
 pub mod language_tools;
 pub mod http_client;
 pub mod query_engine;
+pub mod word_frequency;
 
 
 use log::{debug, info};

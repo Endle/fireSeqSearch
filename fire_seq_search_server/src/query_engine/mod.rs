@@ -31,7 +31,8 @@ struct DocumentSetting {
 pub struct QueryEngine {
     pub server_info: ServerInformation,
     reader: tantivy::IndexReader,
-    query_parser: tantivy::query::QueryParser
+    query_parser: tantivy::query::QueryParser,
+    articles: Vec<Article>,
 }
 
 impl QueryEngine {
@@ -47,11 +48,15 @@ impl QueryEngine {
         QueryEngine {
             server_info,
             reader,
-            query_parser
+            query_parser,
+            articles: loaded_articles,
         }
     }
 
 
+    pub fn generate_wordcount(self: &Self) -> String {
+        crate::word_frequency::generate_wordlist(&self.articles)
+    }
 
     pub fn query_pipeline(self: &Self, term: String) -> String {
         let term: String = term_preprocess(term);
