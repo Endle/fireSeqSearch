@@ -26,7 +26,15 @@ pub fn generate_wordcloud(articles: &Vec<Article>) -> String {
         }
     }
 
-    let serialized_data = serde_json::to_string(&freq).unwrap();
+
+
+    let mut sorted_pairs: Vec<(String,i64)> = freq.into_iter().collect();
+    sorted_pairs.sort_by(|a, b| b.1.cmp(&a.1));
+    sorted_pairs.truncate(50);
+    // sorted_pairs
+
+
+    let serialized_data = serde_json::to_string(&sorted_pairs).unwrap();
     serialized_data
 }
 
