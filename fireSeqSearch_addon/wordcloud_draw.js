@@ -1248,28 +1248,39 @@ function consoleLogForDebug(message) {
 }
 
 
-function process_word_list(word_list, serverInfo) {
-    const name = serverInfo.notebook_name;
+function process_word_list(word_list, _serverInfo) {
+    // const name = serverInfo.notebook_name;
     const result = [];
     for (const word_pair of word_list) {
         const new_pair = [];
         const title = word_pair[0];
         new_pair[0] = title;
         new_pair[1] = 30; //stub size
-        new_pair[2] = `logseq://graph/${name}?page=${title}`;
+        // new_pair[2] = `logseq://graph/${name}?page=${title}`;
+        new_pair[2] = `https://www.google.com/search?q=${title}`;
         result.push(new_pair);
     }
     return result;
 }
 
 
+function wordcloud_callback(item, _dimension, _event) {
+    consoleLogForDebug("Clicked on: ");
+    consoleLogForDebug(item);
+    let link = item[2];
+    consoleLogForDebug("Jumping to: ");
+    consoleLogForDebug(link);
+    window.open(link);
+}
 async function generateWordlist() {
     consoleLogForDebug("Generating wordlist, lib status: ");
     consoleLogForDebug(WordCloud.isSupported);
     
     const raw_json_id = "fireSeqSearchWordcloudRawJson";
-    var raw_list = document.getElementById(raw_json_id);
-    var raw_json = raw_list.textContent;
+    var raw_dom = document.getElementById(raw_json_id);
+    var raw_json = raw_dom.textContent;
+
+    raw_dom.setAttribute("width", "800px");
     // consoleLogForDebug(raw_json);
     const server_info_res = await fetch("http://127.0.0.1:3030/server_info");
     // var word_list = JSON.parse(raw_json);
@@ -1282,8 +1293,9 @@ async function generateWordlist() {
     let word_list = process_word_list(JSON.parse(raw_json), serverInfo);
     // WordCloud(document.getElementById('my_canvas'), { list: list } );
 
-    WordCloud(raw_list, {
+    WordCloud(raw_dom, {
         list: word_list,
+        click:wordcloud_callback,
         shrinkToFit:true } );
 }
 
