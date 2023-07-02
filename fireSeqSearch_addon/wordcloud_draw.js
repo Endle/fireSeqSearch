@@ -1249,13 +1249,28 @@ function consoleLogForDebug(message) {
 
 
 function process_word_list(word_list, _serverInfo) {
-    // const name = serverInfo.notebook_name;
+    var min_freq = -1;
+    var max_freq = 1;
+    const max_size = 60;
+    const min_size = 30;
+
+    for (const word_pair of word_list) {
+        const freq = word_pair[1];
+        if (freq > max_freq) {
+            max_freq = freq;
+        }
+        if (min_freq < 0 || freq < min_freq) {
+            min_freq = freq;
+        }
+    }
+
     const result = [];
     for (const word_pair of word_list) {
         const new_pair = [];
         const title = word_pair[0];
         new_pair[0] = title;
-        new_pair[1] = 30; //stub size
+        new_pair[1] = (word_pair[1] - min_freq) / (max_freq - min_freq)
+            * (max_size - min_size) + min_size;
         // new_pair[2] = `logseq://graph/${name}?page=${title}`;
         new_pair[2] = `https://www.google.com/search?q=${title}`;
         result.push(new_pair);
@@ -1280,7 +1295,7 @@ async function generateWordlist() {
     var raw_dom = document.getElementById(raw_json_id);
     var raw_json = raw_dom.textContent;
 
-    raw_dom.setAttribute("width", "800px");
+    raw_dom.setAttribute("style", "width: 1000px");
     // consoleLogForDebug(raw_json);
     const server_info_res = await fetch("http://127.0.0.1:3030/server_info");
     // var word_list = JSON.parse(raw_json);
@@ -1296,6 +1311,7 @@ async function generateWordlist() {
     WordCloud(raw_dom, {
         list: word_list,
         click:wordcloud_callback,
+        drawOutOfBound: false,
         shrinkToFit:true } );
 }
 
