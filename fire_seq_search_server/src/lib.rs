@@ -113,10 +113,10 @@ pub fn tokenize_default(sentence: &str) -> Vec<String> {
         info!("Use Tokenizer for Chinese term {}", sentence);
         tokenize_sentence_to_text_vec(&TK, sentence)
     } else {
-        info!("Space Tokenizer {}", sentence);
+        // info!("Space Tokenizer {}", sentence);
         let result : Vec<&str> = sentence.split_whitespace()
             .collect();
-        debug!("Got tokens {:?}", &result);
+        // debug!("Got tokens {:?}", &result);
         let result:Vec<String> = result.iter().map(|&s|s.into()).collect();
         result
         // vec![String::from(sentence)]

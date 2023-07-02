@@ -1,4 +1,5 @@
 pub mod tokenizer;
+mod cn_stopwords;
 
 use std::collections::HashSet;
 use lingua::{Language, LanguageDetector, LanguageDetectorBuilder};
@@ -26,7 +27,7 @@ pub fn is_chinese(sentence: &str) -> bool {
 /// assert!(l.contains("the"));
 /// assert!(!l.contains("thex"));
 /// ```
-pub fn generate_stopwords_list() -> std::collections::HashSet<String> {
+pub fn generate_stopwords_list() -> HashSet<String> {
     use stopwords::Stopwords;
     let mut nltk: std::collections::HashSet<&str> = stopwords::NLTK::stopwords(stopwords::Language::English).unwrap().iter().cloned().collect();
     nltk.insert("span");
@@ -61,11 +62,19 @@ pub fn generate_stopwords_list() -> std::collections::HashSet<String> {
     for w in words {
         nltk.insert(w);
     }
+    for c in ['的', '有'] {
+        nltk.insert(String::from(c));
+    }
+
+    for s in crate::language_tools::cn_stopwords::cn_stopwords_list() {
+        nltk.insert(String::from(s));
+    }
+    for s in crate::language_tools::cn_stopwords::cn_hit_stopword_list() {
+        nltk.insert(String::from(s));
+    }
 
     nltk
 }
-
-
 
 
 #[cfg(test)]

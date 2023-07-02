@@ -80,10 +80,15 @@ async fn main() {
 
     let arc_for_wordcloud = engine_arc.clone();
     let create_word_cloud = warp::path("wordcloud")
-        .map(move ||
-            fire_seq_search_server::http_client::endpoints::generate_word_cloud(
+        .map(move || {
+            let div = fire_seq_search_server::http_client::endpoints::generate_word_cloud(
                 arc_for_wordcloud.clone()
-            ));
+            );
+            warp::http::Response::builder()
+                .header("content-type", "text/html; charset=utf-8")
+                .body(div)
+                // .status(warp::http::StatusCode::OK)
+        });
 
     let routes = warp::get().and(
         call_query
