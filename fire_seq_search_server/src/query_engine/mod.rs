@@ -54,7 +54,7 @@ impl QueryEngine {
     }
 
 
-    pub fn generate_wordcount(self: &Self) -> String {
+    pub fn generate_wordcloud(self: &Self) -> String {
         crate::word_frequency::generate_wordcloud(&self.articles)
     }
 

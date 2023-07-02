@@ -30,7 +30,7 @@ pub fn generate_wordcloud(articles: &Vec<Article>) -> String {
 
     let mut sorted_pairs: Vec<(String,i64)> = freq.into_iter().collect();
     sorted_pairs.sort_by(|a, b| b.1.cmp(&a.1));
-    sorted_pairs.truncate(50);
+    sorted_pairs.truncate(200);
     // sorted_pairs
 
 
@@ -71,7 +71,7 @@ fn is_valid_for_wordcloud(s:&str) -> bool{
         }
     }
     let logseq_exclude_list = vec!["DONE", "true", "SCHEDULED:", "collapsed", "file", "com",
-                  "CLOCK:"];
+                  "CLOCK:", ":LOGBOOK:", ":END:"];
     for stop in logseq_exclude_list {
         if s == stop {
             return false;
