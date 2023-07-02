@@ -175,6 +175,7 @@ pub fn generate_server_info_for_test() -> ServerInformation {
         show_top_hits: 0,
         show_summary_single_line_chars_limit: 0,
         parse_pdf_links: false,
+        exclude_zotero_items: false,
         obsidian_md: false,
         convert_underline_hierarchy: true
     };

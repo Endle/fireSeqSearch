@@ -15,7 +15,7 @@ pub struct ServerInformation {
     pub show_top_hits: usize,
     pub show_summary_single_line_chars_limit: usize,
     pub parse_pdf_links: bool,
-
+    pub exclude_zotero_items:bool,
     pub obsidian_md: bool,
 
 

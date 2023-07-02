@@ -15,21 +15,36 @@ pub fn read_all_notes(server_info: &ServerInformation) -> Vec<(String, String)> 
     } else{
         path.clone() + "/pages"
     };
-    let mut pages: Vec<(String, String)> = read_specific_directory(&pages_path).par_iter()
+
+
+    let mut pages: Vec<(String, String)> = Vec:: new();
+
+    let pages_tmp: Vec<(String, String)>  = read_specific_directory(&pages_path).par_iter()
         .map(|(title,md)| {
             let content = crate::markdown_parser::parse_logseq_notebook(md, title, server_info);
             (title.to_string(), content)
-        }).collect();
+        }).collect(); //silly collect.
+
+    // TODO: Silly filter
+    for (file_name, contents) in pages_tmp {
+        // info!("File Name: {}", &file_name);
+        if server_info.exclude_zotero_items && file_name.starts_with("@") {
+            continue;
+        }
+        pages.push((file_name,contents));
+    }
     if server_info.enable_journal_query {
         info!("Loading journals");
         let journals_page = path.clone() + "/journals";
-        let journals_iter:Vec<(String, String)>
+        let journals:Vec<(String, String)>
             = read_specific_directory(&journals_page).par_iter()
             .map(|(title,md)| {
                 let content = crate::markdown_parser::parse_logseq_notebook(md, title, server_info);
                 (title.to_string(), content)
-            }).collect();
-        for (file_name, contents) in journals_iter {
+            }).collect(); //silly collect.
+
+
+        for (file_name, contents) in journals {
             pages.push((file_name,contents));
         }
 

@@ -26,6 +26,9 @@ struct Cli{
     #[arg(long,default_value_t = false)]
     enable_journal_query: bool,
 
+    #[arg(long,default_value_t = false)]
+    exclude_zotero_items: bool,
+
     #[arg(long,default_value_t = 10, value_name="HITS")]
     show_top_hits: usize,
 
@@ -117,6 +120,7 @@ fn build_server_info(args: Cli) -> ServerInformation {
         show_summary_single_line_chars_limit:
             args.show_summary_single_line_chars_limit,
         parse_pdf_links: args.parse_pdf_links,
+        exclude_zotero_items:args.exclude_zotero_items,
         obsidian_md: args.obsidian_md,
         convert_underline_hierarchy: true,
     }
