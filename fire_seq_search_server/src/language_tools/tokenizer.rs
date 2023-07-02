@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use log::{debug, info};
 
 /// ```
-/// let l = fire_seq_search_server::post_query::highlighter::generate_stopwords_list();
+/// let l = fire_seq_search_server::language_tools::generate_stopwords_list();
 /// assert!(l.contains("the"));
 /// assert!(!l.contains("thex"));
 ///
