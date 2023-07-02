@@ -46,12 +46,34 @@ fn article_to_tokens(art: &Article) -> Vec<String> {
         static ref STOPWORDS_LIST: HashSet<String> =  crate::language_tools::generate_stopwords_list();
     }
     let tokens = crate::language_tools::tokenizer::filter_out_stopwords(&tokens, &STOPWORDS_LIST);
-    let tokens: Vec<&str> = tokens.into_iter().filter(|x| !is_symbol(x)).collect();
+    let tokens: Vec<&str> = tokens.into_iter().filter(|x| is_valid_for_wordcloud(x)).collect();
     info!("Got tokens {:?}", &tokens);
     let tokens : Vec<String> = tokens.into_iter().map(|x| x.to_string()).collect();
     tokens
 }
 
+
+fn is_valid_for_wordcloud(s:&str) -> bool{
+    if is_symbol(s) {
+        return false;
+    }
+    let invalid_end_pattern = vec!["::", "]]", "}}"];
+    let invalid_start_pattern = vec!["[[", "{{"];
+
+    for ep in invalid_end_pattern {
+        if s.ends_with(ep) {
+            return false;
+        }
+    }
+    for sp in invalid_start_pattern {
+        if s.starts_with(sp) {
+            return false;
+        }
+    }
+
+    // let logseq_ty
+    true
+}
 fn is_symbol(s:&str) -> bool {
     if s.len() == 0 { return true; }
     if s.len() > 3 { return false; }

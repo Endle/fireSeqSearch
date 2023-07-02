@@ -4,7 +4,6 @@ mod cn_stopwords;
 use std::collections::HashSet;
 use lingua::{Language, LanguageDetector, LanguageDetectorBuilder};
 use lingua::Language::{Chinese, English};
-use log::{info, warn};
 
 pub fn is_chinese(sentence: &str) -> bool {
     lazy_static! {
@@ -70,6 +69,10 @@ pub fn generate_stopwords_list() -> std::collections::HashSet<String> {
     for s in crate::language_tools::cn_stopwords::cn_stopwords_list() {
         nltk.insert(String::from(s));
     }
+    for s in crate::language_tools::cn_stopwords::cn_hit_stopword_list() {
+        nltk.insert(String::from(s));
+    }
+
     nltk
 }
 

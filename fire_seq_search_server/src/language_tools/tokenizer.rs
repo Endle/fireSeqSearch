@@ -28,7 +28,7 @@ pub fn tokenize(sentence: &str) -> Vec<String> {
         info!("Use Tokenizer for Chinese term {}", sentence);
         crate::tokenize_sentence_to_text_vec(&TK, sentence)
     } else {
-        info!("Space Tokenizer {}", sentence);
+        // info!("Space Tokenizer {}", sentence);
         let result : Vec<&str> = sentence.split_whitespace()
             .collect();
         debug!("Got tokens {:?}", &result);
