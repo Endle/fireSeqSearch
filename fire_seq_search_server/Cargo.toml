@@ -33,13 +33,15 @@ urlencoding = "2.1.0"
 jieba-rs = { version = "0.6.6" }
 
 
+# Language Processing
 stopwords = "0.1.1"
+stop-words = "0.7.2"
 
 regex = "1"
 lingua = { version = "1.4.0", default-features = false, features = ["chinese", "english"] }
 
 
-#Highlight
+#Highlight (Output)
 html-escape = "0.2.13"
 
 # Parsing

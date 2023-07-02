@@ -43,7 +43,7 @@ fn article_to_tokens(art: &Article) -> Vec<String> {
 
     //TODO use another stop word list for wordcloud
     lazy_static! {
-        static ref STOPWORDS_LIST: HashSet<String> = crate::post_query::highlighter::generate_stopwords_list();
+        static ref STOPWORDS_LIST: HashSet<String> =  crate::language_tools::generate_stopwords_list();
     }
     let tokens = crate::language_tools::tokenizer::filter_out_stopwords(&tokens, &STOPWORDS_LIST);
     let tokens: Vec<&str> = tokens.into_iter().filter(|x| !is_symbol(x)).collect();

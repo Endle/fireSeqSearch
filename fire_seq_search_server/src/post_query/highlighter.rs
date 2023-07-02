@@ -1,14 +1,13 @@
 use std::collections::HashSet;
 use std::ops::Range;
 use log::{debug, error, info, warn};
-use stopwords;
 use regex::RegexBuilder;
 
 use lazy_static::lazy_static;
 use crate::post_query::highlighter::HighlightStatusWithWords::{Highlight, Lowlight};
 
 lazy_static! {
-    static ref STOPWORDS_LIST: HashSet<String> = generate_stopwords_list();
+    static ref STOPWORDS_LIST: HashSet<String> =  crate::language_tools::generate_stopwords_list();
 }
 
 pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
@@ -225,38 +224,6 @@ pub fn locate_single_keyword<'a>(sentence: &'a str, token: &'a str) -> Vec<(usiz
     result
 }
 
-
-/// ```
-/// let l = fire_seq_search_server::post_query::highlighter::generate_stopwords_list();
-/// assert!(l.contains("the"));
-/// assert!(!l.contains("thex"));
-/// ```
-pub fn generate_stopwords_list() -> std::collections::HashSet<String> {
-    use stopwords::Stopwords;
-    let mut nltk: std::collections::HashSet<&str> = stopwords::NLTK::stopwords(stopwords::Language::English).unwrap().iter().cloned().collect();
-    nltk.insert("span");
-    nltk.insert("class");
-    nltk.insert("fireSeqSearchHighlight");
-
-    nltk.insert("theorem");
-    nltk.insert("-");
-
-
-    let mut nltk: HashSet<String> = nltk.iter().map(|&s|s.into()).collect();
-
-    for c in 'a'..='z' {
-        nltk.insert(String::from(c));
-    }
-    // To Improve: I should be aware about the upper/lower case for terms. -Zhenbo Li 2023-Jan-19
-    for c in 'A'..='Z' {
-        nltk.insert(String::from(c));
-    }
-
-    for c in '0'..='9' {
-        nltk.insert(String::from(c));
-    }
-    nltk
-}
 
 
 
