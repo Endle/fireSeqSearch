@@ -28,7 +28,7 @@ pub fn read_all_notes(server_info: &ServerInformation) -> Vec<(String, String)> 
     // TODO: Silly filter
     for (file_name, contents) in pages_tmp {
         // info!("File Name: {}", &file_name);
-        if server_info.exclude_zotero_items && file_name.starts_with("@") {
+        if server_info.exclude_zotero_items && file_name.starts_with('@') {
             continue;
         }
         pages.push((file_name,contents));

@@ -1,4 +1,10 @@
-// My code is after 1250 lines
+// Copyright © 2023 Zhenbo Li
+// This file is under the MIT License
+
+// wordcloud2.js is bundled within this file.
+// wordcloud2.js is released under the MIT license
+
+// ========= BEGIN OF wordcloud2.js =======
 
 /*!
  * wordcloud2.js
@@ -1238,7 +1244,7 @@ if (!window.clearImmediate) {
     }
 })(this) // jshint ignore:line
 
-/* ==============================================================
+/* ============ END OF wordcloud2.js ===============
 
 */
 
