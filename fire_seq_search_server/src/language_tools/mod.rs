@@ -27,7 +27,7 @@ pub fn is_chinese(sentence: &str) -> bool {
 /// assert!(l.contains("the"));
 /// assert!(!l.contains("thex"));
 /// ```
-pub fn generate_stopwords_list() -> std::collections::HashSet<String> {
+pub fn generate_stopwords_list() -> HashSet<String> {
     use stopwords::Stopwords;
     let mut nltk: std::collections::HashSet<&str> = stopwords::NLTK::stopwords(stopwords::Language::English).unwrap().iter().cloned().collect();
     nltk.insert("span");

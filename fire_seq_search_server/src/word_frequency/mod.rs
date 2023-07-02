@@ -58,7 +58,7 @@ fn is_valid_for_wordcloud(s:&str) -> bool{
         return false;
     }
     let invalid_end_pattern = vec!["::", "]]", "}}"];
-    let invalid_start_pattern = vec!["[[", "{{"];
+    let invalid_start_pattern = vec!["[[", "{{", "{\\"];
 
     for ep in invalid_end_pattern {
         if s.ends_with(ep) {
@@ -70,8 +70,14 @@ fn is_valid_for_wordcloud(s:&str) -> bool{
             return false;
         }
     }
-
-    // let logseq_ty
+    let logseq_exclude_list = vec!["DONE", "true", "SCHEDULED:", "collapsed", "file", "com",
+                  "CLOCK:"];
+    for stop in logseq_exclude_list {
+        if s == stop {
+            return false;
+        }
+    }
+    //
     true
 }
 fn is_symbol(s:&str) -> bool {
