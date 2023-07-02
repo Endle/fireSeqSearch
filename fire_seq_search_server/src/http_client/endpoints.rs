@@ -15,6 +15,9 @@ pub fn query(term: String, engine_arc: Arc<QueryEngine>)
 
 
 pub fn generate_word_cloud(engine_arc: Arc<QueryEngine>) -> String {
-    engine_arc.generate_wordcount()
+    let div_id = "fireSeqSearchWordcloudRawJson";
+    let json = engine_arc.generate_wordcount();
 
+    let div = format!("<div id=\"{}\">{}</div>", div_id, json);
+    div
 }
