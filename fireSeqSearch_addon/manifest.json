@@ -31,6 +31,11 @@
 
   "permissions": ["*://127.0.0.1/*", "storage"],
 
+  "background": {
+    "scripts": ["wordcloud2.min.js"],
+    "persistent": false,
+    "type": "module"
+  },
   "browser_specific_settings": {
     "gecko": {
       "id": "{293a97e7-c815-4ce2-a537-87af8818cbc0}",

@@ -275,7 +275,10 @@ async function fireSeqSearchMain() {
 }
 
 async function generateWordlist() {
-    consoleLogForDebug("Generating wordlist");
+    consoleLogForDebug("Generating wordlist, lib status: ");
+    let backgroundPage = await window.runtime.getBackgroundPage();
+    backgroundPage.backgroundFunction();
+    consoleLogForDebug(WordCloud.isSupported);
     const raw_json_id = "fireSeqSearchWordcloudRawJson";
     var raw_list = document.getElementById(raw_json_id);
     var raw_json = raw_list.textContent;
