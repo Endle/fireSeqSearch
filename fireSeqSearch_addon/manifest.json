@@ -22,8 +22,8 @@
         "*://www.google.com.hk/search*",
         "*://duckduckgo.com/*",
         "*://searx.prvcy.eu/search",
-        "*://searx.fmac.xyz/search"
-
+        "*://searx.fmac.xyz/search",
+        "*://127.0.0.1/*"
       ],
       "js": ["main.js"]
     }

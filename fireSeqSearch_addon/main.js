@@ -248,8 +248,7 @@ function getSearchParameterFromCurrentPage() {
 }
 
 
-
-(function() {
+async function fireSeqSearchMain() {
     const searchParameter = getSearchParameterFromCurrentPage();
 
     consoleLogForDebug(searchParameter);
@@ -271,6 +270,33 @@ function getSearchParameterFromCurrentPage() {
             element.style.color = 'red';
         });
     }).catch(
+        error => {consoleLogForDebug(error)}
+    );
+}
+
+async function generateWordlist() {
+    consoleLogForDebug("Generating wordlist");
+    const raw_json_id = "fireSeqSearchWordcloudRawJson";
+    var raw_list = document.getElementById(raw_json_id);
+    var raw_json = raw_list.textContent;
+    // consoleLogForDebug(raw_json);
+    var word_list = JSON.parse(raw_json);
+    // consoleLogForDebug(word_list);
+}
+
+// Dispatch
+(function() {
+
+    consoleLogForDebug("fireSeqSearch Addon loaded.");
+    // consoleLogForDebug(window.location);
+    if (window.location.host === "127.0.0.1:3030" && window.location.pathname === "/wordcloud") {
+        generateWordlist().catch(
+            error => {consoleLogForDebug(error)}
+        );
+        return;
+    }
+
+    fireSeqSearchMain().catch(
         error => {consoleLogForDebug(error)}
     );
 
