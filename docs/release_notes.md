@@ -4,7 +4,7 @@
 
 Just visit `http://127.0.0.1:3030/wordcloud`, and fireSeqSearch will generate a wordcloud with your logseq notes. Each word in the cloud is clickable. With a single click, you can search your top-words in search engines and your personal notes simultaneously.  
 
-This demo video used `note of greek myth`, created by [yongerG](https://www.douban.com/note/807432536/?_i=8350280BMJZhl7). This note is [licensed with CC-BY-SA-4.0 license](https://github.com/Lihaogx/graph-note-of-greek-myth/blob/main/LICENSE).  
+[This demo video](https://github.com/Endle/fireSeqSearch/assets/3221521/524fe70d-a128-4393-bd26-bee71871f38e) used `note of greek myth`, created by [yongerG](https://www.douban.com/note/807432536/?_i=8350280BMJZhl7). This note is [licensed with CC-BY-SA-4.0 license](https://github.com/Lihaogx/graph-note-of-greek-myth/blob/main/LICENSE).  
 
 Thanks to [timdream](https://timdream.org/) and other contributors for the amazing library [wordcloud2.js](https://github.com/timdream/wordcloud2.js). 
 
