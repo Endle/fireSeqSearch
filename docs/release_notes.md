@@ -1,3 +1,15 @@
+### 0.1.3  
+
+#### New Feature: Generate wordcloud.  
+
+Just visit `http://127.0.0.1:3030/wordcloud`, and fireSeqSearch will generate a wordcloud with your logseq notes. Each word in the cloud is clickable. With a single click, you can search your top-words in search engines and your personal notes simultaneously.  
+
+This demo video used `note of greek myth`, created by [yongerG](https://www.douban.com/note/807432536/?_i=8350280BMJZhl7). This note is [licensed with CC-BY-SA-4.0 license](https://github.com/Lihaogx/graph-note-of-greek-myth/blob/main/LICENSE).  
+
+Thanks to [timdream](https://timdream.org/) and other contributors for the amazing library [wordcloud2.js](https://github.com/timdream/wordcloud2.js). 
+
+#### New Feature:  Allow to filter out zotero imported pages [Issue 122](https://github.com/Endle/fireSeqSearch/issues/122)
+
 ### 0.1.2  
 New server-side feature: [Read and Search PDF contents](https://github.com/Endle/fireSeqSearch/issues/63)! In a logseq page, the PDF link `![title](../assets/doc_000123_0.pdf)` will be parsed, and appended to the document.
 
