@@ -26,6 +26,9 @@ struct Cli{
     #[arg(long,default_value_t = false)]
     enable_journal_query: bool,
 
+    #[arg(long,default_value_t = false)]
+    exclude_zotero_items: bool,
+
     #[arg(long,default_value_t = 10, value_name="HITS")]
     show_top_hits: usize,
 
@@ -75,9 +78,22 @@ async fn main() {
                      arc_for_server_info.clone()
                  ));
 
+    let arc_for_wordcloud = engine_arc.clone();
+    let create_word_cloud = warp::path("wordcloud")
+        .map(move || {
+            let div = fire_seq_search_server::http_client::endpoints::generate_word_cloud(
+                arc_for_wordcloud.clone()
+            );
+            warp::http::Response::builder()
+                .header("content-type", "text/html; charset=utf-8")
+                .body(div)
+                // .status(warp::http::StatusCode::OK)
+        });
+
     let routes = warp::get().and(
         call_query
             .or(get_server_info)
+            .or(create_word_cloud)
     );
     warp::serve(routes)
         .run(host)
@@ -109,6 +125,7 @@ fn build_server_info(args: Cli) -> ServerInformation {
         show_summary_single_line_chars_limit:
             args.show_summary_single_line_chars_limit,
         parse_pdf_links: args.parse_pdf_links,
+        exclude_zotero_items:args.exclude_zotero_items,
         obsidian_md: args.obsidian_md,
         convert_underline_hierarchy: true,
     }

@@ -4,6 +4,7 @@ pub mod markdown_parser;
 pub mod language_tools;
 pub mod http_client;
 pub mod query_engine;
+pub mod word_frequency;
 
 
 use log::{debug, info};
@@ -16,7 +17,10 @@ extern crate lazy_static;
 pub static JOURNAL_PREFIX: &str = "@journal@";
 
 
-
+pub struct Article {
+    file_name: String,
+    content: String
+}
 
 // Based on https://github.com/jiegec/tantivy-jieba
 // tantivy-jieba is licensed under MIT, Copyright 2019-2020 Jiajie Chen
@@ -100,7 +104,7 @@ fn process_token_text(text: &str, indices: &Vec<(usize, char)>, token: &jieba_rs
     }
 }
 
-
+// TODO: Move tokenizer-related things into language_tools
 pub fn tokenize_default(sentence: &str) -> Vec<String> {
     lazy_static! {
         static ref TK: JiebaTokenizer = crate::JiebaTokenizer {};
@@ -109,17 +113,17 @@ pub fn tokenize_default(sentence: &str) -> Vec<String> {
         info!("Use Tokenizer for Chinese term {}", sentence);
         tokenize_sentence_to_text_vec(&TK, sentence)
     } else {
-        info!("Space Tokenizer {}", sentence);
+        // info!("Space Tokenizer {}", sentence);
         let result : Vec<&str> = sentence.split_whitespace()
             .collect();
-        debug!("Got tokens {:?}", &result);
+        // debug!("Got tokens {:?}", &result);
         let result:Vec<String> = result.iter().map(|&s|s.into()).collect();
         result
         // vec![String::from(sentence)]
     }
-
-
 }
+
+
 pub fn tokenize_sentence_to_text_vec(tokenizer: &JiebaTokenizer, sentence: &str) -> Vec<String> {
     let tokens = tokenize_sentence_to_vector(&tokenizer, sentence);
     tokens_to_text_vec(&tokens)
@@ -171,6 +175,7 @@ pub fn generate_server_info_for_test() -> ServerInformation {
         show_top_hits: 0,
         show_summary_single_line_chars_limit: 0,
         parse_pdf_links: false,
+        exclude_zotero_items: false,
         obsidian_md: false,
         convert_underline_hierarchy: true
     };
