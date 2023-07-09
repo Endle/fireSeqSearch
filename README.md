@@ -22,6 +22,7 @@ fireSeqSearch has a server-side app and a browser extension.
 1. Install latest web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>   
 2. If you're using other browser, you can install [Tampermonkey](https://www.tampermonkey.net/), then install  [monkeyscript.user.js](https://github.com/Endle/fireSeqSearch/raw/master/fireSeqSearch_addon/monkeyscript.user.js). If you prefer [Violentmonkey(https://violentmonkey.github.io/), you can install [violentmonkeyscript.user.js](https://github.com/Endle/fireSeqSearch/blob/master/fireSeqSearch_addon/violentmonkeyscript.user.js)
 
+
 ### Install Local Server
 
 **Obsidian MD** users: Run `fire_seq_search_server --notebook_path <path> --obsidian-md`. [Example obsidian.sh](https://github.com/Endle/fireSeqSearch/blob/master/fire_seq_search_server/obsidian.sh)  
