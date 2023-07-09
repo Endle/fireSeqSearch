@@ -6,12 +6,13 @@
 // @author       Zhenbo Li
 // @match        https://www.google.com/search*
 // @match        https://duckduckgo.com/?q=*
+// @match        https://metager.org/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=tampermonkey.net
 // @grant        GM.xmlHttpRequest
 // ==/UserScript==
 
 // MIT License
-// Copyright (c) 2021-2022 Zhenbo Li
+// Copyright (c) 2021-2023 Zhenbo Li
 
 /*global GM*/
 
@@ -87,7 +88,6 @@ const fireSeqSearchScriptCSS = `
 
 function consoleLogForDebug(message) {
     console.log(message); //skipcq: JS-0002
-    // Comment it in master branch, to make deepSource happy
 }
 
 
@@ -115,7 +115,8 @@ function createHrefToLogseq(record, serverInfo) {
     const title = record.title;
     const prettyTitle = title.replaceAll("%2F", "/");
 
-    const target = `logseq://graph/${name}?page=${title}`;
+    const target = record.logseq_uri || `logseq://graph/${name}?page=${title}`;
+
     const logseqPageLink = document.createElement('a');
     const text = document.createTextNode(prettyTitle);
     logseqPageLink.appendChild(text);
@@ -139,13 +140,12 @@ function checkUserOptions() {
 }
 
 
-async function appendResultToSearchResult(fetchResultArray, container) {
+async function appendResultToSearchResult(fetchResultArray, _container) {
     const serverInfo = fetchResultArray[0];
     const rawSearchResult = fetchResultArray[1];
     const firefoxExtensionUserOption = await checkUserOptions();
 
-
-    consoleLogForDebug(firefoxExtensionUserOption);
+    consoleLogForDebug('Loaded user option: ' + JSON.stringify(firefoxExtensionUserOption));
 
     function createTitleBarDom(count) {
         const titleBar = createElementWithText("div");
@@ -166,16 +166,9 @@ async function appendResultToSearchResult(fetchResultArray, container) {
         titleBar.appendChild(btn);
         return titleBar;
     }
-
-
-
     function createFireSeqDom() {
-
         const div = document.createElement("div");
-        // div.appendChild(createElementWithText("p", "fireSeqSearch launched!"));
         div.setAttribute("id", fireSeqSearchDomId);
-
-
         return div;
     }
 
@@ -222,12 +215,23 @@ async function appendResultToSearchResult(fetchResultArray, container) {
 
         dom.classList.add("experimentalLayout");
     }
-    let contextId = "rcnt";
-    if (window.location.href.includes("duckduckgo.com")) {
-        contextId = "web_content_wrapper";
-    }
-    document.getElementById(contextId).insertAdjacentElement("beforebegin", dom);
 
+    function insertDivToWebpage(result) {
+        let contextId = "rcnt";
+        if (window.location.host.includes("duckduckgo.com")) {
+            contextId = "web_content_wrapper";
+        }
+        if (window.location.host.includes("searx")) { // https://github.com/Endle/fireSeqSearch/issues/103
+            contextId = "results";
+        }
+        if (window.location.host.includes("metager")) { // https://github.com/Endle/fireSeqSearch/issues/127
+            contextId = "results";
+        }
+        document.getElementById(contextId).insertAdjacentElement("beforebegin", result);
+
+    }
+
+    insertDivToWebpage(dom);
 }
 
 function getSearchParameterFromCurrentPage() {
@@ -237,13 +241,18 @@ function getSearchParameterFromCurrentPage() {
         const inputBox = document.getElementById("q");
         return inputBox.value;
     }
+    function getSearchParameterOfMetager() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('eingabe');
+    }
 
     if (window.location.toString().includes("searx")) {
         searchParam = getSearchParameterOfSearx();
+    } else if (window.location.toString().includes("metager")) {
+        searchParam = getSearchParameterOfMetager();
     } else {
         // https://stackoverflow.com/a/901144/1166518
         const urlParams = new URLSearchParams(window.location.search);
-        // consoleLogForDebug(urlParams);
         searchParam = urlParams.get('q');
     }
 
@@ -256,7 +265,7 @@ function getSearchParameterFromCurrentPage() {
 (function() {
     const searchParameter = getSearchParameterFromCurrentPage();
 
-    consoleLogForDebug(searchParameter);
+
     addGlobalStyle(fireSeqSearchScriptCSS);
 
     GM.xmlHttpRequest({

@@ -1,5 +1,5 @@
 // MIT License
-// Copyright (c) 2021-2022 Zhenbo Li
+// Copyright (c) 2021-2023 Zhenbo Li
 
 const fireSeqSearchDomId = "fireSeqSearchDom";
 
