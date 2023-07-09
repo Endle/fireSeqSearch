@@ -5,7 +5,7 @@
 // @description  Everytime you use the search engine, FireSeqSearch searches your personal logseq notes.
 // @author       Zhenbo Li
 // @match        https://www.google.com/search*
-// @match        https://duckduckgo.com/?q=*
+// @match        https://duckduckgo.com/*
 // @match        https://metager.org/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=tampermonkey.net
 // @grant        GM.xmlHttpRequest
