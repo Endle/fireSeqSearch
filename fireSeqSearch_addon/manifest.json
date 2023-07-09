@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "fireSeqSearch",
-  "version": "0.1.3",
+  "version": "0.1.4",
 
   "description": "Everytime you use the search engine, this plugin will search against your personal logseq notes.",
 
@@ -22,7 +22,8 @@
         "*://www.google.com.hk/search*",
         "*://duckduckgo.com/*",
         "*://searx.prvcy.eu/search",
-        "*://searx.fmac.xyz/search"
+        "*://searx.fmac.xyz/search",
+        "*://metager.org/*"
       ],
       "js": ["main.js"]
     },

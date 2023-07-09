@@ -1,5 +1,5 @@
 // MIT License
-// Copyright (c) 2021-2022 Zhenbo Li
+// Copyright (c) 2021-2023 Zhenbo Li
 
 const fireSeqSearchDomId = "fireSeqSearchDom";
 
@@ -73,7 +73,6 @@ const fireSeqSearchScriptCSS = `
 
 function consoleLogForDebug(message) {
     console.log(message); //skipcq: JS-0002
-    // Comment it in master branch, to make deepSource happy
 }
 
 
@@ -140,7 +139,7 @@ async function appendResultToSearchResult(fetchResultArray, _container) {
     const rawSearchResult = fetchResultArray[1];
     const firefoxExtensionUserOption = await checkUserOptions();
 
-    consoleLogForDebug(firefoxExtensionUserOption);
+    consoleLogForDebug('Loaded user option: ' + JSON.stringify(firefoxExtensionUserOption));
 
     function createTitleBarDom(count) {
         const titleBar = createElementWithText("div");
@@ -213,10 +212,13 @@ async function appendResultToSearchResult(fetchResultArray, _container) {
 
     function insertDivToWebpage(result) {
         let contextId = "rcnt";
-        if (window.location.href.includes("duckduckgo.com")) {
+        if (window.location.host.includes("duckduckgo.com")) {
             contextId = "web_content_wrapper";
         }
-        if (window.location.href.includes("searx")) { // https://github.com/Endle/fireSeqSearch/issues/103
+        if (window.location.host.includes("searx")) { // https://github.com/Endle/fireSeqSearch/issues/103
+            contextId = "results";
+        }
+        if (window.location.host.includes("metager")) { // https://github.com/Endle/fireSeqSearch/issues/127
             contextId = "results";
         }
         document.getElementById(contextId).insertAdjacentElement("beforebegin", result);
@@ -233,13 +235,18 @@ function getSearchParameterFromCurrentPage() {
         const inputBox = document.getElementById("q");
         return inputBox.value;
     }
+    function getSearchParameterOfMetager() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('eingabe');
+    }
 
     if (window.location.toString().includes("searx")) {
         searchParam = getSearchParameterOfSearx();
+    } else if (window.location.toString().includes("metager")) {
+        searchParam = getSearchParameterOfMetager();
     } else {
         // https://stackoverflow.com/a/901144/1166518
         const urlParams = new URLSearchParams(window.location.search);
-        // consoleLogForDebug(urlParams);
         searchParam = urlParams.get('q');
     }
 
@@ -252,7 +259,7 @@ function getSearchParameterFromCurrentPage() {
 (function() {
     const searchParameter = getSearchParameterFromCurrentPage();
 
-    consoleLogForDebug(searchParameter);
+
     addGlobalStyle(fireSeqSearchScriptCSS);
 
     //https://gomakethings.com/waiting-for-multiple-all-api-responses-to-complete-with-the-vanilla-js-promise.all-method/
