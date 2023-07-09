@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         fireSeqSearchScript
 // @namespace    https://github.com/Endle/fireSeqSearch
-// @version      0.0.18
+// @version      0.1.4
 // @description  Everytime you use the search engine, FireSeqSearch searches your personal logseq notes.
 // @author       Zhenbo Li
 // @match        https://www.google.com/search*
