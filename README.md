@@ -16,11 +16,11 @@ How to use it
 ------------------
 fireSeqSearch will only read your logseq notebooks, which is unlikely to cause data loss.
 
-You need to install **BOTH** the server-side app and the browser extension.
+You need to install **BOTH** the server-side app and the browser extension. The server reads your logseq notebooks in read-only mode, and hosts endpoints at 127.0.0.1:3030.
 
 ### Install Browser Extension  
 1. Install latest web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>   
-2. If you're using other browser, you can install [Tampermonkey](https://www.tampermonkey.net/), then install  [monkeyscript.user.js](https://github.com/Endle/fireSeqSearch/raw/master/fireSeqSearch_addon/monkeyscript.user.js). If you prefer [Violentmonkey(https://violentmonkey.github.io/), you can install [violentmonkeyscript.user.js](https://github.com/Endle/fireSeqSearch/blob/master/fireSeqSearch_addon/violentmonkeyscript.user.js)
+2. If you're using other browser, you can install userscirpts instead. [Tampermonkey](https://www.tampermonkey.net/) =>  [monkeyscript.user.js](https://github.com/Endle/fireSeqSearch/raw/master/fireSeqSearch_addon/monkeyscript.user.js).  [Violentmonkey](https://violentmonkey.github.io/)  => [violentmonkeyscript.user.js](https://github.com/Endle/fireSeqSearch/blob/master/fireSeqSearch_addon/violentmonkeyscript.user.js)
 
 
 ### Install Local Server
