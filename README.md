@@ -14,8 +14,6 @@ More examples at <https://github.com/Endle/fireSeqSearch/blob/master/docs/exampl
 
 How to use it
 ------------------
-fireSeqSearch will only read your logseq notebooks, which is unlikely to cause data loss.
-
 You need to install **BOTH** the server-side app and the browser extension. The server reads your logseq notebooks in read-only mode, and hosts endpoints at 127.0.0.1:3030.
 
 ### Install Browser Extension  
