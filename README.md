@@ -16,7 +16,7 @@ How to use it
 ------------------
 fireSeqSearch will only read your logseq notebooks, which is unlikely to cause data loss.
 
-fireSeqSearch has a server-side app and a browser extension.
+You need to install **BOTH** the server-side app and the browser extension.
 
 ### Install Browser Extension  
 1. Install latest web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>   
