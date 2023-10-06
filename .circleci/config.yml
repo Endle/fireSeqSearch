@@ -1,0 +1,22 @@
+# .circleci/config.yml
+version: 2.1
+  jobs: # a basic unit of work in a run
+    build-and-test: # your job name
+macos:
+  xcode: 14.2.0 # indicate your selected version of Xcode
+resource_class: macos.m1.large.gen1
+steps: # a series of commands to run
+  - checkout  # pull down code from your VCS
+  - run: bundle install
+  - run:
+      name: Fastlane
+      command: bundle exec fastlane $FASTLANE_LANE
+  - store_artifacts:
+      path: output
+  - store_test_results:
+      path: output/scan
+
+    workflows:
+      build-test:
+jobs:
+  - build-and-test
