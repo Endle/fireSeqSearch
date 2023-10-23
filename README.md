@@ -1,5 +1,8 @@
 fireSeqSearch: Append Logseq notes while Googling
 
+[![dependency status](https://deps.rs/repo/github/Endle/fireSeqSearch/status.svg?path=fire_seq_search_server)](https://deps.rs/repo/github/Endle/fireSeqSearch?path=fire_seq_search_server)
+
+
 Introduction
 --------
 [fireSeqSearch](https://github.com/Endle/fireSeqSearch) is inspired by [Evernote](https://evernote.com)'s browser extension - if we search a term, for example, `softmax` in Google, [fireSeqSearch](https://github.com/Endle/fireSeqSearch) will also search in our personal notebook, and append the hits into Google results.
