@@ -14,15 +14,10 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
                                   show_summary_single_line_chars_limit: usize) -> String {
 
     let blocks = split_body_to_blocks(body, show_summary_single_line_chars_limit);
-    // let nltk = generate_stopwords_list();
     let nltk = &STOPWORDS_LIST;
 
     let terms_selected: Vec<&str> = crate::language_tools::tokenizer::filter_out_stopwords(
         &term_tokens, nltk);
-    // let term_ref: Vec<&str> = term_tokens.iter().map(|s| &**s).collect();
-    // let terms_selected: Vec<&str> = term_ref.into_iter()
-    //     .filter(|&s| !nltk.contains(s))
-    //     .collect();
     info!("Highlight terms: {:?}", &terms_selected);
 
 

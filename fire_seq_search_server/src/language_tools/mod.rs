@@ -37,6 +37,7 @@ pub fn generate_stopwords_list() -> HashSet<String> {
     nltk.insert("theorem");
     nltk.insert("-");
 
+    nltk.insert("view");
 
 
     let mut nltk: HashSet<String> = nltk.iter().map(|&s|s.into()).collect();
