@@ -37,6 +37,29 @@ fn build_block_with_str(s: String) -> RenderBlock {
     }
 }
 impl RenderBlock {
+    fn is_leaf(&self) -> bool {
+        self.check();
+        self.children.is_empty()
+    }
+    fn render_to_string(&self) -> String {
+        if self.is_leaf() {
+            if self.is_hit {
+                let span_start = "<span class=\"fireSeqSearchHighlight\">";
+                let span_end = "</span>";
+                return span_start.to_owned() + &self.text + span_end;
+            }
+            if self.is_link {
+                todo!()
+            }
+            return self.text.to_owned(); 
+        }
+        let mut result = Vec::new();
+        for i in 0..self.children.len() {
+            let s = self.children[i].render_to_string();
+            result.push(s);
+        }
+        result.join(" ")
+    }
     fn is_empty(&self) -> bool {
         self.text.is_empty() && self.children.is_empty()
     }
@@ -173,25 +196,12 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
     info!("Highlight terms: {:?}", &terms_selected);
 
 
-    let mut result: Vec<String> = Vec::new();
     let mut tree_root: RenderBlock = build_tree(body, server_info);
     tree_root.parse_highlight(&terms_selected, server_info);
+    tree_root.flattern();
+    
+    tree_root.render_to_string()
 
-    let show_summary_single_line_chars_limit: usize = server_info.show_summary_single_line_chars_limit;
-    let blocks: Vec<String> = split_body_to_blocks(body, show_summary_single_line_chars_limit);
-    for sentence in blocks {
-        let sentence_highlight = highlight_sentence_with_keywords(
-            &sentence,
-            &terms_selected,
-            show_summary_single_line_chars_limit
-        );
-        match sentence_highlight {
-            Some(x) => result.push(x),
-            None => ()
-        }
-    }
-
-    result.join(" ")
 }
 
 pub fn highlight_sentence_with_keywords(sentence: &str,
