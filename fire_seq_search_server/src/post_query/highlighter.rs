@@ -27,6 +27,14 @@ fn build_block() -> RenderBlock {
         is_link: false,
     }
 }
+fn build_block_with_str(s: String) -> RenderBlock {
+    RenderBlock {
+        text: s,
+        children: Vec::new(),
+        is_hit: false,
+        is_link: false,
+    }
+}
 impl RenderBlock {
     fn check(&self) {
         if !self.text.is_empty() {
@@ -37,8 +45,45 @@ impl RenderBlock {
      * If there are one or more highlighted terms, return the result (a tree)
      * If we find nothing, return an empty Vector
      */
-    fn split_leaf_node_by_single_term(&self, terms: &str, server_info: &ServerInformation) ->Vec<RenderBlock>{
-        todo!()
+    fn split_leaf_node_by_single_term(&self, token: &str, server_info: &ServerInformation) ->Vec<RenderBlock>{
+        let mut result = Vec::new();
+        let needle = RegexBuilder::new(token)
+            .case_insensitive(true)
+            .build();
+        let needle = match needle {
+            Ok(x) => x,
+            Err(e) => {
+                error!("Failed({}) to build regex for {}", e, token);
+                return result;
+            }
+        };
+        let mat = needle.find(&self.text);
+        match mat {
+            None => {return result;},
+            Some(m) => {
+                // part 1
+                let s = &self.text[0..m.start()];
+                let b = build_block_with_str(s.to_string());
+                result.push(b);
+
+                // part 2
+                let s = &self.text[m.start()..m.end()];
+                let mut b = build_block_with_str(s.to_string());
+                b.is_hit = true;
+                result.push(b);
+
+                // part 3
+                let s = &self.text[m.start()..m.end()];
+                let b = build_block_with_str(s.to_string());
+                let blocks_postfix = b.split_leaf_node_by_single_term(token, server_info);
+                if blocks_postfix.is_empty() {
+                    result.push(b);
+                } else {
+                    result.extend_from_slice(&blocks_postfix);
+                }
+            }
+        }
+        result
     }
     fn split_leaf_node_by_terms(&self, terms: &[&str], server_info: &ServerInformation) ->Vec<RenderBlock>{
         if terms.is_empty() { return Vec::new(); }
