@@ -27,6 +27,23 @@ fn build_block() -> RenderBlock {
         is_link: false,
     }
 }
+impl RenderBlock {
+    fn check(&self) {
+        if !self.text.is_empty() {
+            assert!(self.children.is_empty());
+        }
+    }
+    fn parse(&mut self) {
+        self.check();
+        if self.children.is_empty() {
+            //TODO
+            return;
+        }
+        for i in 0..self.children.len() {
+            self.children[i].parse();
+        }
+    }
+}
 fn build_tree(body: &str, server_info: &ServerInformation) -> RenderBlock {
     let show_summary_single_line_chars_limit: usize = server_info.show_summary_single_line_chars_limit;
     let blocks: Vec<String> = split_body_to_blocks(body, show_summary_single_line_chars_limit);
@@ -38,6 +55,7 @@ fn build_tree(body: &str, server_info: &ServerInformation) -> RenderBlock {
     }
     return root;
 }
+
 pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
                                   server_info: &ServerInformation) -> String {
 
@@ -50,6 +68,7 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
 
     let mut result: Vec<String> = Vec::new();
     let mut tree_root: RenderBlock = build_tree(body, server_info);
+    tree_root.parse();
 
     let show_summary_single_line_chars_limit: usize = server_info.show_summary_single_line_chars_limit;
     let blocks: Vec<String> = split_body_to_blocks(body, show_summary_single_line_chars_limit);
