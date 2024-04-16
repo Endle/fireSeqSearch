@@ -1,8 +1,14 @@
 use fire_seq_search_server::post_query::highlighter::{highlight_keywords_in_body, highlight_sentence_with_keywords, locate_single_keyword, split_body_to_blocks, wrap_text_at_given_spots};
+use fire_seq_search_server::generate_server_info_for_test;
 
 fn get_english_text() -> String {
     std::fs::read_to_string("tests/resource/pages/International Language, Past, Present & Future by Walter John Clark.md")
         .expect("Should have been able to read the file")
+}
+fn highlight_keywords_in_body_old_2024_apr(body:&str, terms: &Vec<String>, limit:usize) ->String {
+    let mut server_info = generate_server_info_for_test();
+    server_info.show_summary_single_line_chars_limit = limit;
+    highlight_keywords_in_body(body, terms, &server_info)
 }
 
 #[test]
@@ -10,7 +16,7 @@ fn test_empty_key() {
     let text = "Hello World";
     let v = Vec::new();
 
-    let r = highlight_keywords_in_body(text, &v, 120);
+    let r = highlight_keywords_in_body_old_2024_apr(text, &v, 120);
     assert_eq!(4,4);
 
     assert_eq!(&r, "");
@@ -22,7 +28,7 @@ fn test_empty_key() {
 fn test_highlight_wrap() {
     let contents = "使用 git shallow clone 下载并编译 Thunderbird".to_string();
     let v = vec![String::from("thunderbird")];
-    let r = highlight_keywords_in_body(&contents, &v, 120);
+    let r = highlight_keywords_in_body_old_2024_apr(&contents, &v, 120);
     assert_eq!(&r, "使用 git shallow clone 下载并编译 <span class=\"fireSeqSearchHighlight\">Thunderbird</span>");
 }
 
@@ -30,7 +36,7 @@ fn test_highlight_wrap() {
 fn test_highlight_latex() {
     let contents = "$\\vec{q_i}^T \\vec{a_j}, i<j$".to_string();
     let v = vec![String::from("vec")];
-    let r = highlight_keywords_in_body(&contents, &v, 120);
+    let r = highlight_keywords_in_body_old_2024_apr(&contents, &v, 120);
     println!("{:?}", &r);
 }
 #[test]
