@@ -48,6 +48,26 @@ impl RenderBlock {
             assert!(self.text.is_empty());
         }
     }
+    // pub for test
+    pub fn flattern(&mut self) {
+        self.check();
+        info!("Flattern: root =  {:?}", &self);
+        if self.children.is_empty() { return ; }
+        let mut result = Vec::new();
+        for i in 0..self.children.len() {
+            self.children[i].flattern();
+            if self.children[i].children.is_empty() {
+                result.push(self.children[i].clone());
+            } else {
+                result.extend_from_slice(&self.children[i].children); //TODO avoid copy here
+            }
+        }
+        info!("Flattern: collected children {:?}", &result);
+        let result: Vec<RenderBlock> = result.into_iter()
+                .filter(|v| !v.is_empty() )
+                .collect();
+        self.children = result;
+    }
     /*
      * If there are one or more highlighted terms, return the result (a tree)
      * If we find nothing, return an empty Vector

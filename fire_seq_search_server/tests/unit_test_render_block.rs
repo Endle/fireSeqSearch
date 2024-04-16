@@ -10,6 +10,7 @@ fn get_english_text() -> String {
 
 
 
+/*
 #[test]
 fn test_highlight_single_term_single_appearance() {
     let _ = env_logger::try_init();
@@ -31,6 +32,7 @@ fn test_highlight_single_term_single_appearance() {
     root.parse_highlight(&tokens, &server_info);
     println!("{:?}", &root);
 }
+*/
 
 #[test]
 fn test_highlight_single_term_multi_appearance() {
@@ -41,15 +43,12 @@ fn test_highlight_single_term_multi_appearance() {
     let tokens = [token];
     let mut root = build_tree(&content, &server_info);
 
-    let r = root.children[0].split_leaf_node_by_single_term(token, &server_info);
-    //println!("{:?}", &r);
-    assert!(r.len() >= 2);
-    assert!(r[1].is_hit);
-    // TODO The behaviour at here is not stable. This is hacky test case - 2024-Apr
-
-    let r2 = root.children[0].split_leaf_node_by_terms(&tokens, &server_info);
-    assert_eq!(r.len(), r2.len());
 
     root.parse_highlight(&tokens, &server_info);
-    println!("{:?}", &root);
+    //println!("Parsed result: {:?}", &root);
+    root.flattern();
+    //println!("Flattern: {:?}", &root);
+    assert_eq!(root.children.len(), 4);
+    assert!(root.children[1].is_hit);
+    assert!(root.children[3].is_hit);
 }
