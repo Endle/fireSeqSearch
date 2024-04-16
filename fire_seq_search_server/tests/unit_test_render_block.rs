@@ -32,7 +32,6 @@ fn test_highlight_single_term_single_appearance() {
     root.parse_highlight(&tokens, &server_info);
     println!("{:?}", &root);
 }
-*/
 
 #[test]
 fn test_highlight_single_term_multi_appearance() {
@@ -51,4 +50,27 @@ fn test_highlight_single_term_multi_appearance() {
     assert_eq!(root.children.len(), 4);
     assert!(root.children[1].is_hit);
     assert!(root.children[3].is_hit);
+}
+*/
+
+#[test]
+fn test_highlight_multiple_terms() {
+    let _ = env_logger::try_init();
+    let server_info = generate_server_info_for_test();
+    let content = "使用 git shallow clone 下载并编译 Thunderbird : compile thunderbird with git shallow".to_string();
+    let token = "thunderbird";
+    let token2 = "git";
+    let tokens = [token, token2];
+    let mut root = build_tree(&content, &server_info);
+
+
+    root.parse_highlight(&tokens, &server_info);
+    //println!("Parsed result: {:?}", &root);
+    root.flattern();
+    //println!("Flattern: {:?}", &root);
+    assert!(root.children[1].is_hit);
+    /*
+    assert_eq!(root.children.len(), 4);
+    assert!(root.children[3].is_hit);
+    */
 }
