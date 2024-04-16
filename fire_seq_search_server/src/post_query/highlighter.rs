@@ -33,14 +33,49 @@ impl RenderBlock {
             assert!(self.children.is_empty());
         }
     }
-    fn parse(&mut self) {
+    /*
+     * If there are one or more highlighted terms, return the result (a tree)
+     * If we find nothing, return an empty Vector
+     */
+    fn split_leaf_node_by_single_term(&self, terms: &str, server_info: &ServerInformation) ->Vec<RenderBlock>{
+        todo!()
+    }
+    fn split_leaf_node_by_terms(&self, terms: &[&str], server_info: &ServerInformation) ->Vec<RenderBlock>{
+        if terms.is_empty() { return Vec::new(); }
+        let r = self.split_leaf_node_by_single_term(terms[0], server_info);
+        if r.is_empty() { return self.split_leaf_node_by_terms(&terms[1..], server_info); }
+        /*
+        for t in terms {
+            let mut r = locate_single_keyword(sentence, t);
+            mats_found.append(&mut r);
+        }
+        */
+        Vec::new()
+    }
+            /*
+    for sentence in blocks {
+        let sentence_highlight = highlight_sentence_with_keywords(
+            &sentence,
+            &terms_selected,
+            show_summary_single_line_chars_limit
+        );
+        match sentence_highlight {
+            Some(x) => result.push(x),
+            None => ()
+        }
+            return;
+            */
+    fn parse_highlight(&mut self, terms: &[&str], server_info: &ServerInformation) {
         self.check();
         if self.children.is_empty() {
-            //TODO
-            return;
+            let child = self.split_leaf_node_by_terms(terms, server_info);
+            if !child.is_empty() {
+                self.children = child;
+                self.text = String::default();
+            }
         }
         for i in 0..self.children.len() {
-            self.children[i].parse();
+            self.children[i].parse_highlight(terms, server_info);
         }
     }
 }
@@ -53,7 +88,7 @@ fn build_tree(body: &str, server_info: &ServerInformation) -> RenderBlock {
         child.text = b;
         root.children.push(child);
     }
-    return root;
+    root
 }
 
 pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
@@ -68,7 +103,7 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
 
     let mut result: Vec<String> = Vec::new();
     let mut tree_root: RenderBlock = build_tree(body, server_info);
-    tree_root.parse();
+    tree_root.parse_highlight(&terms_selected, server_info);
 
     let show_summary_single_line_chars_limit: usize = server_info.show_summary_single_line_chars_limit;
     let blocks: Vec<String> = split_body_to_blocks(body, show_summary_single_line_chars_limit);
@@ -157,7 +192,6 @@ pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>
     let too_long_segment_remained_len = show_summary_single_line_chars_limit / 3;
 
     let mut bricks: Vec<HighlightStatusWithWords> = Vec::with_capacity(mats_found.len() + 1);
-
 
     let mut cursor = 0;
     let mut mat_pos = 0;
