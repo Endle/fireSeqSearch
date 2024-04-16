@@ -5,14 +5,16 @@ use regex::RegexBuilder;
 
 use lazy_static::lazy_static;
 use crate::post_query::highlighter::HighlightStatusWithWords::{Highlight, Lowlight};
+use crate::query_engine::ServerInformation;
 
 lazy_static! {
     static ref STOPWORDS_LIST: HashSet<String> =  crate::language_tools::generate_stopwords_list();
 }
 
 pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
-                                  show_summary_single_line_chars_limit: usize) -> String {
+                                  server_info: &ServerInformation) -> String {
 
+    let show_summary_single_line_chars_limit: usize = server_info.show_summary_single_line_chars_limit;
     let blocks = split_body_to_blocks(body, show_summary_single_line_chars_limit);
     let nltk = &STOPWORDS_LIST;
 
