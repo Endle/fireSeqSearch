@@ -12,7 +12,7 @@ lazy_static! {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct RenderBlock {
     text: String,
     children: Vec<RenderBlock>,
@@ -44,13 +44,22 @@ impl RenderBlock {
         if terms.is_empty() { return Vec::new(); }
         let r = self.split_leaf_node_by_single_term(terms[0], server_info);
         if r.is_empty() { return self.split_leaf_node_by_terms(&terms[1..], server_info); }
+        let mut result = Vec::new();
+        for block in r {
+            if block.is_hit { result.push(block); }
+            else {
+                let next_r = block.split_leaf_node_by_terms(&terms[1..], server_info);
+                if next_r.is_empty() { result.push(block) ;}
+                else {result.extend_from_slice(&next_r);}
+            }
+        }
+        result
         /*
         for t in terms {
             let mut r = locate_single_keyword(sentence, t);
             mats_found.append(&mut r);
         }
         */
-        Vec::new()
     }
             /*
     for sentence in blocks {
