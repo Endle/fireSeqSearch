@@ -12,11 +12,12 @@ lazy_static! {
 }
 
 
+// pub for test
 #[derive(Debug, Clone)]
-struct RenderBlock {
+pub struct RenderBlock {
     text: String,
-    children: Vec<RenderBlock>,
-    is_hit: bool,
+    pub children: Vec<RenderBlock>,
+    pub is_hit: bool,
     is_link: bool,
 }
 fn build_block() -> RenderBlock {
@@ -36,16 +37,23 @@ fn build_block_with_str(s: String) -> RenderBlock {
     }
 }
 impl RenderBlock {
+    fn is_empty(&self) -> bool {
+        self.text.is_empty() && self.children.is_empty()
+    }
     fn check(&self) {
         if !self.text.is_empty() {
             assert!(self.children.is_empty());
+        }
+        if !self.children.is_empty() {
+            assert!(self.text.is_empty());
         }
     }
     /*
      * If there are one or more highlighted terms, return the result (a tree)
      * If we find nothing, return an empty Vector
      */
-    fn split_leaf_node_by_single_term(&self, token: &str, server_info: &ServerInformation) ->Vec<RenderBlock>{
+    // pub for test
+    pub fn split_leaf_node_by_single_term(&self, token: &str, server_info: &ServerInformation) ->Vec<RenderBlock>{
         let mut result = Vec::new();
         let needle = RegexBuilder::new(token)
             .case_insensitive(true)
@@ -62,9 +70,11 @@ impl RenderBlock {
             None => {return result;},
             Some(m) => {
                 // part 1
-                let s = &self.text[0..m.start()];
-                let b = build_block_with_str(s.to_string());
-                result.push(b);
+                if m.start() > 0 {
+                    let s = &self.text[0..m.start()];
+                    let b = build_block_with_str(s.to_string());
+                    result.push(b);
+                }
 
                 // part 2
                 let s = &self.text[m.start()..m.end()];
@@ -73,7 +83,7 @@ impl RenderBlock {
                 result.push(b);
 
                 // part 3
-                let s = &self.text[m.start()..m.end()];
+                let s = &self.text[m.end()..];
                 let b = build_block_with_str(s.to_string());
                 let blocks_postfix = b.split_leaf_node_by_single_term(token, server_info);
                 if blocks_postfix.is_empty() {
@@ -85,11 +95,14 @@ impl RenderBlock {
         }
         result
     }
-    fn split_leaf_node_by_terms(&self, terms: &[&str], server_info: &ServerInformation) ->Vec<RenderBlock>{
+    // pub for test
+    pub fn split_leaf_node_by_terms(&self, terms: &[&str], server_info: &ServerInformation) ->Vec<RenderBlock>{
         if terms.is_empty() { return Vec::new(); }
+        info!("Highlighting token: {:?}", terms);
         let r = self.split_leaf_node_by_single_term(terms[0], server_info);
         if r.is_empty() { return self.split_leaf_node_by_terms(&terms[1..], server_info); }
         let mut result = Vec::new();
+        info!("We have {} blocks: {:?}", r.len(), &r);
         for block in r {
             if block.is_hit { result.push(block); }
             else {
@@ -99,30 +112,14 @@ impl RenderBlock {
             }
         }
         result
-        /*
-        for t in terms {
-            let mut r = locate_single_keyword(sentence, t);
-            mats_found.append(&mut r);
-        }
-        */
     }
-            /*
-    for sentence in blocks {
-        let sentence_highlight = highlight_sentence_with_keywords(
-            &sentence,
-            &terms_selected,
-            show_summary_single_line_chars_limit
-        );
-        match sentence_highlight {
-            Some(x) => result.push(x),
-            None => ()
-        }
-            return;
-            */
-    fn parse_highlight(&mut self, terms: &[&str], server_info: &ServerInformation) {
+    // pub for test
+    pub fn parse_highlight(&mut self, terms: &[&str], server_info: &ServerInformation) {
         self.check();
+        if self.is_hit { return ; }
         if self.children.is_empty() {
             let child = self.split_leaf_node_by_terms(terms, server_info);
+            info!("Children list: {:?}", &child);
             if !child.is_empty() {
                 self.children = child;
                 self.text = String::default();
@@ -133,7 +130,8 @@ impl RenderBlock {
         }
     }
 }
-fn build_tree(body: &str, server_info: &ServerInformation) -> RenderBlock {
+// pub for test
+pub fn build_tree(body: &str, server_info: &ServerInformation) -> RenderBlock {
     let show_summary_single_line_chars_limit: usize = server_info.show_summary_single_line_chars_limit;
     let blocks: Vec<String> = split_body_to_blocks(body, show_summary_single_line_chars_limit);
     let mut root = build_block();
