@@ -11,19 +11,48 @@ lazy_static! {
     static ref STOPWORDS_LIST: HashSet<String> =  crate::language_tools::generate_stopwords_list();
 }
 
+
+#[derive(Debug)]
+struct RenderBlock {
+    text: String,
+    children: Vec<RenderBlock>,
+    is_hit: bool,
+    is_link: bool,
+}
+fn build_block() -> RenderBlock {
+    RenderBlock {
+        text: String::default(),
+        children: Vec::new(),
+        is_hit: false,
+        is_link: false,
+    }
+}
+fn build_tree(body: &str, server_info: &ServerInformation) -> RenderBlock {
+    let show_summary_single_line_chars_limit: usize = server_info.show_summary_single_line_chars_limit;
+    let blocks: Vec<String> = split_body_to_blocks(body, show_summary_single_line_chars_limit);
+    let mut root = build_block();
+    for b in blocks {
+        let mut child = build_block();
+        child.text = b;
+        root.children.push(child);
+    }
+    return root;
+}
 pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
                                   server_info: &ServerInformation) -> String {
 
-    let show_summary_single_line_chars_limit: usize = server_info.show_summary_single_line_chars_limit;
-    let blocks = split_body_to_blocks(body, show_summary_single_line_chars_limit);
     let nltk = &STOPWORDS_LIST;
 
     let terms_selected: Vec<&str> = crate::language_tools::tokenizer::filter_out_stopwords(
-        &term_tokens, nltk);
+        term_tokens, nltk);
     info!("Highlight terms: {:?}", &terms_selected);
 
 
     let mut result: Vec<String> = Vec::new();
+    let mut tree_root: RenderBlock = build_tree(body, server_info);
+
+    let show_summary_single_line_chars_limit: usize = server_info.show_summary_single_line_chars_limit;
+    let blocks: Vec<String> = split_body_to_blocks(body, show_summary_single_line_chars_limit);
     for sentence in blocks {
         let sentence_highlight = highlight_sentence_with_keywords(
             &sentence,
@@ -229,9 +258,7 @@ pub fn split_body_to_blocks(body: &str, show_summary_single_line_chars_limit: us
 
     let mut result: Vec<String> = Vec::new();
     for line in body.lines() {
-        // let t = line.trim();
         let t = line.trim_start_matches(&['-', ' ']);
-        // println!("trim: {}", t);
 
         if t.is_empty() {
             continue;
