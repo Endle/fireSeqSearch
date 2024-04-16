@@ -16,7 +16,7 @@ pub fn post_query_wrapper(top_docs: Vec<(f32, tantivy::DocAddress)>,
                       term: &str,
                       searcher: &tantivy::LeasedItem<tantivy::Searcher>,
                       server_info: &ServerInformation) -> Vec<String> {
-    let term_tokens = tokenize_default(&term);
+    let term_tokens = tokenize_default(term);
     info!("get term tokens {:?}", &term_tokens);
     let result: Vec<String> = top_docs.par_iter()
         .map(|x| parse_and_serde(x, searcher, &term_tokens, server_info))
