@@ -19,6 +19,8 @@ pub struct RenderBlock {
     pub children: Vec<RenderBlock>,
     pub is_hit: bool,
     is_link: bool,
+    left_is_hit: bool,
+    right_is_hit: bool,
 }
 fn build_block() -> RenderBlock {
     RenderBlock {
@@ -26,22 +28,51 @@ fn build_block() -> RenderBlock {
         children: Vec::new(),
         is_hit: false,
         is_link: false,
+        left_is_hit: false,
+        right_is_hit: false,
     }
 }
 fn build_block_with_str(s: String) -> RenderBlock {
-    RenderBlock {
-        text: s,
-        children: Vec::new(),
-        is_hit: false,
-        is_link: false,
-    }
+    let mut r = build_block();
+    r.text = s;
+    r
 }
+
 impl RenderBlock {
     fn is_leaf(&self) -> bool {
         self.check();
         self.children.is_empty()
     }
-    fn render_to_string(&self) -> String {
+    fn is_flatterned(&self) -> bool {
+        if self.is_leaf() { return true; }
+        for child in &self.children {
+            if !child.is_leaf() { return false; }
+        }
+        true
+    }
+    //TODO didn't apply html escape
+    fn shrink_to_string(&self) -> String {
+        assert!(!self.is_hit);
+        assert!(!self.is_link);
+        if (!self.left_is_hit) && (!self.right_is_hit) { return String::default(); }
+        if self.text.len() < 60 { return self.text.to_owned(); }
+        let mut result = String::default();
+
+        let too_long_segment_remained_len = 20;
+        if self.left_is_hit {
+            let front: String = self.text.chars().take(too_long_segment_remained_len).collect();
+            result += &front;
+        }
+        result += "...";
+        if self.right_is_hit {
+            let end: String = self.text.chars().rev().take(too_long_segment_remained_len).collect();
+            let end: String = end.chars().rev().collect();
+            result += &end;
+        }
+        result
+    }
+    fn render_to_string(&mut self) -> String {
+        assert!(self.is_flatterned());
         if self.is_leaf() {
             if self.is_hit {
                 let span_start = "<span class=\"fireSeqSearchHighlight\">";
@@ -51,7 +82,13 @@ impl RenderBlock {
             if self.is_link {
                 todo!()
             }
-            return self.text.to_owned(); 
+            return self.shrink_to_string();
+        }
+        for i in 0..self.children.len() {
+            if self.children[i].is_hit {
+                if i > 0 {self.children[i-1].right_is_hit = true;}
+                if i+1 < self.children.len() {self.children[i+1].left_is_hit = true; }
+            }
         }
         let mut result = Vec::new();
         for i in 0..self.children.len() {
