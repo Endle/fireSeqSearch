@@ -111,7 +111,7 @@ impl RenderBlock {
     // pub for test
     pub fn flattern(&mut self) {
         self.check();
-        info!("Flattern: root =  {:?}", &self);
+        debug!("Flattern: root =  {:?}", &self);
         if self.children.is_empty() { return ; }
         let mut result = Vec::new();
         for i in 0..self.children.len() {
@@ -122,7 +122,7 @@ impl RenderBlock {
                 result.extend_from_slice(&self.children[i].children); //TODO avoid copy here
             }
         }
-        info!("Flattern: collected children {:?}", &result);
+        debug!("Flattern: collected children {:?}", &result);
         let result: Vec<RenderBlock> = result.into_iter()
                 .filter(|v| !v.is_empty() )
                 .collect();
