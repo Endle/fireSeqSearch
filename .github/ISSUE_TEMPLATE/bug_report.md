@@ -29,8 +29,5 @@ Please review the log before posting. Sensitive or private data may be included
 
 
 
-**Good Examples of bug report**
-<https://github.com/Endle/fireSeqSearch/issues/59>
-
 Note: Only English and Chinese posts are allowed in the issues section. English is preferred.
 请使用英文或中文发 issue.
