@@ -1,5 +1,5 @@
 use fire_seq_search_server::post_query::highlighter::{highlight_keywords_in_body, highlight_sentence_with_keywords, locate_single_keyword, split_body_to_blocks, wrap_text_at_given_spots};
-use fire_seq_search_server::post_query::highlighter::{build_tree};
+use fire_seq_search_server::post_query::highlighter::build_tree;
 use fire_seq_search_server::generate_server_info_for_test;
 
 fn get_english_text() -> String {

@@ -80,7 +80,9 @@ impl RenderBlock {
                 return span_start.to_owned() + &self.text + span_end;
             }
             if self.is_link {
-                todo!()
+                // TODO need a better way to handle it
+                info!("Ignored link in highlight {}", &self.text);
+                return String::default();
             }
             return self.shrink_to_string();
         }
