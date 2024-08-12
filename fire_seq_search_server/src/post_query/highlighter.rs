@@ -11,32 +11,236 @@ lazy_static! {
     static ref STOPWORDS_LIST: HashSet<String> =  crate::language_tools::generate_stopwords_list();
 }
 
+
+// pub for test
+#[derive(Debug, Clone)]
+pub struct RenderBlock {
+    text: String,
+    pub children: Vec<RenderBlock>,
+    pub is_hit: bool,
+    is_link: bool,
+    left_is_hit: bool,
+    right_is_hit: bool,
+}
+fn build_block() -> RenderBlock {
+    RenderBlock {
+        text: String::default(),
+        children: Vec::new(),
+        is_hit: false,
+        is_link: false,
+        left_is_hit: false,
+        right_is_hit: false,
+    }
+}
+fn build_block_with_str(s: String) -> RenderBlock {
+    let mut r = build_block();
+    r.text = s;
+    r
+}
+
+impl RenderBlock {
+    fn is_leaf(&self) -> bool {
+        self.check();
+        self.children.is_empty()
+    }
+    fn is_flatterned(&self) -> bool {
+        if self.is_leaf() { return true; }
+        for child in &self.children {
+            if !child.is_leaf() { return false; }
+        }
+        true
+    }
+    //TODO didn't apply html escape
+    fn shrink_to_string(&self) -> String {
+        assert!(!self.is_hit);
+        assert!(!self.is_link);
+        if (!self.left_is_hit) && (!self.right_is_hit) { return String::default(); }
+        if self.text.len() < 60 { return self.text.to_owned(); }
+        let mut result = String::default();
+
+        let too_long_segment_remained_len = 20;
+        if self.left_is_hit {
+            let front: String = self.text.chars().take(too_long_segment_remained_len).collect();
+            result += &front;
+        }
+        result += "...";
+        if self.right_is_hit {
+            let end: String = self.text.chars().rev().take(too_long_segment_remained_len).collect();
+            let end: String = end.chars().rev().collect();
+            result += &end;
+        }
+        result
+    }
+    fn render_to_string(&mut self) -> String {
+        assert!(self.is_flatterned());
+        if self.is_leaf() {
+            if self.is_hit {
+                let span_start = "<span class=\"fireSeqSearchHighlight\">";
+                let span_end = "</span>";
+                return span_start.to_owned() + &self.text + span_end;
+            }
+            if self.is_link {
+                // TODO need a better way to handle it
+                info!("Ignored link in highlight {}", &self.text);
+                return String::default();
+            }
+            return self.shrink_to_string();
+        }
+        for i in 0..self.children.len() {
+            if self.children[i].is_hit {
+                if i > 0 {self.children[i-1].right_is_hit = true;}
+                if i+1 < self.children.len() {self.children[i+1].left_is_hit = true; }
+            }
+        }
+        let mut result = Vec::new();
+        for i in 0..self.children.len() {
+            let s = self.children[i].render_to_string();
+            result.push(s);
+        }
+        result.join(" ")
+    }
+    fn is_empty(&self) -> bool {
+        self.text.is_empty() && self.children.is_empty()
+    }
+    fn check(&self) {
+        if !self.text.is_empty() {
+            assert!(self.children.is_empty());
+        }
+        if !self.children.is_empty() {
+            assert!(self.text.is_empty());
+        }
+    }
+    // pub for test
+    pub fn flattern(&mut self) {
+        self.check();
+        debug!("Flattern: root =  {:?}", &self);
+        if self.children.is_empty() { return ; }
+        let mut result = Vec::new();
+        for i in 0..self.children.len() {
+            self.children[i].flattern();
+            if self.children[i].children.is_empty() {
+                result.push(self.children[i].clone());
+            } else {
+                result.extend_from_slice(&self.children[i].children); //TODO avoid copy here
+            }
+        }
+        debug!("Flattern: collected children {:?}", &result);
+        let result: Vec<RenderBlock> = result.into_iter()
+                .filter(|v| !v.is_empty() )
+                .collect();
+        self.children = result;
+    }
+    /*
+     * If there are one or more highlighted terms, return the result (a tree)
+     * If we find nothing, return an empty Vector
+     */
+    // pub for test
+    pub fn split_leaf_node_by_single_term(&self, token: &str, server_info: &ServerInformation) ->Vec<RenderBlock>{
+        let mut result = Vec::new();
+        let needle = RegexBuilder::new(token)
+            .case_insensitive(true)
+            .build();
+        let needle = match needle {
+            Ok(x) => x,
+            Err(e) => {
+                error!("Failed({}) to build regex for {}", e, token);
+                return result;
+            }
+        };
+        let mat = needle.find(&self.text);
+        match mat {
+            None => {return result;},
+            Some(m) => {
+                // part 1
+                if m.start() > 0 {
+                    let s = &self.text[0..m.start()];
+                    let b = build_block_with_str(s.to_string());
+                    result.push(b);
+                }
+
+                // part 2
+                let s = &self.text[m.start()..m.end()];
+                let mut b = build_block_with_str(s.to_string());
+                b.is_hit = true;
+                result.push(b);
+
+                // part 3
+                let s = &self.text[m.end()..];
+                let b = build_block_with_str(s.to_string());
+                let blocks_postfix = b.split_leaf_node_by_single_term(token, server_info);
+                if blocks_postfix.is_empty() {
+                    result.push(b);
+                } else {
+                    result.extend_from_slice(&blocks_postfix);
+                }
+            }
+        }
+        result
+    }
+    // pub for test
+    pub fn split_leaf_node_by_terms(&self, terms: &[&str], server_info: &ServerInformation) ->Vec<RenderBlock>{
+        if terms.is_empty() { return Vec::new(); }
+        info!("Highlighting token: {:?}", terms);
+        let r = self.split_leaf_node_by_single_term(terms[0], server_info);
+        if r.is_empty() { return self.split_leaf_node_by_terms(&terms[1..], server_info); }
+        let mut result = Vec::new();
+        info!("We have {} blocks: {:?}", r.len(), &r);
+        for block in r {
+            if block.is_hit { result.push(block); }
+            else {
+                let next_r = block.split_leaf_node_by_terms(&terms[1..], server_info);
+                if next_r.is_empty() { result.push(block) ;}
+                else {result.extend_from_slice(&next_r);}
+            }
+        }
+        result
+    }
+    // pub for test
+    pub fn parse_highlight(&mut self, terms: &[&str], server_info: &ServerInformation) {
+        self.check();
+        if self.is_hit { return ; }
+        if self.children.is_empty() {
+            let child = self.split_leaf_node_by_terms(terms, server_info);
+            info!("Children list: {:?}", &child);
+            if !child.is_empty() {
+                self.children = child;
+                self.text = String::default();
+            }
+        }
+        for i in 0..self.children.len() {
+            self.children[i].parse_highlight(terms, server_info);
+        }
+    }
+}
+// pub for test
+pub fn build_tree(body: &str, server_info: &ServerInformation) -> RenderBlock {
+    let show_summary_single_line_chars_limit: usize = server_info.show_summary_single_line_chars_limit;
+    let blocks: Vec<String> = split_body_to_blocks(body, show_summary_single_line_chars_limit);
+    let mut root = build_block();
+    for b in blocks {
+        let mut child = build_block();
+        child.text = b;
+        root.children.push(child);
+    }
+    root
+}
+
 pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
                                   server_info: &ServerInformation) -> String {
 
-    let show_summary_single_line_chars_limit: usize = server_info.show_summary_single_line_chars_limit;
-    let blocks = split_body_to_blocks(body, show_summary_single_line_chars_limit);
     let nltk = &STOPWORDS_LIST;
 
     let terms_selected: Vec<&str> = crate::language_tools::tokenizer::filter_out_stopwords(
-        &term_tokens, nltk);
+        term_tokens, nltk);
     info!("Highlight terms: {:?}", &terms_selected);
 
 
-    let mut result: Vec<String> = Vec::new();
-    for sentence in blocks {
-        let sentence_highlight = highlight_sentence_with_keywords(
-            &sentence,
-            &terms_selected,
-            show_summary_single_line_chars_limit
-        );
-        match sentence_highlight {
-            Some(x) => result.push(x),
-            None => ()
-        }
-    }
+    let mut tree_root: RenderBlock = build_tree(body, server_info);
+    tree_root.parse_highlight(&terms_selected, server_info);
+    tree_root.flattern();
+    
+    tree_root.render_to_string()
 
-    result.join(" ")
 }
 
 pub fn highlight_sentence_with_keywords(sentence: &str,
@@ -109,7 +313,6 @@ pub fn wrap_text_at_given_spots(sentence: &str, mats_found: &Vec<(usize, usize)>
     let too_long_segment_remained_len = show_summary_single_line_chars_limit / 3;
 
     let mut bricks: Vec<HighlightStatusWithWords> = Vec::with_capacity(mats_found.len() + 1);
-
 
     let mut cursor = 0;
     let mut mat_pos = 0;
@@ -229,9 +432,7 @@ pub fn split_body_to_blocks(body: &str, show_summary_single_line_chars_limit: us
 
     let mut result: Vec<String> = Vec::new();
     for line in body.lines() {
-        // let t = line.trim();
         let t = line.trim_start_matches(&['-', ' ']);
-        // println!("trim: {}", t);
 
         if t.is_empty() {
             continue;

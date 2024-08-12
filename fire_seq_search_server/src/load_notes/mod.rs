@@ -4,6 +4,7 @@ use std::process;
 
 use rayon::prelude::*;
 use crate::query_engine::ServerInformation;
+use crate::JOURNAL_PREFIX;
 
 
 pub fn read_all_notes(server_info: &ServerInformation) -> Vec<(String, String)> {
@@ -40,7 +41,8 @@ pub fn read_all_notes(server_info: &ServerInformation) -> Vec<(String, String)> 
             = read_specific_directory(&journals_page).par_iter()
             .map(|(title,md)| {
                 let content = crate::markdown_parser::parse_logseq_notebook(md, title, server_info);
-                (title.to_string(), content)
+                let tantivy_title = JOURNAL_PREFIX.to_owned() + &title;
+                (tantivy_title, content)
             }).collect(); //silly collect.
 
 
