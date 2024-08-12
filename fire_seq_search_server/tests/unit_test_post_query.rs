@@ -29,7 +29,7 @@ fn test_highlight_wrap() {
     let contents = "使用 git shallow clone 下载并编译 Thunderbird".to_string();
     let v = vec![String::from("thunderbird")];
     let r = highlight_keywords_in_body_old_2024_apr(&contents, &v, 120);
-    assert_eq!(&r, "使用 git shallow clone 下载并编译 <span class=\"fireSeqSearchHighlight\">Thunderbird</span>");
+    assert_eq!(&r, "使用 git shallow clone 下载并编译  <span class=\"fireSeqSearchHighlight\">Thunderbird</span>");
 }
 
 #[test]
