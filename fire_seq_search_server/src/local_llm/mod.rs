@@ -1,4 +1,4 @@
-use log::info;
+use log::{info, error};
 use crate::query_engine::ServerInformation;
 
 
@@ -13,9 +13,18 @@ pub async fn llm_init() {
     info!("llm called");
 
     let lfile = locate_llamafile();
+
+    let lfile:String = lfile.unwrap();
+    use std::process::Command;
+
+    let cmd = Command::new("sh")
+        .args([ &lfile, "--nobrowser" ])
+        .spawn()
+        .expect("llm model failed to launch");
 }
 
-fn locate_llamafile() -> String {
+fn locate_llamafile() -> Option<String> {
+    use sha256::try_digest;
     let mut lf = LlamaFileDef {
         filename: "mistral-7b-instruct-v0.2.Q4_0.llamafile".to_owned(),
         filepath: None,
@@ -24,11 +33,19 @@ fn locate_llamafile() -> String {
     };
 
     // TODO hack in dev
-    lf.filepath = Some( "/var/home/lizhenbo/Downloads/mistral-7b-instruct-v0.2.Q4_0.llamafile".to_owned());
-
+    let lf_path = "/var/home/lizhenbo/Downloads/mistral-7b-instruct-v0.2.Q4_0.llamafile";
+    lf.filepath = Some(  lf_path.to_owned() );
     info!("lf {:?}", &lf);
 
-    return String::default();
+    let ppath = std::path::Path::new(lf_path);
+    //let val = try_digest(ppath).unwrap();
+    let val = "1903778f7defd921347b25327ebe5dd902f29417ba524144a8e4f7c32d83dee8";
+    if val != lf.sha256 {
+        error!("Wrong sha256sum for the model. Quit");
+        return None;
+    }
+
+    return lf.filepath;
 
 }
 
