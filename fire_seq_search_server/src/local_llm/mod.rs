@@ -9,6 +9,8 @@ struct LlamaFileDef {
     pub sha256: String,
     pub download_link: String,
 }
+
+const LLM_SERVER_PORT: &str = "8081"; // TODO Remove this magic number
 pub async fn llm_init() {
     info!("llm called");
 
@@ -17,8 +19,11 @@ pub async fn llm_init() {
     let lfile:String = lfile.unwrap();
     use std::process::Command;
 
+    // https://github.com/Mozilla-Ocho/llamafile/blob/main/llama.cpp/server/README.md
     let cmd = Command::new("sh")
-        .args([ &lfile, "--nobrowser" ])
+        .args([ &lfile, "--nobrowser",
+            "--port", LLM_SERVER_PORT,
+        ])
         .spawn()
         .expect("llm model failed to launch");
 }
