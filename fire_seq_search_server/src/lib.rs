@@ -5,6 +5,7 @@ pub mod language_tools;
 pub mod http_client;
 pub mod query_engine;
 pub mod word_frequency;
+pub mod local_llm;
 
 
 use log::{debug, info};
