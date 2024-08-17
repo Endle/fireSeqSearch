@@ -7,6 +7,7 @@ use reqwest;
 const LLM_SERVER_PORT: &str = "8081"; // TODO Remove this magic number
 pub struct Llm_Engine {
     endpoint: String,
+    client: reqwest::Client,
 }
 
 impl Llm_Engine {
@@ -29,9 +30,9 @@ impl Llm_Engine {
             .spawn()
             .expect("llm model failed to launch");
 
-        use std::{thread, time};
+        use tokio::time;
         let wait_llm = time::Duration::from_millis(500);
-        thread::sleep(wait_llm);
+        tokio::time::sleep(wait_llm);
 
         let endpoint = format!("http://127.0.0.1:{}", LLM_SERVER_PORT).to_string();
 
@@ -43,7 +44,7 @@ impl Llm_Engine {
                 Err(e) => {
                     info!("llm not ready ");
                     let wait_llm = time::Duration::from_millis(100);
-                    thread::sleep(wait_llm);
+                    tokio::time::sleep(wait_llm);
                     continue;
                 },
                 Ok(r) => r,
@@ -55,11 +56,16 @@ impl Llm_Engine {
             break;
         }
 
+        let client = reqwest::Client::new();
 
+        let wait_llm = time::Duration::from_millis(50000);
+                    tokio::time::sleep(wait_llm);
+
+        info!("llm engine initialized");
         Self {
             endpoint,
+            client,
         }
-        //TODO create client
     }
     // use reqwest https://stackoverflow.com/questions/14154753/how-do-i-make-an-http-request-from-rust
     pub async fn health(&self) -> Result<(), Box<dyn std::error::Error>>  {

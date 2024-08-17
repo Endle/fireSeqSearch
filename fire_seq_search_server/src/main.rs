@@ -58,6 +58,7 @@ async fn main() {
 
     let llm = Llm_Engine::llm_init().await;
 
+    info!("main thread running");
     let matches = Cli::parse();
     let host: String = matches.host.clone().unwrap_or_else(|| "127.0.0.1:3030".to_string());
     let host: SocketAddr = host.parse().unwrap_or_else(
