@@ -1,6 +1,8 @@
 use log::{info, error};
 use crate::query_engine::ServerInformation;
 use reqwest;
+use std::collections::HashMap;
+use serde::Serialize;
 
 
 
@@ -15,7 +17,6 @@ impl Llm_Engine {
         info!("llm called");
 
         let lfile = locate_llamafile().await;
-
         let lfile:String = lfile.unwrap();
 
         use std::process::{Command, Stdio};
@@ -58,16 +59,42 @@ impl Llm_Engine {
 
         let client = reqwest::Client::new();
 
-        let wait_llm = time::Duration::from_millis(50000);
-                    tokio::time::sleep(wait_llm);
-
         info!("llm engine initialized");
         Self {
             endpoint,
             client,
         }
     }
-    // use reqwest https://stackoverflow.com/questions/14154753/how-do-i-make-an-http-request-from-rust
+
+    fn build_dict(full_text: &str) -> HashMap<String, Box<dyn Serialize>> {
+        fn get_message_item(full_text: &str) -> HashMap<&str,&str> {
+            let mut msg = HashMap::new();
+            msg.insert("role", "user");
+            msg.insert("content", full_text);
+            msg
+        }
+        let mut ret = HashMap::new();
+        let mut msgs = Vec::new();
+        let msg = get_message_item(full_text);
+        msgs.push(msg);
+        ret.insert("messages", msgs);
+
+        ret
+    }
+    pub async fn summarize(&self, full_text: &str) -> Result<(), Box<dyn std::error::Error>> {
+        info!("summarize called");
+        //http://localhost:8080/completion
+        let ep = self.endpoint.to_owned() + "/v1/chat/completions";
+        let data = Self::build_dict(full_text);
+        let res = self.client.post(&ep)
+            .header("Content-Type", "application/json")
+            .json(&data)
+            .send()
+            .await?;
+        info!(" response {:?}", res);
+        Ok(())
+    }
+
     pub async fn health(&self) -> Result<(), Box<dyn std::error::Error>>  {
         info!("Calling health check");
         let resp = reqwest::get(self.endpoint.to_owned() + "/health")

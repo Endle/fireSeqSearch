@@ -46,9 +46,6 @@ struct Cli{
     host: Option<String>,
 }
 
-
-use futures::executor::block_on;
-
 #[tokio::main]
 async fn main() {
     env_logger::builder()
@@ -57,6 +54,7 @@ async fn main() {
         .init();
 
     let llm = Llm_Engine::llm_init().await;
+    llm.summarize("hi my friend").await;
 
     info!("main thread running");
     let matches = Cli::parse();
