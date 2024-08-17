@@ -47,6 +47,7 @@ struct Cli{
 }
 
 
+use futures::executor::block_on;
 
 #[tokio::main]
 async fn main() {
@@ -55,8 +56,10 @@ async fn main() {
         .format_target(false)
         .init();
 
-    let llm = Llm_Engine::llm_init();
-    llm.await;
+    let llm = Llm_Engine::llm_init().await;
+    let health = llm.health();
+    block_on(health);
+
     let matches = Cli::parse();
     let host: String = matches.host.clone().unwrap_or_else(|| "127.0.0.1:3030".to_string());
     let host: SocketAddr = host.parse().unwrap_or_else(

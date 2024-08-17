@@ -1,9 +1,12 @@
 use log::{info, error};
 use crate::query_engine::ServerInformation;
+use reqwest;
+
 
 
 const LLM_SERVER_PORT: &str = "8081"; // TODO Remove this magic number
 pub struct Llm_Engine {
+    endpoint: String,
 }
 
 impl Llm_Engine {
@@ -13,19 +16,33 @@ impl Llm_Engine {
         let lfile = locate_llamafile().await;
 
         let lfile:String = lfile.unwrap();
-        use std::process::Command;
 
-        // https://github.com/Mozilla-Ocho/llamafile/blob/main/llama.cpp/server/README.md
+        use std::process::{Command, Stdio};
+        use std::fs::File;
         let cmd = Command::new("sh")
             .args([ &lfile, "--nobrowser",
                 "--port", LLM_SERVER_PORT,
+                //">/tmp/llamafile.stdout", "2>/tmp/llamafile.stderr",
             ])
+            .stdout(Stdio::from(File::create("/tmp/llamafile.stdout.txt").unwrap()))
+            .stderr(Stdio::from(File::create("/tmp/llamafile.stderr.txt").unwrap()))
             .spawn()
             .expect("llm model failed to launch");
 
-        Self { }
+        Self {
+            endpoint: format!("http://127.0.0.1:{}", LLM_SERVER_PORT).to_string()
+        }
+        //TODO create client
     }
     // use reqwest https://stackoverflow.com/questions/14154753/how-do-i-make-an-http-request-from-rust
+    pub async fn health(&self) -> Result<(), Box<dyn std::error::Error>>  {
+        info!("Calling health check");
+        let resp = reqwest::get(self.endpoint.to_owned() + "/health")
+                .await?
+                .status();
+        info!("Health check: {:#?}", resp);
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
