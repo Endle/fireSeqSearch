@@ -2,7 +2,6 @@ use log::{info, error};
 use crate::query_engine::ServerInformation;
 use reqwest;
 use std::collections::HashMap;
-use serde::Serialize;
 
 
 
@@ -10,6 +9,20 @@ const LLM_SERVER_PORT: &str = "8081"; // TODO Remove this magic number
 pub struct Llm_Engine {
     endpoint: String,
     client: reqwest::Client,
+}
+
+use serde::{Serialize, Deserialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OpenAiData {
+    pub model: String,
+    pub messages: Vec<Message>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Message {
+    pub role: String,
+    pub content: String,
 }
 
 impl Llm_Engine {
@@ -66,32 +79,33 @@ impl Llm_Engine {
         }
     }
 
-    fn build_dict(full_text: &str) -> HashMap<String, Box<dyn Serialize>> {
-        fn get_message_item(full_text: &str) -> HashMap<&str,&str> {
-            let mut msg = HashMap::new();
-            msg.insert("role", "user");
-            msg.insert("content", full_text);
-            msg
+    fn build_data(full_text: &str) -> OpenAiData {
+        fn build_message(full_text:&str) -> Message {
+            Message{
+                role: "user".to_owned(),
+                content: full_text.to_owned(),
+            }
         }
-        let mut ret = HashMap::new();
         let mut msgs = Vec::new();
-        let msg = get_message_item(full_text);
-        msgs.push(msg);
-        ret.insert("messages", msgs);
-
-        ret
+        msgs.push( build_message(full_text) );
+        OpenAiData {
+            model: "model".to_owned(),
+            messages: msgs,
+        }
     }
     pub async fn summarize(&self, full_text: &str) -> Result<(), Box<dyn std::error::Error>> {
         info!("summarize called");
         //http://localhost:8080/completion
         let ep = self.endpoint.to_owned() + "/v1/chat/completions";
-        let data = Self::build_dict(full_text);
+        let data = Self::build_data(full_text);
         let res = self.client.post(&ep)
             .header("Content-Type", "application/json")
             .json(&data)
             .send()
             .await?;
-        info!(" response {:?}", res);
+        info!(" response {:?}", &res);
+        let content = res.text().await?;
+        info!(" text {:?}", &content);
         Ok(())
     }
 
