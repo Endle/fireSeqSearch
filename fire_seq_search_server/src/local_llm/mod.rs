@@ -29,8 +29,35 @@ impl Llm_Engine {
             .spawn()
             .expect("llm model failed to launch");
 
+        use std::{thread, time};
+        let wait_llm = time::Duration::from_millis(500);
+        thread::sleep(wait_llm);
+
+        let endpoint = format!("http://127.0.0.1:{}", LLM_SERVER_PORT).to_string();
+
+
+        use reqwest::StatusCode;
+        loop {
+            let resp = reqwest::get(endpoint.to_owned() + "/health").await;
+            let resp = match resp {
+                Err(e) => {
+                    info!("llm not ready ");
+                    let wait_llm = time::Duration::from_millis(100);
+                    thread::sleep(wait_llm);
+                    continue;
+                },
+                Ok(r) => r,
+            };
+            if resp.status() != StatusCode::from_u16(200).unwrap() {
+                info!("endpoint failed");
+                //TODO error handling
+            }
+            break;
+        }
+
+
         Self {
-            endpoint: format!("http://127.0.0.1:{}", LLM_SERVER_PORT).to_string()
+            endpoint,
         }
         //TODO create client
     }
@@ -39,7 +66,10 @@ impl Llm_Engine {
         info!("Calling health check");
         let resp = reqwest::get(self.endpoint.to_owned() + "/health")
                 .await?
-                .status();
+                .headers().to_owned()
+                //.status()
+                //.text().await?
+                ;
         info!("Health check: {:#?}", resp);
         Ok(())
     }

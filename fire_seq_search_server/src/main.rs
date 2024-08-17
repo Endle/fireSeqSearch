@@ -57,8 +57,6 @@ async fn main() {
         .init();
 
     let llm = Llm_Engine::llm_init().await;
-    let health = llm.health();
-    block_on(health);
 
     let matches = Cli::parse();
     let host: String = matches.host.clone().unwrap_or_else(|| "127.0.0.1:3030".to_string());
