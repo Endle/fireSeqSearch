@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use warp::Filter;
 use log::info;
 use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
-use fire_seq_search_server::local_llm::llm_init;
+use fire_seq_search_server::local_llm::Llm_Engine;
 
 
 use clap::Parser;
@@ -55,7 +55,7 @@ async fn main() {
         .format_target(false)
         .init();
 
-    let llm = llm_init();
+    let llm = Llm_Engine::llm_init();
     llm.await;
     let matches = Cli::parse();
     let host: String = matches.host.clone().unwrap_or_else(|| "127.0.0.1:3030".to_string());

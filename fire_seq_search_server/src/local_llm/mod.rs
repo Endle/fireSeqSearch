@@ -2,6 +2,32 @@ use log::{info, error};
 use crate::query_engine::ServerInformation;
 
 
+const LLM_SERVER_PORT: &str = "8081"; // TODO Remove this magic number
+pub struct Llm_Engine {
+}
+
+impl Llm_Engine {
+    pub async fn llm_init() -> Self {
+        info!("llm called");
+
+        let lfile = locate_llamafile().await;
+
+        let lfile:String = lfile.unwrap();
+        use std::process::Command;
+
+        // https://github.com/Mozilla-Ocho/llamafile/blob/main/llama.cpp/server/README.md
+        let cmd = Command::new("sh")
+            .args([ &lfile, "--nobrowser",
+                "--port", LLM_SERVER_PORT,
+            ])
+            .spawn()
+            .expect("llm model failed to launch");
+
+        Self { }
+    }
+    // use reqwest https://stackoverflow.com/questions/14154753/how-do-i-make-an-http-request-from-rust
+}
+
 #[derive(Debug)]
 struct LlamaFileDef {
     pub filename: String,
@@ -10,25 +36,8 @@ struct LlamaFileDef {
     pub download_link: String,
 }
 
-const LLM_SERVER_PORT: &str = "8081"; // TODO Remove this magic number
-pub async fn llm_init() {
-    info!("llm called");
 
-    let lfile = locate_llamafile();
-
-    let lfile:String = lfile.unwrap();
-    use std::process::Command;
-
-    // https://github.com/Mozilla-Ocho/llamafile/blob/main/llama.cpp/server/README.md
-    let cmd = Command::new("sh")
-        .args([ &lfile, "--nobrowser",
-            "--port", LLM_SERVER_PORT,
-        ])
-        .spawn()
-        .expect("llm model failed to launch");
-}
-
-fn locate_llamafile() -> Option<String> {
+async fn locate_llamafile() -> Option<String> {
     use sha256::try_digest;
     let mut lf = LlamaFileDef {
         filename: "mistral-7b-instruct-v0.2.Q4_0.llamafile".to_owned(),
