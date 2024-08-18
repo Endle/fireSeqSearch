@@ -19,7 +19,6 @@ pub struct ServerInformation {
     pub exclude_zotero_items:bool,
     pub obsidian_md: bool,
 
-
     /// Experimental. Not sure if I should use this global config - 2022-12-30
     pub convert_underline_hierarchy: bool,
 
@@ -31,11 +30,13 @@ struct DocumentSetting {
     tokenizer: JiebaTokenizer,
 }
 
+use crate::local_llm::LlmEngine;
 pub struct QueryEngine {
     pub server_info: ServerInformation,
     reader: tantivy::IndexReader,
     query_parser: tantivy::query::QueryParser,
     articles: Vec<Article>,
+    pub llm: Option<LlmEngine>,
 }
 
 impl QueryEngine {
@@ -53,6 +54,7 @@ impl QueryEngine {
             reader,
             query_parser,
             articles: loaded_articles,
+            llm: None,
         }
     }
 

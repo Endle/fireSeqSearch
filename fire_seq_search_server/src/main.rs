@@ -58,15 +58,22 @@ async fn main() {
         .format_target(false)
         .init();
 
-    let llm: tokio::task::JoinHandle<LlmEngine> = task::spawn( async { LlmEngine::llm_init().await });
+    let mut llm_loader = None;
+    if cfg!(feature="llm") {
+        info!("LLM Enabled");
+        //tokio::task::JoinHandle<LlmEngine>
+        llm_loader = Some(task::spawn( async { LlmEngine::llm_init().await }));
+    }
 
     info!("main thread running");
     let matches = Cli::parse();
     let server_info: ServerInformation = build_server_info(matches);
-    let server_host: SocketAddr = server_info.host.parse().unwrap_or_else(
-        |_| panic!("Invalid host: {}", server_info.host));
 
-    let engine = QueryEngine::construct(server_info);
+    let mut engine = QueryEngine::construct(server_info);
+    if cfg!(feature="llm") {
+        let llm:LlmEngine = llm_loader.unwrap().await.unwrap();
+        engine.llm = Some(llm);
+    }
 
     let engine_arc = std::sync::Arc::new(engine);
 
