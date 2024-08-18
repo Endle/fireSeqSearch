@@ -21,6 +21,8 @@ pub struct ServerInformation {
 
     /// Experimental. Not sure if I should use this global config - 2022-12-30
     pub convert_underline_hierarchy: bool,
+
+    pub host: String,
 }
 
 struct DocumentSetting {

@@ -55,17 +55,15 @@ async fn main() {
         .format_target(false)
         .init();
 
-    let llm = task::spawn( async { LlmEngine::llm_init().await });
+    let llm: tokio::task::JoinHandle<LlmEngine> = task::spawn( async { LlmEngine::llm_init().await });
     //let llm = llm.await.unwrap();
     //llm.summarize("hi my friend").await;
 
     info!("main thread running");
     let matches = Cli::parse();
-    let host: String = matches.host.clone().unwrap_or_else(|| "127.0.0.1:3030".to_string());
-    let host: SocketAddr = host.parse().unwrap_or_else(
-        |_| panic!("Invalid host: {}", host)
-    );
     let server_info: ServerInformation = build_server_info(matches);
+    let server_host: SocketAddr = server_info.host.parse().unwrap_or_else(
+        |_| panic!("Invalid host: {}", server_info.host));
     let engine = QueryEngine::construct(server_info);
 
 
@@ -102,7 +100,7 @@ async fn main() {
             .or(create_word_cloud)
     );
     warp::serve(routes)
-        .run(host)
+        .run(server_host)
         .await;
 
 
@@ -123,6 +121,7 @@ fn build_server_info(args: Cli) -> ServerInformation {
             String::from(guess)
         }
     };
+    let host: String = args.host.clone().unwrap_or_else(|| "127.0.0.1:3030".to_string());
     ServerInformation{
         notebook_path: args.notebook_path,
         notebook_name,
@@ -134,6 +133,7 @@ fn build_server_info(args: Cli) -> ServerInformation {
         exclude_zotero_items:args.exclude_zotero_items,
         obsidian_md: args.obsidian_md,
         convert_underline_hierarchy: true,
+        host,
     }
 }
 
