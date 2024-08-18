@@ -4,5 +4,5 @@ rm -f ./fire_seq_search_server
 cargo build
 cp  target/debug/fire_seq_search_server ./fire_seq_search_server
 
-RUST_BACKTRACE=1 RUST_LOG=debug ./fire_seq_search_server \
+RUST_BACKTRACE=1 RUST_LOG=warn,fire_seq_search_server=info ./fire_seq_search_server \
 --notebook_path ~/logseq --enable-journal-query

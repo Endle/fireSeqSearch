@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use warp::Filter;
 use log::info;
 use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
+use fire_seq_search_server::local_llm::LlmEngine;
 
 
 use clap::Parser;
@@ -45,7 +46,7 @@ struct Cli{
     host: Option<String>,
 }
 
-
+use tokio::task;
 
 #[tokio::main]
 async fn main() {
@@ -54,8 +55,13 @@ async fn main() {
         .format_target(false)
         .init();
 
+    let llm = task::spawn( async { LlmEngine::llm_init().await });
+    //let llm = llm.await.unwrap();
+    //llm.summarize("hi my friend").await;
+
+    info!("main thread running");
     let matches = Cli::parse();
-    let host = matches.host.clone().unwrap_or_else(|| "127.0.0.1:3030".to_string());
+    let host: String = matches.host.clone().unwrap_or_else(|| "127.0.0.1:3030".to_string());
     let host: SocketAddr = host.parse().unwrap_or_else(
         |_| panic!("Invalid host: {}", host)
     );
