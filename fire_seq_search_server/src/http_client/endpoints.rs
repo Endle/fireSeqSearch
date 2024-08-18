@@ -30,3 +30,4 @@ pub async fn generate_word_cloud(State(engine_arc): State<Arc<QueryEngine>>)
     let div = format!("<div id=\"{}\">{}</div>", div_id, json);
     Html(div)
 }
+
