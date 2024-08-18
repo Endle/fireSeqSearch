@@ -41,6 +41,7 @@ pub struct QueryEngine {
 
 impl QueryEngine {
     pub fn construct(server_info: ServerInformation) -> Self {
+
         let document_setting: DocumentSetting = build_document_setting();
         let loaded_notes = crate::load_notes::read_all_notes(&server_info);
         let loaded_articles: Vec<Article> = loaded_notes.into_iter().map(
@@ -57,6 +58,10 @@ impl QueryEngine {
             llm: None,
         }
     }
+}
+
+impl QueryEngine {
+
 
 
     pub fn generate_wordcloud(self: &Self) -> String {
@@ -68,10 +73,10 @@ impl QueryEngine {
         info!("Searching {}", &term);
 
 
-        let searcher = self.reader.searcher();
         let server_info: &ServerInformation = &self.server_info;
 
         let top_docs: Vec<(f32, tantivy::DocAddress)> = self.get_top_docs(&term);
+        let searcher: tantivy::Searcher = self.reader.searcher();
         let result: Vec<String> = post_query_wrapper(top_docs, &term, &searcher, &server_info);
 
         let json = serde_json::to_string(&result).unwrap();
@@ -105,7 +110,7 @@ fn build_reader_parser(index: &tantivy::Index, document_setting: &DocumentSettin
                        -> (tantivy::IndexReader, tantivy::query::QueryParser) {
     let reader = index
         .reader_builder()
-        .reload_policy(tantivy::ReloadPolicy::OnCommit)
+        .reload_policy(tantivy::ReloadPolicy::OnCommitWithDelay) // TODO switch to manual
         .try_into().unwrap();
     let title = document_setting.schema.get_field("title").unwrap();
     let body = document_setting.schema.get_field("body").unwrap();

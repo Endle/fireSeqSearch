@@ -25,7 +25,7 @@ serde = { version = "1.0", features = ["derive", "rc"] }
 url = "2.3.1"
 
 # QueryEngine
-tantivy = "0.18"
+tantivy = "0.22"
 
 
 log = "0.4.22"

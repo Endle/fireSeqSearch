@@ -16,7 +16,7 @@ pub struct FireSeqSearchHitParsed {
 
 impl FireSeqSearchHitParsed {
 
-    pub fn from_tantivy(doc: &tantivy::schema::Document,
+    pub fn from_tantivy(doc: &tantivy::TantivyDocument,
                         score: f32, term_tokens: &Vec<String>,
                         server_info: &ServerInformation) ->FireSeqSearchHitParsed {
 
