@@ -1,6 +1,5 @@
 use std::net::SocketAddr;
 
-use warp::Filter;
 use log::info;
 use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
 use fire_seq_search_server::local_llm::LlmEngine;
@@ -48,6 +47,10 @@ struct Cli{
 
 use tokio::task;
 
+use axum;
+use axum::routing::get;
+use fire_seq_search_server::http_client::endpoints;
+
 #[tokio::main]
 async fn main() {
     env_logger::builder()
@@ -56,18 +59,24 @@ async fn main() {
         .init();
 
     let llm: tokio::task::JoinHandle<LlmEngine> = task::spawn( async { LlmEngine::llm_init().await });
-    //let llm = llm.await.unwrap();
-    //llm.summarize("hi my friend").await;
 
     info!("main thread running");
     let matches = Cli::parse();
     let server_info: ServerInformation = build_server_info(matches);
     let server_host: SocketAddr = server_info.host.parse().unwrap_or_else(
         |_| panic!("Invalid host: {}", server_info.host));
+
     let engine = QueryEngine::construct(server_info);
 
-
     let engine_arc = std::sync::Arc::new(engine);
+
+    let app = axum::Router::new()
+        .route("/query/:term", get(endpoints::query))
+        ;//.with_state(engine_arc);
+    let listener = tokio::net::TcpListener::bind(&engine_arc.server_info.host)
+        .await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+    /*
     let arc_for_query = engine_arc.clone();
     let call_query = warp::path!("query" / String)
         .map(move |name| {
@@ -102,9 +111,12 @@ async fn main() {
     warp::serve(routes)
         .run(server_host)
         .await;
+    */
 
 
 
+   // let llm = llm.await.unwrap();
+    //llm.summarize("hi my friend").await;
 }
 
 

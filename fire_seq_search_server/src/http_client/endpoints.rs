@@ -6,11 +6,21 @@ use serde_json;
 pub fn get_server_info(engine_arc: Arc<QueryEngine>) -> String {
     serde_json::to_string( &engine_arc.server_info ).unwrap()
 }
-pub fn query(term: String, engine_arc: Arc<QueryEngine>)
-             -> String {
 
-    debug!("Original Search term {}", term);
-    engine_arc.query_pipeline(term)
+
+use axum::extract::State;
+use axum::{response::Html, routing::get, Router};
+
+//pub async fn query(term: String, engine_arc: Arc<QueryEngine>)
+pub async fn query(
+    term: String
+    //engine_arc: State<Arc<QueryEngine>>
+    ) -> Html<String>{
+
+    //debug!("Original Search term {}", term);
+    //let r = engine_arc.query_pipeline(term);
+    let r = "abcdd".to_owned();
+    Html(r)
 }
 
 

@@ -7,10 +7,13 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# Http Client
+
 tokio = { version = "1", features = ["full"] }
-warp = "0.3"
+
+# Http Client
+axum = "0.7.5"
 serde_json = "1.0"
+
 # Serde
 #   https://serde.rs/derive.html
 #   https://stackoverflow.com/a/49313680/1166518

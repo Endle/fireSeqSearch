@@ -7,6 +7,7 @@ use crate::post_query::post_query_wrapper;
 
 
 
+// This struct should be immutable when the program starts running
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ServerInformation {
     pub notebook_path: String,
