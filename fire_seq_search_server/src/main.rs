@@ -46,6 +46,8 @@ struct Cli{
     host: Option<String>,
 }
 
+use tokio::task;
+
 #[tokio::main]
 async fn main() {
     env_logger::builder()
@@ -53,8 +55,9 @@ async fn main() {
         .format_target(false)
         .init();
 
-    let llm = Llm_Engine::llm_init().await;
-    llm.summarize("hi my friend").await;
+    let llm = task::spawn( async { Llm_Engine::llm_init().await });
+    //let llm = llm.await.unwrap();
+    //llm.summarize("hi my friend").await;
 
     info!("main thread running");
     let matches = Cli::parse();

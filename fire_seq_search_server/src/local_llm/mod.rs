@@ -25,6 +25,7 @@ pub struct Message {
     pub content: String,
 }
 
+use tokio::task;
 impl Llm_Engine {
     pub async fn llm_init() -> Self {
         info!("llm called");
@@ -46,7 +47,8 @@ impl Llm_Engine {
 
         use tokio::time;
         let wait_llm = time::Duration::from_millis(500);
-        tokio::time::sleep(wait_llm);
+        tokio::time::sleep(wait_llm).await;
+        task::yield_now().await;
 
         let endpoint = format!("http://127.0.0.1:{}", LLM_SERVER_PORT).to_string();
 
@@ -58,7 +60,8 @@ impl Llm_Engine {
                 Err(e) => {
                     info!("llm not ready ");
                     let wait_llm = time::Duration::from_millis(100);
-                    tokio::time::sleep(wait_llm);
+                    tokio::time::sleep(wait_llm).await;
+                    task::yield_now().await;
                     continue;
                 },
                 Ok(r) => r,
