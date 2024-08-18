@@ -52,7 +52,6 @@ impl TokenStream for JiebaTokenStream {
             false
         }
     }
-
     fn token(&self) -> &Token {
         &self.tokens[self.index - 1]
     }

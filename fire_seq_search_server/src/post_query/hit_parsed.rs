@@ -14,14 +14,26 @@ pub struct FireSeqSearchHitParsed {
     pub logseq_uri: String,
 }
 
+use tantivy::schema::document::OwnedValue;
 impl FireSeqSearchHitParsed {
 
+    fn take_str_from_doc(doc: &tantivy::TantivyDocument, pos:usize) -> &str {
+        /*
+        let title: &str = doc.field_values()[0].value().as_text().unwrap();
+        let body: &str = doc.field_values()[1].value().as_text().unwrap();
+        */
+        let v: &OwnedValue =  doc.field_values()[pos].value();
+        match v{
+            OwnedValue::Str(s) => s,
+            _ => panic!("Wrong type")
+        }
+    }
     pub fn from_tantivy(doc: &tantivy::TantivyDocument,
                         score: f32, term_tokens: &Vec<String>,
                         server_info: &ServerInformation) ->FireSeqSearchHitParsed {
 
-        let title: &str = doc.field_values()[0].value().as_text().unwrap();
-        let body: &str = doc.field_values()[1].value().as_text().unwrap();
+        let title = Self::take_str_from_doc(doc, 0);
+        let body = Self::take_str_from_doc(doc, 1);
         let summary = highlight_keywords_in_body(body, term_tokens, server_info);
 
         let mut is_page_hit = true;
