@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use warp::Filter;
 use log::info;
 use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
-use fire_seq_search_server::local_llm::Llm_Engine;
+use fire_seq_search_server::local_llm::LlmEngine;
 
 
 use clap::Parser;
@@ -55,7 +55,7 @@ async fn main() {
         .format_target(false)
         .init();
 
-    let llm = task::spawn( async { Llm_Engine::llm_init().await });
+    let llm = task::spawn( async { LlmEngine::llm_init().await });
     //let llm = llm.await.unwrap();
     //llm.summarize("hi my friend").await;
 

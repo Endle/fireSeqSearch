@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 
 const LLM_SERVER_PORT: &str = "8081"; // TODO Remove this magic number
-pub struct Llm_Engine {
+pub struct LlmEngine {
     endpoint: String,
     client: reqwest::Client,
 }
@@ -26,7 +26,7 @@ pub struct Message {
 }
 
 use tokio::task;
-impl Llm_Engine {
+impl LlmEngine {
     pub async fn llm_init() -> Self {
         info!("llm called");
 
