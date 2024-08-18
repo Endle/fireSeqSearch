@@ -178,7 +178,8 @@ pub fn generate_server_info_for_test() -> ServerInformation {
         parse_pdf_links: false,
         exclude_zotero_items: false,
         obsidian_md: false,
-        convert_underline_hierarchy: true
+        convert_underline_hierarchy: true,
+        host: "127.0.0.1:22024".to_string(),
     };
     server_info
 }
