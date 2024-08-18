@@ -18,15 +18,15 @@ pub async fn query(
 
     debug!("Original Search term {}", term);
     let r = engine_arc.query_pipeline(term);
-    //let r = "abcdd".to_owned() + &term;
     Html(r)
 }
 
 
-pub fn generate_word_cloud(engine_arc: Arc<QueryEngine>) -> String {
+pub async fn generate_word_cloud(State(engine_arc): State<Arc<QueryEngine>>)
+                                                    -> Html<String> {
     let div_id = "fireSeqSearchWordcloudRawJson";
     let json = engine_arc.generate_wordcloud();
 
     let div = format!("<div id=\"{}\">{}</div>", div_id, json);
-    div
+    Html(div)
 }

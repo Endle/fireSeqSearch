@@ -73,50 +73,12 @@ async fn main() {
     let app = axum::Router::new()
         .route("/query/:term", get(endpoints::query))
         .route("/server_info", get(endpoints::get_server_info))
+        .route("/wordcloud", get(endpoints::generate_word_cloud))
         .with_state(engine_arc.clone());
 
     let listener = tokio::net::TcpListener::bind(&engine_arc.server_info.host)
         .await.unwrap();
     axum::serve(listener, app).await.unwrap();
-    /*
-    let arc_for_query = engine_arc.clone();
-    let call_query = warp::path!("query" / String)
-        .map(move |name| {
-            fire_seq_search_server::http_client::endpoints::query(
-                name, arc_for_query.clone() )
-        });
-
-    let arc_for_server_info = engine_arc.clone();
-    let get_server_info = warp::path("server_info")
-        .map(move ||
-                 fire_seq_search_server::http_client::endpoints::get_server_info(
-                     arc_for_server_info.clone()
-                 ));
-
-    let arc_for_wordcloud = engine_arc.clone();
-    let create_word_cloud = warp::path("wordcloud")
-        .map(move || {
-            let div = fire_seq_search_server::http_client::endpoints::generate_word_cloud(
-                arc_for_wordcloud.clone()
-            );
-            warp::http::Response::builder()
-                .header("content-type", "text/html; charset=utf-8")
-                .body(div)
-                // .status(warp::http::StatusCode::OK)
-        });
-
-    let routes = warp::get().and(
-        call_query
-            .or(get_server_info)
-            .or(create_word_cloud)
-    );
-    warp::serve(routes)
-        .run(server_host)
-        .await;
-    */
-
-
-
    // let llm = llm.await.unwrap();
     //llm.summarize("hi my friend").await;
 }
