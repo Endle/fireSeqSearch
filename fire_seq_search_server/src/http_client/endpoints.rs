@@ -9,17 +9,17 @@ pub fn get_server_info(engine_arc: Arc<QueryEngine>) -> String {
 
 
 use axum::extract::State;
-use axum::{response::Html, routing::get, Router};
+use axum::{response::Html, routing::get, Router, extract::Path};
 
 //pub async fn query(term: String, engine_arc: Arc<QueryEngine>)
 pub async fn query(
-    term: String
+    Path(term) : Path<String>
     //engine_arc: State<Arc<QueryEngine>>
     ) -> Html<String>{
 
     //debug!("Original Search term {}", term);
     //let r = engine_arc.query_pipeline(term);
-    let r = "abcdd".to_owned();
+    let r = "abcdd".to_owned() + &term;
     Html(r)
 }
 
