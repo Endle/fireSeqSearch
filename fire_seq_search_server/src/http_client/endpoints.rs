@@ -1,10 +1,15 @@
 use std::sync::Arc;
 use log::debug;
-use crate::query_engine::QueryEngine;
 use serde_json;
 
-pub fn get_server_info(engine_arc: Arc<QueryEngine>) -> String {
-    serde_json::to_string( &engine_arc.server_info ).unwrap()
+use crate::query_engine::{QueryEngine, ServerInformation};
+use axum::Json;
+
+pub async fn get_server_info(
+    State(engine_arc): State<Arc<QueryEngine>>
+    ) -> Json<ServerInformation> {
+    axum::Json( engine_arc.server_info.to_owned() )
+    //serde_json::to_string( &engine_arc.server_info ).unwrap()
 }
 
 
@@ -13,8 +18,8 @@ use axum::{response::Html, routing::get, Router, extract::Path};
 
 //pub async fn query(term: String, engine_arc: Arc<QueryEngine>)
 pub async fn query(
-    Path(term) : Path<String>
-    //engine_arc: State<Arc<QueryEngine>>
+    Path(term) : Path<String>,
+    State(engine_arc): State<Arc<QueryEngine>>
     ) -> Html<String>{
 
     //debug!("Original Search term {}", term);

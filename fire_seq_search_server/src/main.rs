@@ -72,7 +72,9 @@ async fn main() {
 
     let app = axum::Router::new()
         .route("/query/:term", get(endpoints::query))
-        ;//.with_state(engine_arc);
+        .route("/server_info", get(endpoints::get_server_info))
+        .with_state(engine_arc.clone());
+
     let listener = tokio::net::TcpListener::bind(&engine_arc.server_info.host)
         .await.unwrap();
     axum::serve(listener, app).await.unwrap();
