@@ -25,7 +25,9 @@ serde = { version = "1.0", features = ["derive", "rc"] }
 url = "2.3.1"
 
 # QueryEngine
-tantivy = "0.18"
+tantivy = "0.22"
+tantivy-tokenizer-api = "0.3.0"
+jieba-rs = { version = "0.7.0" }
 
 
 log = "0.4.22"
@@ -37,7 +39,6 @@ lazy_static = "1.4.0"
 rayon = "1.5"
 
 urlencoding = "2.1.0"
-jieba-rs = { version = "0.6.6" }
 
 
 # Language Processing

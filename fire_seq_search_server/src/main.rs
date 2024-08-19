@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use log::info;
 use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
 use fire_seq_search_server::local_llm::LlmEngine;

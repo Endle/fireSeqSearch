@@ -26,47 +26,23 @@ pub struct Article {
 // Based on https://github.com/jiegec/tantivy-jieba
 // tantivy-jieba is licensed under MIT, Copyright 2019-2020 Jiajie Chen
 // I had heavy modifications on it
+/*
 lazy_static! {
     static ref JIEBA: jieba_rs::Jieba = jieba_rs::Jieba::new();
 }
+*/
 
-pub const TOKENIZER_ID: &str = "fss_tokenizer";
-
-use tantivy::tokenizer::{BoxTokenStream, Token, TokenStream, Tokenizer};
-
-pub struct JiebaTokenStream {
-    tokens: Vec<Token>,
-    index: usize,
-}
+//pub const TOKENIZER_ID: &str = "fss_tokenizer";
 
 
-#[derive(Clone)]
-pub struct JiebaTokenizer;
-
-impl TokenStream for JiebaTokenStream {
-    fn advance(&mut self) -> bool {
-        if self.index < self.tokens.len() {
-            self.index = self.index + 1;
-            true
-        } else {
-            false
-        }
-    }
-
-    fn token(&self) -> &Token {
-        &self.tokens[self.index - 1]
-    }
-
-    fn token_mut(&mut self) -> &mut Token {
-        &mut self.tokens[self.index - 1]
-    }
-}
-
+/*
 impl Tokenizer for JiebaTokenizer {
-    fn token_stream<'a>(&self, text: &'a str) -> BoxTokenStream<'a> {
+    type TokenStream<'a> = JiebaTokenStream;
+    fn token_stream<'a>(&mut self, text: &'a str) -> JiebaTokenStream {
         let mut indices = text.char_indices().collect::<Vec<_>>();
         indices.push((text.len(), '\0'));
-        let orig_tokens = JIEBA.tokenize(text, jieba_rs::TokenizeMode::Search, true);
+        let jieba : jieba_rs::Jieba = jieba_rs::Jieba::new(); //TODO use a static one
+        let orig_tokens = jieba.tokenize(text, jieba_rs::TokenizeMode::Search, true);
         let mut tokens = Vec::new();
         for i in 0..orig_tokens.len() {
             let token = &orig_tokens[i];
@@ -82,9 +58,11 @@ impl Tokenizer for JiebaTokenizer {
             }
 
         }
-        BoxTokenStream::from(JiebaTokenStream { tokens, index: 0 })
+        JiebaTokenStream { tokens, index: 0 }
+
     }
 }
+*/
 
 /*
 Thoughts on lowercase  2022-07-04:
@@ -105,14 +83,25 @@ fn process_token_text(text: &str, indices: &Vec<(usize, char)>, token: &jieba_rs
     }
 }
 
+// TODO use stub now
+pub fn tokenize_default(sentence: &str) -> Vec<String> {
+    let mut r = Vec::new();
+    r.push(sentence.to_owned());
+    r
+}
+/*
 // TODO: Move tokenizer-related things into language_tools
 pub fn tokenize_default(sentence: &str) -> Vec<String> {
+    /*
     lazy_static! {
         static ref TK: JiebaTokenizer = crate::JiebaTokenizer {};
     }
+    */
+    // TODO use static tokenizer
+    let mut tokenizer = crate::JiebaTokenizer{};
     if language_tools::is_chinese(sentence) {
         info!("Use Tokenizer for Chinese term {}", sentence);
-        tokenize_sentence_to_text_vec(&TK, sentence)
+        tokenize_sentence_to_text_vec(&mut tokenizer, sentence)
     } else {
         // info!("Space Tokenizer {}", sentence);
         let result : Vec<&str> = sentence.split_whitespace()
@@ -123,13 +112,15 @@ pub fn tokenize_default(sentence: &str) -> Vec<String> {
         // vec![String::from(sentence)]
     }
 }
+*/
 
 
-pub fn tokenize_sentence_to_text_vec(tokenizer: &JiebaTokenizer, sentence: &str) -> Vec<String> {
-    let tokens = tokenize_sentence_to_vector(&tokenizer, sentence);
+use crate::language_tools::tokenizer::FireSeqTokenizer;
+pub fn tokenize_sentence_to_text_vec(tokenizer: &mut FireSeqTokenizer, sentence: &str) -> Vec<String> {
+    let tokens = tokenize_sentence_to_vector(tokenizer, sentence);
     tokens_to_text_vec(&tokens)
 }
-pub fn tokenize_sentence_to_vector(tokenizer: &JiebaTokenizer, sentence: &str)  ->  Vec<tantivy::tokenizer::Token> {
+pub fn tokenize_sentence_to_vector(tokenizer: &mut FireSeqTokenizer, sentence: &str)  ->  Vec<tantivy::tokenizer::Token> {
     use tantivy::tokenizer::*;
     let mut token_stream = tokenizer.token_stream(
         sentence
@@ -184,6 +175,7 @@ pub fn generate_server_info_for_test() -> ServerInformation {
     server_info
 }
 
+/*
 #[cfg(test)]
 mod test_tokenizer {
     #[test]
@@ -251,3 +243,5 @@ mod test_tokenizer {
 
 
 }
+*/
+
