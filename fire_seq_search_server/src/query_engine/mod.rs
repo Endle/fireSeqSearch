@@ -102,10 +102,14 @@ impl QueryEngine {
 }
 
 impl QueryEngine {
-    pub fn summarize(&self, title: String) -> String {
+    pub async fn summarize(&self, title: String) -> String {
         info!("Called summarize on {}", &title);
-
-        String::new()
+        if cfg!(feature="llm") {
+            let llm = self.llm.as_ref().unwrap();
+            llm.summarize(&title).await
+        } else {
+            "LLM turned off".to_owned()
+        }
     }
 }
 

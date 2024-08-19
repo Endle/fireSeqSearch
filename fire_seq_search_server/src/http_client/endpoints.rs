@@ -27,7 +27,7 @@ pub async fn summarize(
     ) -> Html<String>{
 
     let r = engine_arc.summarize(title);
-    Html(r)
+    Html(r.await)
 }
 
 pub async fn generate_word_cloud(State(engine_arc): State<Arc<QueryEngine>>)

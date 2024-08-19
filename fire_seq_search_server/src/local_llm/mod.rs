@@ -96,7 +96,7 @@ impl LlmEngine {
             messages: msgs,
         }
     }
-    pub async fn summarize(&self, full_text: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn summarize(&self, full_text: &str) -> String {
         info!("summarize called");
         //http://localhost:8080/completion
         let ep = self.endpoint.to_owned() + "/v1/chat/completions";
@@ -105,11 +105,13 @@ impl LlmEngine {
             .header("Content-Type", "application/json")
             .json(&data)
             .send()
-            .await?;
+            .await
+            .unwrap();
         info!(" response {:?}", &res);
-        let content = res.text().await?;
+        let content = res.text().await.unwrap();
         info!(" text {:?}", &content);
-        Ok(())
+        content
+            //TODO remove unwrap
     }
 
     pub async fn health(&self) -> Result<(), Box<dyn std::error::Error>>  {
