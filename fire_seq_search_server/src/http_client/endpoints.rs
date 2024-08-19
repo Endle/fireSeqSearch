@@ -18,7 +18,7 @@ pub async fn query(
 
     debug!("Original Search term {}", term);
     let r = engine_arc.query_pipeline(term);
-    Html(r)
+    Html(r.await)
 }
 
 pub async fn summarize(

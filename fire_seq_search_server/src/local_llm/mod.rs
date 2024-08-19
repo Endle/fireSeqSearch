@@ -6,9 +6,13 @@ use std::collections::HashMap;
 
 
 const LLM_SERVER_PORT: &str = "8081"; // TODO Remove this magic number
+use std::sync::Arc;
+use std::sync::Mutex;
+
 pub struct LlmEngine {
     endpoint: String,
     client: reqwest::Client,
+    job_cache :Arc<Mutex<HashMap<String, Option<String> >>>,
 }
 
 use serde::{Serialize, Deserialize};
@@ -26,6 +30,7 @@ pub struct Message {
 }
 
 use tokio::task;
+use    crate::query_engine::DocData;
 impl LlmEngine {
     pub async fn llm_init() -> Self {
         info!("llm called");
@@ -76,9 +81,11 @@ impl LlmEngine {
         let client = reqwest::Client::new();
 
         info!("llm engine initialized");
+        let mut map = Arc::new(Mutex::new(HashMap::new()));
         Self {
             endpoint,
             client,
+            job_cache: map
         }
     }
 
@@ -96,6 +103,9 @@ impl LlmEngine {
             messages: msgs,
         }
     }
+}
+
+impl LlmEngine{
     pub async fn summarize(&self, full_text: &str) -> String {
         info!("summarize called");
         //http://localhost:8080/completion
@@ -112,6 +122,10 @@ impl LlmEngine {
         info!(" text {:?}", &content);
         content
             //TODO remove unwrap
+    }
+
+    pub async fn post_summarize_job(&self, doc: DocData) {
+        info!("Job posted for {}", &doc.title);
     }
 
     pub async fn health(&self) -> Result<(), Box<dyn std::error::Error>>  {

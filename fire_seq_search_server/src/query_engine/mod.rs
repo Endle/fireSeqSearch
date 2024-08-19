@@ -36,7 +36,7 @@ pub struct QueryEngine {
     pub server_info: ServerInformation,
     reader: tantivy::IndexReader,
     query_parser: tantivy::query::QueryParser,
-    articles: Vec<Article>,
+    articles: Vec<Article>, //TODO remove it. only word cloud needs it
     pub llm: Option<LlmEngine>,
 }
 
@@ -64,7 +64,7 @@ impl QueryEngine {
 }
 
 #[derive(Debug)]
-struct DocData {
+pub struct DocData {
     pub title: String,
     pub body: String,
 }
@@ -99,7 +99,7 @@ impl QueryEngine {
         crate::word_frequency::generate_wordcloud(&self.articles)
     }
 
-    pub fn query_pipeline(self: &Self, term: String) -> String {
+    pub async fn query_pipeline(self: &Self, term: String) -> String {
         let term: String = term_preprocess(term);
         info!("Searching {}", &term);
 
@@ -109,10 +109,14 @@ impl QueryEngine {
         let top_docs: Vec<(f32, tantivy::DocAddress)> = self.get_top_docs(&term);
         let searcher: tantivy::Searcher = self.reader.searcher();
 
-        for (_f, docid) in &top_docs {
-            let doc = DocData::retrive(&searcher, *docid);
-            info!("Hit {:?}", &doc);
+        if cfg!(feature="llm") {
+            for (_f, docid) in &top_docs {
+                let doc = DocData::retrive(&searcher, *docid);
+                let llm = self.llm.as_ref().unwrap();
+                llm.post_summarize_job(doc).await;
+            }
         }
+
 
         let result: Vec<String> = post_query_wrapper(top_docs, &term, &searcher, &server_info);
 
