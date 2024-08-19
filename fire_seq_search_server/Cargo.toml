@@ -26,6 +26,7 @@ url = "2.3.1"
 
 # QueryEngine
 tantivy = "0.22"
+tantivy-tokenizer-api = "0.3.0"
 jieba-rs = { version = "0.7.0" }
 
 

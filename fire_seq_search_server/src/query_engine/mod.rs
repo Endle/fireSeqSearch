@@ -1,7 +1,7 @@
 // Everything about Tantivy should be hidden behind this component
 
-use log::{info, warn};
-use crate::{Article, decode_cjk_str, JiebaTokenizer};
+use log::{debug, info, warn};
+use crate::{Article, decode_cjk_str};
 use crate::post_query::post_query_wrapper;
 
 
@@ -25,9 +25,10 @@ pub struct ServerInformation {
     pub host: String,
 }
 
+use crate::language_tools::tokenizer::FireSeqTokenizer;
 struct DocumentSetting {
     schema: tantivy::schema::Schema,
-    tokenizer: JiebaTokenizer,
+    tokenizer: FireSeqTokenizer,
 }
 
 use crate::local_llm::LlmEngine;
@@ -49,6 +50,8 @@ impl QueryEngine {
         ).collect();
         let index = indexing_documents(&server_info, &document_setting, &loaded_articles);
         let (reader, query_parser) = build_reader_parser(&index, &document_setting);
+
+        debug!("Query engine construction finished");
 
         QueryEngine {
             server_info,
@@ -125,7 +128,7 @@ fn indexing_documents(server_info: &ServerInformation,
     let schema = &document_setting.schema;
     let index = tantivy::Index::create_in_ram(schema.clone());
 
-    index.tokenizers().register(crate::TOKENIZER_ID, document_setting.tokenizer.clone());
+    index.tokenizers().register(TOKENIZER_ID, document_setting.tokenizer.clone());
 
     let mut index_writer = index.writer(50_000_000).unwrap();
 
@@ -161,18 +164,19 @@ fn build_document_setting() -> DocumentSetting {
     }
 }
 
+use crate::language_tools::tokenizer::TOKENIZER_ID;
 fn build_schema_tokenizer() -> (tantivy::schema::Schema,
-                                JiebaTokenizer
+    FireSeqTokenizer
                                 // Box<dyn tantivy::tokenizer::Tokenizer>
 ) {
     let mut schema_builder = tantivy::schema::SchemaBuilder::default();
     let text_indexing = tantivy::schema::TextFieldIndexing::default()
-        .set_tokenizer(crate::TOKENIZER_ID) // Set custom tokenizer
+        .set_tokenizer(TOKENIZER_ID) // Set custom tokenizer
         .set_index_option(tantivy::schema::IndexRecordOption::WithFreqsAndPositions);
     let text_options = tantivy::schema::TextOptions::default()
         .set_indexing_options(text_indexing)
         .set_stored();
-    let tokenizer:JiebaTokenizer = JiebaTokenizer {};
+    let tokenizer = FireSeqTokenizer {};
 
     let _title = schema_builder.add_text_field("title", text_options.clone());
     let _body = schema_builder.add_text_field("body", text_options);

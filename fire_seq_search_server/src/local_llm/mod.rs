@@ -35,7 +35,7 @@ impl LlmEngine {
 
         use std::process::{Command, Stdio};
         use std::fs::File;
-        let cmd = Command::new("sh")
+        let _cmd = Command::new("sh")
             .args([ &lfile, "--nobrowser",
                 "--port", LLM_SERVER_PORT,
                 //">/tmp/llamafile.stdout", "2>/tmp/llamafile.stderr",
@@ -57,8 +57,8 @@ impl LlmEngine {
         loop {
             let resp = reqwest::get(endpoint.to_owned() + "/health").await;
             let resp = match resp {
-                Err(e) => {
-                    info!("llm not ready ");
+                Err(_e) => {
+                    info!("llm not ready");
                     let wait_llm = time::Duration::from_millis(100);
                     tokio::time::sleep(wait_llm).await;
                     task::yield_now().await;
@@ -135,7 +135,8 @@ struct LlamaFileDef {
 
 
 async fn locate_llamafile() -> Option<String> {
-    use sha256::try_digest;
+    // TODO
+    //use sha256::try_digest;
     let mut lf = LlamaFileDef {
         filename: "mistral-7b-instruct-v0.2.Q4_0.llamafile".to_owned(),
         filepath: None,
@@ -148,7 +149,7 @@ async fn locate_llamafile() -> Option<String> {
     lf.filepath = Some(  lf_path.to_owned() );
     info!("lf {:?}", &lf);
 
-    let ppath = std::path::Path::new(lf_path);
+    //let ppath = std::path::Path::new(lf_path);
     //let val = try_digest(ppath).unwrap();
     let val = "1903778f7defd921347b25327ebe5dd902f29417ba524144a8e4f7c32d83dee8";
     if val != lf.sha256 {
