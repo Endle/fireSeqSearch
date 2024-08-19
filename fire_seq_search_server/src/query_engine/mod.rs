@@ -63,6 +63,34 @@ impl QueryEngine {
     }
 }
 
+#[derive(Debug)]
+struct DocData {
+    pub title: String,
+    pub body: String,
+}
+use tantivy::schema::OwnedValue;
+impl DocData {
+    fn take_str_from_doc(doc: &tantivy::TantivyDocument, pos:usize) -> &str {
+        /*
+        let title: &str = doc.field_values()[0].value().as_text().unwrap();
+        let body: &str = doc.field_values()[1].value().as_text().unwrap();
+        */
+        let v: &OwnedValue =  doc.field_values()[pos].value();
+        match v{
+            OwnedValue::Str(s) => s,
+            _ => panic!("Wrong type")
+        }
+    }
+    pub fn retrive(searcher: &tantivy::Searcher, docid: tantivy::DocAddress) -> Self {
+        let doc: tantivy::TantivyDocument = searcher.doc(docid).unwrap();
+        let title = Self::take_str_from_doc(&doc, 0).to_owned();
+        let body = Self::take_str_from_doc(&doc, 1).to_owned();
+        Self {
+            title, body
+        }
+    }
+}
+
 impl QueryEngine {
 
 
@@ -80,7 +108,14 @@ impl QueryEngine {
 
         let top_docs: Vec<(f32, tantivy::DocAddress)> = self.get_top_docs(&term);
         let searcher: tantivy::Searcher = self.reader.searcher();
+
+        for (_f, docid) in &top_docs {
+            let doc = DocData::retrive(&searcher, *docid);
+            info!("Hit {:?}", &doc);
+        }
+
         let result: Vec<String> = post_query_wrapper(top_docs, &term, &searcher, &server_info);
+
 
         let json = serde_json::to_string(&result).unwrap();
 
