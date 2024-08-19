@@ -126,6 +126,16 @@ impl LlmEngine{
 
     pub async fn post_summarize_job(&self, doc: DocData) {
         info!("Job posted for {}", &doc.title);
+        let mut jcache = self.job_cache.lock().unwrap(); //TODO error handler?
+        match jcache.get(&doc.title) {
+            Some(status) => {
+            },
+            None => {
+                info!("Create task for {}", &doc.title);
+                jcache.insert(doc.title.to_owned(), None);
+                //TODO
+            }
+        };
     }
 
     pub async fn health(&self) -> Result<(), Box<dyn std::error::Error>>  {
