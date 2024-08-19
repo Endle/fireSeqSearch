@@ -101,6 +101,14 @@ impl QueryEngine {
     }
 }
 
+impl QueryEngine {
+    pub fn summarize(&self, title: String) -> String {
+        info!("Called summarize on {}", &title);
+
+        String::new()
+    }
+}
+
 fn term_preprocess(term:String) -> String {
     // in the future, I would use tokenize_sentence_to_text_vec here
     let term = term.replace("%20", " ");

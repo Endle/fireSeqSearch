@@ -21,6 +21,14 @@ pub async fn query(
     Html(r)
 }
 
+pub async fn summarize(
+    Path(title) : Path<String>,
+    State(engine_arc): State<Arc<QueryEngine>>
+    ) -> Html<String>{
+
+    let r = engine_arc.summarize(title);
+    Html(r)
+}
 
 pub async fn generate_word_cloud(State(engine_arc): State<Arc<QueryEngine>>)
                                                     -> Html<String> {
