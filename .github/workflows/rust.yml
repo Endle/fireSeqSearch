@@ -22,17 +22,15 @@ jobs:
         os: [ubuntu-latest, macos-13, macos-14]
         rust: [stable]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.5
       - name: Install Rust ${{ matrix.rust }}
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
           profile: minimal
           override: true
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@c94e27bef21ab3fb4a5152c8a878c53262b4abb0
-        with:
-          version: "v0.4.0-pre.6"
       - name: Get Date
         id: get-date
         run: |
