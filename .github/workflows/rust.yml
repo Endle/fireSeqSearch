@@ -3,9 +3,9 @@ name: Linux and macOS
 # Template Reference: https://www.infinyon.com/blog/2021/04/github-actions-best-practices/
 on:
   push:
-    branches: [ master ]
+    branches: [ master, llm_candidate ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, llm_candidate ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -31,6 +31,8 @@ jobs:
           toolchain: ${{ matrix.rust }}
           profile: minimal
           override: true
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.5
       - name: Get Date
         id: get-date
         run: |
@@ -72,7 +74,6 @@ jobs:
       - name: Run sccache stat for check
         shell: bash
         run: ${SCCACHE_PATH} --show-stats
-        
 
 
   release:
@@ -87,9 +88,7 @@ jobs:
           profile: minimal
           override: true
       - name: Run sccache-cache
-        uses: Xuanwo/sccache-action@c94e27bef21ab3fb4a5152c8a878c53262b4abb0
-        with:
-          version: "v0.4.0-pre.6"
+        uses: mozilla-actions/sccache-action@v0.0.5
       - name: Get Date
         id: get-date
         run: |
