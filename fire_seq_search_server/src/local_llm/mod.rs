@@ -171,13 +171,15 @@ async fn locate_llamafile() -> Option<String> {
     };
 
     // TODO hack in dev
-    let lf_path = "/var/home/lizhenbo/Downloads/mistral-7b-instruct-v0.2.Q4_0.llamafile";
+    //let lf_path = "/var/home/lizhenbo/Downloads/mistral-7b-instruct-v0.2.Q4_0.llamafile";
+    let lf_base = "/Users/zhenboli/.llamafile/"
+    let lf_path = lf_base.to_owned() + &lf.filename;
     lf.filepath = Some(  lf_path.to_owned() );
     info!("lf {:?}", &lf);
 
-    //let ppath = std::path::Path::new(lf_path);
-    //let val = try_digest(ppath).unwrap();
-    let val = "1903778f7defd921347b25327ebe5dd902f29417ba524144a8e4f7c32d83dee8";
+    let ppath = std::path::Path::new(lf_path);
+    let val = try_digest(ppath).unwrap();
+    //let val = "1903778f7defd921347b25327ebe5dd902f29417ba524144a8e4f7c32d83dee8";
     if val != lf.sha256 {
         error!("Wrong sha256sum for the model. Quit");
         return None;
