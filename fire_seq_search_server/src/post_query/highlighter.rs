@@ -180,11 +180,11 @@ impl RenderBlock {
     // pub for test
     pub fn split_leaf_node_by_terms(&self, terms: &[&str], server_info: &ServerInformation) ->Vec<RenderBlock>{
         if terms.is_empty() { return Vec::new(); }
-        info!("Highlighting token: {:?}", terms);
+        debug!("Highlighting token: {:?}", terms);
         let r = self.split_leaf_node_by_single_term(terms[0], server_info);
         if r.is_empty() { return self.split_leaf_node_by_terms(&terms[1..], server_info); }
         let mut result = Vec::new();
-        info!("We have {} blocks: {:?}", r.len(), &r);
+        debug!("We have {} blocks: {:?}", r.len(), &r);
         for block in r {
             if block.is_hit { result.push(block); }
             else {
@@ -201,7 +201,7 @@ impl RenderBlock {
         if self.is_hit { return ; }
         if self.children.is_empty() {
             let child = self.split_leaf_node_by_terms(terms, server_info);
-            info!("Children list: {:?}", &child);
+            debug!("Children list: {:?}", &child);
             if !child.is_empty() {
                 self.children = child;
                 self.text = String::default();
