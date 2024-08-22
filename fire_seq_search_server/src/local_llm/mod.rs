@@ -2,6 +2,7 @@ use log::{info, error};
 use crate::query_engine::ServerInformation;
 use reqwest;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 
 
 
@@ -9,10 +10,29 @@ const LLM_SERVER_PORT: &str = "8081"; // TODO Remove this magic number
 use std::sync::Arc;
 use std::sync::Mutex;
 
+struct JobProcessor {
+    done_job: HashMap<String, String>,
+    job_queue: VecDeque<String>,
+}
+
+impl JobProcessor {
+    pub fn new() -> Self {
+        JobProcessor {
+            done_job: HashMap::new(),
+            job_queue: VecDeque::new(),
+        }
+    }
+    pub fn add(&mut self, title:String) {
+        info!("Job posted for {}", &title);
+        self.job_queue.push_back(title);
+    }
+}
+
 pub struct LlmEngine {
     endpoint: String,
     client: reqwest::Client,
-    job_cache :Arc<Mutex<HashMap<String, Option<String> >>>,
+    job_cache: Arc<Mutex<JobProcessor>>,
+    //job_cache :Arc<Mutex<HashMap<String, Option<String> >>>,
 }
 
 use serde::{Serialize, Deserialize};
@@ -30,7 +50,7 @@ pub struct Message {
 }
 
 use tokio::task;
-use    crate::query_engine::DocData;
+use crate::query_engine::DocData;
 impl LlmEngine {
     pub async fn llm_init() -> Self {
         info!("llm called");
@@ -51,6 +71,8 @@ impl LlmEngine {
             .expect("llm model failed to launch");
 
         use tokio::time;
+        use tokio::task::yield_now;
+        yield_now().await;
         let wait_llm = time::Duration::from_millis(500);
         tokio::time::sleep(wait_llm).await;
         task::yield_now().await;
@@ -81,7 +103,8 @@ impl LlmEngine {
         let client = reqwest::Client::new();
 
         info!("llm engine initialized");
-        let mut map = Arc::new(Mutex::new(HashMap::new()));
+        let mut map = Arc::new(Mutex::new(
+                JobProcessor::new()));
         Self {
             endpoint,
             client,
@@ -125,17 +148,9 @@ impl LlmEngine{
     }
 
     pub async fn post_summarize_job(&self, doc: DocData) {
-        info!("Job posted for {}", &doc.title);
-        let mut jcache = self.job_cache.lock().unwrap(); //TODO error handler?
-        match jcache.get(&doc.title) {
-            Some(status) => {
-            },
-            None => {
-                info!("Create task for {}", &doc.title);
-                jcache.insert(doc.title.to_owned(), None);
-                //TODO
-            }
-        };
+        //TODO error handler?
+        let mut jcache = self.job_cache.lock().unwrap();
+        jcache.add(doc.title.to_owned());
     }
 
     pub async fn health(&self) -> Result<(), Box<dyn std::error::Error>>  {
@@ -162,7 +177,6 @@ struct LlamaFileDef {
 
 async fn locate_llamafile() -> Option<String> {
     // TODO
-    //use sha256::try_digest;
     let mut lf = LlamaFileDef {
         filename: "mistral-7b-instruct-v0.2.Q4_0.llamafile".to_owned(),
         filepath: None,
@@ -172,14 +186,14 @@ async fn locate_llamafile() -> Option<String> {
 
     // TODO hack in dev
     //let lf_path = "/var/home/lizhenbo/Downloads/mistral-7b-instruct-v0.2.Q4_0.llamafile";
-    let lf_base = "/Users/zhenboli/.llamafile/"
+    let lf_base = "/Users/zhenboli/.llamafile/";
     let lf_path = lf_base.to_owned() + &lf.filename;
     lf.filepath = Some(  lf_path.to_owned() );
     info!("lf {:?}", &lf);
 
-    let ppath = std::path::Path::new(lf_path);
-    let val = try_digest(ppath).unwrap();
-    //let val = "1903778f7defd921347b25327ebe5dd902f29417ba524144a8e4f7c32d83dee8";
+    let ppath = std::path::Path::new(&lf_path);
+    //let val = sha256::try_digest(ppath).unwrap();
+    let val = "1903778f7defd921347b25327ebe5dd902f29417ba524144a8e4f7c32d83dee8";
     if val != lf.sha256 {
         error!("Wrong sha256sum for the model. Quit");
         return None;

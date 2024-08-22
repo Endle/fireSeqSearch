@@ -68,6 +68,8 @@ async fn main() {
     let server_info: ServerInformation = build_server_info(matches);
 
     let mut engine = QueryEngine::construct(server_info);
+
+    info!("query engine build finished");
     if cfg!(feature="llm") {
         let llm:LlmEngine = llm_loader.unwrap().await.unwrap();
         engine.llm = Some(llm);
