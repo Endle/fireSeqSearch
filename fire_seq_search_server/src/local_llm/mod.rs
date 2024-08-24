@@ -165,6 +165,7 @@ impl LlmEngine{
 
     pub async fn call_llm_engine(&self) {
         let mut next_job: Option<DocData> = None;
+
         let mut jcache = self.job_cache.lock().await;//.unwrap();
         next_job = jcache.job_queue.pop_front();
         drop(jcache);
@@ -174,8 +175,17 @@ impl LlmEngine{
             Some(x) => x,
             None => { return; },
         };
+
         let title = doc.title.to_owned();
+
+        let jcache = self.job_cache.lock().await;
+        if jcache.done_job.contains_key(&title) {
+            return;
+        }
+        drop(jcache);
+
         let summarize_result = self.summarize(&doc.body).await;
+
         let mut jcache = self.job_cache.lock().await;//.unwrap();
         next_job = jcache.job_queue.pop_front();
         info!("get summarize result {}", &title);
