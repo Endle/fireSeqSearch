@@ -78,7 +78,14 @@ async fn main() {
         engine.llm = Some(llm_arc);
 
         let poll_handle = tokio::spawn( async move {
+            info!("inside main loop");
+            loop {
+                llm_poll.call_llm_engine().await;
+                let wait_llm = tokio::time::Duration::from_millis(500);
+                tokio::time::sleep(wait_llm).await;
+            }
         });
+//        poll_handle.await;
 
     }
 
