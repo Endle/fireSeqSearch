@@ -3,6 +3,7 @@
 use log::{debug, info, warn};
 use crate::{Article, decode_cjk_str};
 use crate::post_query::post_query_wrapper;
+use std::sync::Arc;
 
 
 
@@ -37,7 +38,7 @@ pub struct QueryEngine {
     reader: tantivy::IndexReader,
     query_parser: tantivy::query::QueryParser,
     articles: Vec<Article>, //TODO remove it. only word cloud needs it
-    pub llm: Option<LlmEngine>,
+    pub llm: Option<Arc<LlmEngine>>,
 }
 
 impl QueryEngine {

@@ -48,6 +48,7 @@ use tokio::task;
 use axum;
 use axum::routing::get;
 use fire_seq_search_server::http_client::endpoints;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() {
@@ -72,7 +73,12 @@ async fn main() {
     info!("query engine build finished");
     if cfg!(feature="llm") {
         let llm:LlmEngine = llm_loader.unwrap().await.unwrap();
-        engine.llm = Some(llm);
+        let llm_arc = Arc::new(llm);
+        let llm_poll = llm_arc.clone();
+        engine.llm = Some(llm_arc);
+
+        let poll_handler = task::spawn( async move {
+        });
     }
 
     let engine_arc = std::sync::Arc::new(engine);
