@@ -168,10 +168,18 @@ impl LlmEngine{
         let mut jcache = self.job_cache.lock().await;//.unwrap();
         next_job = jcache.job_queue.pop_front();
         drop(jcache);
-        let handle = tokio::spawn(async move {
-            info!("Polled this struct {:?}", &next_job);
-        });
-        let out = handle.await.unwrap();
+
+
+        //let handle = tokio::spawn(async move {
+            let doc = match next_job {
+                Some(x) => x,
+                None => { return; },
+            };
+            let title = doc.title.to_owned();
+            let summarize_result = self.summarize(&doc.body).await;
+        //});
+        //let out = handle.await.unwrap();
+        info!("get summarize result {}", &summarize_result);
 
     }
 
