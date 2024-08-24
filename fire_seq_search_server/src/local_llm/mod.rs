@@ -163,11 +163,12 @@ impl LlmEngine{
     }
 
     pub async fn call_llm_engine(&self) {
-        //let mut next_job: Option
+        let mut next_job: Option<DocData> = None;
         let mut jcache = self.job_cache.lock().unwrap();
+        next_job = jcache.job_queue.pop_front();
         drop(jcache);
-        let handle = tokio::spawn(async {
-            info!("Polled this struct");
+        let handle = tokio::spawn(async move {
+            info!("Polled this struct {:?}", &next_job);
         });
         let out = handle.await.unwrap();
 

@@ -114,7 +114,6 @@ impl QueryEngine {
                 let doc = DocData::retrive(&searcher, *docid);
                 let llm = self.llm.as_ref().unwrap();
                 llm.post_summarize_job(doc).await;
-                //llm.poll().await;
             }
         }
 
