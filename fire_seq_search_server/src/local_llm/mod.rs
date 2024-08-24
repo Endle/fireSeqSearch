@@ -12,7 +12,7 @@ use std::sync::Mutex;
 
 struct JobProcessor {
     done_job: HashMap<String, String>,
-    job_queue: VecDeque<String>,
+    job_queue: VecDeque<DocData>,
 }
 
 impl JobProcessor {
@@ -22,10 +22,11 @@ impl JobProcessor {
             job_queue: VecDeque::new(),
         }
     }
-    pub fn add(&mut self, title:String) {
+    pub fn add(&mut self, doc:DocData) {
+        let title: &str = &doc.title;
         info!("Job posted for {}", &title);
-        if !self.done_job.contains_key(&title) {
-            self.job_queue.push_back(title);
+        if !self.done_job.contains_key(title) {
+            self.job_queue.push_back(doc);
         }
     }
 }
@@ -153,7 +154,7 @@ impl LlmEngine{
     pub async fn post_summarize_job(&self, doc: DocData) {
         //TODO error handler?
         let mut jcache = self.job_cache.lock().unwrap();
-        jcache.add(doc.title.to_owned());
+        jcache.add(doc);
         drop(jcache);
 
         //TODO why can't I call self.poll in this function?
@@ -162,7 +163,7 @@ impl LlmEngine{
     }
 
     pub async fn call_llm_engine(&self) {
-        //let self_arc = Arc::clone(self);
+        //let mut next_job: Option
         let mut jcache = self.job_cache.lock().unwrap();
         drop(jcache);
         let handle = tokio::spawn(async {
