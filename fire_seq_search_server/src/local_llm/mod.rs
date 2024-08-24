@@ -49,6 +49,7 @@ pub struct Message {
     pub content: String,
 }
 
+use tokio::task::yield_now;
 use tokio::task;
 use crate::query_engine::DocData;
 impl LlmEngine {
@@ -71,7 +72,6 @@ impl LlmEngine {
             .expect("llm model failed to launch");
 
         use tokio::time;
-        use tokio::task::yield_now;
         yield_now().await;
         let wait_llm = time::Duration::from_millis(500);
         tokio::time::sleep(wait_llm).await;
@@ -86,7 +86,7 @@ impl LlmEngine {
             let resp = match resp {
                 Err(_e) => {
                     info!("llm not ready");
-                    let wait_llm = time::Duration::from_millis(100);
+                    let wait_llm = time::Duration::from_millis(1000);
                     tokio::time::sleep(wait_llm).await;
                     task::yield_now().await;
                     continue;
@@ -128,6 +128,7 @@ impl LlmEngine {
     }
 }
 
+    use axum::debug_handler;
 impl LlmEngine{
     pub async fn summarize(&self, full_text: &str) -> String {
         info!("summarize called");
@@ -151,7 +152,27 @@ impl LlmEngine{
         //TODO error handler?
         let mut jcache = self.job_cache.lock().unwrap();
         jcache.add(doc.title.to_owned());
+        drop(jcache);
+
+        //TODO why can't I call self.poll in this function?
+        //yield_now().await;
+        //self.poll().await;
     }
+
+    /*
+    pub async fn call_llm_engine(&self) {
+        //let self_arc = Arc::clone(self);
+        let mut jcache = self.job_cache.lock().unwrap();
+        drop(jcache);
+        /*
+        let handle = tokio::spawn(async {
+            info!("Polled this struct");
+        });
+        let out = handle.await.unwrap();
+        */
+
+    }
+*/
 
     pub async fn health(&self) -> Result<(), Box<dyn std::error::Error>>  {
         info!("Calling health check");
