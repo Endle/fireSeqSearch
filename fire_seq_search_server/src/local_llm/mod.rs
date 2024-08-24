@@ -170,16 +170,17 @@ impl LlmEngine{
         drop(jcache);
 
 
-        //let handle = tokio::spawn(async move {
-            let doc = match next_job {
-                Some(x) => x,
-                None => { return; },
-            };
-            let title = doc.title.to_owned();
-            let summarize_result = self.summarize(&doc.body).await;
-        //});
-        //let out = handle.await.unwrap();
-        info!("get summarize result {}", &summarize_result);
+        let doc = match next_job {
+            Some(x) => x,
+            None => { return; },
+        };
+        let title = doc.title.to_owned();
+        let summarize_result = self.summarize(&doc.body).await;
+        let mut jcache = self.job_cache.lock().await;//.unwrap();
+        next_job = jcache.job_queue.pop_front();
+        info!("get summarize result {}", &title);
+        jcache.done_job.insert(title, summarize_result);
+        drop(jcache);
 
     }
 
