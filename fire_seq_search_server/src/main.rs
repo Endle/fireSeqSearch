@@ -48,6 +48,7 @@ use tokio::task;
 use axum;
 use axum::routing::get;
 use fire_seq_search_server::http_client::endpoints;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() {
@@ -68,9 +69,24 @@ async fn main() {
     let server_info: ServerInformation = build_server_info(matches);
 
     let mut engine = QueryEngine::construct(server_info);
+
+    info!("query engine build finished");
     if cfg!(feature="llm") {
         let llm:LlmEngine = llm_loader.unwrap().await.unwrap();
-        engine.llm = Some(llm);
+        let llm_arc = Arc::new(llm);
+        let llm_poll = llm_arc.clone();
+        engine.llm = Some(llm_arc);
+
+        let poll_handle = tokio::spawn( async move {
+            info!("inside main loop");
+            loop {
+                llm_poll.call_llm_engine().await;
+                let wait_llm = tokio::time::Duration::from_millis(500);
+                tokio::time::sleep(wait_llm).await;
+            }
+        });
+//        poll_handle.await;
+
     }
 
     let engine_arc = std::sync::Arc::new(engine);
@@ -79,6 +95,7 @@ async fn main() {
         .route("/query/:term", get(endpoints::query))
         .route("/server_info", get(endpoints::get_server_info))
         .route("/wordcloud", get(endpoints::generate_word_cloud))
+        .route("/summarize/:title", get(endpoints::summarize))
         .with_state(engine_arc.clone());
 
     let listener = tokio::net::TcpListener::bind(&engine_arc.server_info.host)

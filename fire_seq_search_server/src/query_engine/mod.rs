@@ -3,6 +3,7 @@
 use log::{debug, info, warn};
 use crate::{Article, decode_cjk_str};
 use crate::post_query::post_query_wrapper;
+use std::sync::Arc;
 
 
 
@@ -36,8 +37,8 @@ pub struct QueryEngine {
     pub server_info: ServerInformation,
     reader: tantivy::IndexReader,
     query_parser: tantivy::query::QueryParser,
-    articles: Vec<Article>,
-    pub llm: Option<LlmEngine>,
+    articles: Vec<Article>, //TODO remove it. only word cloud needs it
+    pub llm: Option<Arc<LlmEngine>>,
 }
 
 impl QueryEngine {
@@ -63,6 +64,34 @@ impl QueryEngine {
     }
 }
 
+#[derive(Debug)]
+pub struct DocData {
+    pub title: String,
+    pub body: String,
+}
+use tantivy::schema::OwnedValue;
+impl DocData {
+    fn take_str_from_doc(doc: &tantivy::TantivyDocument, pos:usize) -> &str {
+        /*
+        let title: &str = doc.field_values()[0].value().as_text().unwrap();
+        let body: &str = doc.field_values()[1].value().as_text().unwrap();
+        */
+        let v: &OwnedValue =  doc.field_values()[pos].value();
+        match v{
+            OwnedValue::Str(s) => s,
+            _ => panic!("Wrong type")
+        }
+    }
+    pub fn retrive(searcher: &tantivy::Searcher, docid: tantivy::DocAddress) -> Self {
+        let doc: tantivy::TantivyDocument = searcher.doc(docid).unwrap();
+        let title = Self::take_str_from_doc(&doc, 0).to_owned();
+        let body = Self::take_str_from_doc(&doc, 1).to_owned();
+        Self {
+            title, body
+        }
+    }
+}
+
 impl QueryEngine {
 
 
@@ -71,7 +100,7 @@ impl QueryEngine {
         crate::word_frequency::generate_wordcloud(&self.articles)
     }
 
-    pub fn query_pipeline(self: &Self, term: String) -> String {
+    pub async fn query_pipeline(self: &Self, term: String) -> String {
         let term: String = term_preprocess(term);
         info!("Searching {}", &term);
 
@@ -80,7 +109,18 @@ impl QueryEngine {
 
         let top_docs: Vec<(f32, tantivy::DocAddress)> = self.get_top_docs(&term);
         let searcher: tantivy::Searcher = self.reader.searcher();
+
+        if cfg!(feature="llm") {
+            for (_f, docid) in &top_docs {
+                let doc = DocData::retrive(&searcher, *docid);
+                let llm = self.llm.as_ref().unwrap();
+                llm.post_summarize_job(doc).await;
+            }
+        }
+
+
         let result: Vec<String> = post_query_wrapper(top_docs, &term, &searcher, &server_info);
+
 
         let json = serde_json::to_string(&result).unwrap();
 
@@ -98,6 +138,18 @@ impl QueryEngine {
                 .unwrap();
 
         top_docs
+    }
+}
+
+impl QueryEngine {
+    pub async fn summarize(&self, title: String) -> String {
+        info!("Called summarize on {}", &title);
+        if cfg!(feature="llm") {
+            let llm = self.llm.as_ref().unwrap();
+            llm.summarize(&title).await
+        } else {
+            "LLM turned off".to_owned()
+        }
     }
 }
 

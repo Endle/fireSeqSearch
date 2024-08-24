@@ -17,6 +17,7 @@ pub struct FireSeqSearchHitParsed {
 use tantivy::schema::document::OwnedValue;
 impl FireSeqSearchHitParsed {
 
+    //TODO remove these dup code
     fn take_str_from_doc(doc: &tantivy::TantivyDocument, pos:usize) -> &str {
         /*
         let title: &str = doc.field_values()[0].value().as_text().unwrap();
