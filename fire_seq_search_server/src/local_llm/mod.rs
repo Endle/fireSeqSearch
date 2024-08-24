@@ -24,7 +24,9 @@ impl JobProcessor {
     }
     pub fn add(&mut self, title:String) {
         info!("Job posted for {}", &title);
-        self.job_queue.push_back(title);
+        if !self.done_job.contains_key(&title) {
+            self.job_queue.push_back(title);
+        }
     }
 }
 
