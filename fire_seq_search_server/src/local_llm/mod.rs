@@ -8,7 +8,8 @@ use std::collections::VecDeque;
 
 const LLM_SERVER_PORT: &str = "8081"; // TODO Remove this magic number
 use std::sync::Arc;
-use std::sync::Mutex;
+//use std::sync::Mutex;
+use tokio::sync::Mutex;
 
 struct JobProcessor {
     done_job: HashMap<String, String>,
@@ -153,7 +154,7 @@ impl LlmEngine{
 
     pub async fn post_summarize_job(&self, doc: DocData) {
         //TODO error handler?
-        let mut jcache = self.job_cache.lock().unwrap();
+        let mut jcache = self.job_cache.lock().await;//.unwrap();
         jcache.add(doc);
         drop(jcache);
 
@@ -164,7 +165,7 @@ impl LlmEngine{
 
     pub async fn call_llm_engine(&self) {
         let mut next_job: Option<DocData> = None;
-        let mut jcache = self.job_cache.lock().unwrap();
+        let mut jcache = self.job_cache.lock().await;//.unwrap();
         next_job = jcache.job_queue.pop_front();
         drop(jcache);
         let handle = tokio::spawn(async move {

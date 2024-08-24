@@ -77,8 +77,9 @@ async fn main() {
         let llm_poll = llm_arc.clone();
         engine.llm = Some(llm_arc);
 
-        let poll_handler = task::spawn( async move {
+        let poll_handle = tokio::spawn( async move {
         });
+
     }
 
     let engine_arc = std::sync::Arc::new(engine);
