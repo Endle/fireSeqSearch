@@ -159,20 +159,16 @@ impl LlmEngine{
         //self.poll().await;
     }
 
-    /*
     pub async fn call_llm_engine(&self) {
         //let self_arc = Arc::clone(self);
         let mut jcache = self.job_cache.lock().unwrap();
         drop(jcache);
-        /*
         let handle = tokio::spawn(async {
             info!("Polled this struct");
         });
         let out = handle.await.unwrap();
-        */
 
     }
-*/
 
     pub async fn health(&self) -> Result<(), Box<dyn std::error::Error>>  {
         info!("Calling health check");
