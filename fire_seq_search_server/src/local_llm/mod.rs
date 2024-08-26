@@ -226,6 +226,11 @@ impl LlmEngine{
 
     }
 
+    pub async fn quick_fetch(&self, title: &str) -> Option<String> {
+        let jcache = self.job_cache.lock().await;
+        return jcache.done_job.get(title).cloned();
+    }
+
     pub async fn health(&self) -> Result<(), Box<dyn std::error::Error>>  {
         info!("Calling health check");
         let resp = reqwest::get(self.endpoint.to_owned() + "/health")
