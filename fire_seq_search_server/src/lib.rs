@@ -171,6 +171,7 @@ pub fn generate_server_info_for_test() -> ServerInformation {
         obsidian_md: false,
         convert_underline_hierarchy: true,
         host: "127.0.0.1:22024".to_string(),
+        llm_enabled: false,
     };
     server_info
 }

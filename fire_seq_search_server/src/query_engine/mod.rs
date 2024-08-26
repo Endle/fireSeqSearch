@@ -24,6 +24,8 @@ pub struct ServerInformation {
     pub convert_underline_hierarchy: bool,
 
     pub host: String,
+
+    pub llm_enabled: bool,
 }
 
 use crate::language_tools::tokenizer::FireSeqTokenizer;

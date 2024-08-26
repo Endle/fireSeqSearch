@@ -228,6 +228,12 @@ async function appendResultToSearchResult(fetchResultArray, _container) {
     insertDivToWebpage(dom);
 }
 
+async function mainProcess(fetchResultArray) {
+    console.log("main process");
+    return appendResultToSearchResult(fetchResultArray);
+}
+
+
 function getSearchParameterFromCurrentPage() {
     let searchParam = "";
 
@@ -270,7 +276,8 @@ function getSearchParameterFromCurrentPage() {
         return Promise.all(responses.map(function (response) {return response.json();}));
     }).then(function (data) {
         consoleLogForDebug(data);
-        return appendResultToSearchResult(data);
+        mainProcess(data);
+        //return appendResultToSearchResult(data);
     }).then((_e) => {
         const highlightedItems = document.querySelectorAll('.fireSeqSearchHighlight');
         consoleLogForDebug(highlightedItems);

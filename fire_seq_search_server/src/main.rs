@@ -132,6 +132,7 @@ fn build_server_info(args: Cli) -> ServerInformation {
         obsidian_md: args.obsidian_md,
         convert_underline_hierarchy: true,
         host,
+        llm_enabled: cfg!(feature="llm"),
     }
 }
 
