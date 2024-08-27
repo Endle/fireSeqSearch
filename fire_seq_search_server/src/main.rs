@@ -83,6 +83,7 @@ async fn main() {
                 llm_poll.call_llm_engine().await;
                 let wait_llm = tokio::time::Duration::from_millis(500);
                 tokio::time::sleep(wait_llm).await;
+                info!("main loop: poll again");
             }
         });
 //        poll_handle.await;

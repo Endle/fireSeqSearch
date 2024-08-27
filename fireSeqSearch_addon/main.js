@@ -137,7 +137,9 @@ function parseRawList(rawSearchResult) {
     const hits = [];
     for (const rawRecord of rawSearchResult) {
         const record = JSON.parse(rawRecord);
-        consoleLogForDebug(typeof record);
+        console.log("parser");
+        console.log(rawRecord);
+        console.log(record);
         hits.push(record);
     }
     return hits;
@@ -199,9 +201,6 @@ async function appendResultToSearchResult(serverInfo, parsedSearchResult) {
                 summary.classList.add('fireSeqSearchHitSummary');
                 li.appendChild(summary);
             }
-            // let e = wrapRawRecordIntoElement(record, serverInfo);
-
-            // e.style.
             hitList.appendChild(li);
         }
         return hitList;
@@ -234,21 +233,36 @@ async function appendResultToSearchResult(serverInfo, parsedSearchResult) {
     insertDivToWebpage(dom);
 }
 
-async function processLlmSummary(serverInfo, rawSearchResult) {
+async function processLlmSummary(serverInfo, parsedSearchResult) {
+    for (const record of parsedSearchResult) {
+        // TODO remove hard code port
+        const llm_api = "http://127.0.0.1:3030/summarize/" + record.title;
+        console.log(record.title);
+        /*
+        const response = await fetch(llm_api);
+        const text = await response.text();
+        console.log(text);
+        */
+    }
 }
 
 // for the data div, may be I can create three, and let user switch between them
 async function mainProcess(fetchResultArray) {
     consoleLogForDebug("main process");
+
     const serverInfo = fetchResultArray[0];
     const rawSearchResult = fetchResultArray[1];
     consoleLogForDebug(serverInfo);
     const parsedSearchResult = parseRawList(rawSearchResult);
+
+    console.log("in main");
+    console.log(rawSearchResult);
+    console.log(parsedSearchResult);
     appendResultToSearchResult(serverInfo, parsedSearchResult);
 
     if (serverInfo.llm_enabled) {
         consoleLogForDebug("llm");
-        processLlmSummary(serverInfo, rawSearchResult);
+        //processLlmSummary(serverInfo, parsedSearchResult);
     }
 }
 
@@ -294,7 +308,7 @@ function getSearchParameterFromCurrentPage() {
     ]).then(function (responses) {
         return Promise.all(responses.map(function (response) {return response.json();}));
     }).then(function (data) {
-        consoleLogForDebug(data);
+        //consoleLogForDebug(data);
         mainProcess(data);
         //return appendResultToSearchResult(data);
     }).then((_e) => {
