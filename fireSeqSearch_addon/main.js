@@ -1,5 +1,5 @@
 // MIT License
-// Copyright (c) 2021-2023 Zhenbo Li
+// Copyright (c) 2021-2024 Zhenbo Li
 
 const fireSeqSearchDomId = "fireSeqSearchDom";
 
@@ -128,15 +128,22 @@ function checkUserOptions() {
             ShowHighlight: res[2].ShowHighlight,
             ShowScore: res[3].ShowScore
         }
-        consoleLogForDebug(options);
         return options;
     });
 }
 
 
-async function appendResultToSearchResult(fetchResultArray, _container) {
-    const serverInfo = fetchResultArray[0];
-    const rawSearchResult = fetchResultArray[1];
+function parseRawList(rawSearchResult) {
+    const hits = [];
+    for (const rawRecord of rawSearchResult) {
+        const record = JSON.parse(rawRecord);
+        consoleLogForDebug(typeof record);
+        hits.push(record);
+    }
+    return hits;
+}
+
+async function appendResultToSearchResult(serverInfo, parsedSearchResult) {
     const firefoxExtensionUserOption = await checkUserOptions();
 
     consoleLogForDebug('Loaded user option: ' + JSON.stringify(firefoxExtensionUserOption));
@@ -153,6 +160,7 @@ async function appendResultToSearchResult(fetchResultArray, _container) {
         btn.onclick = function () {
             // alert("Button is clicked");
             for (const el of document.querySelectorAll('.fireSeqSearchHitSummary')) {
+                // Hidden elements will still occupy the space
                 // el.style.visibility = 'hidden';
                 el.remove();
             }
@@ -167,40 +175,38 @@ async function appendResultToSearchResult(fetchResultArray, _container) {
     }
 
     const dom = createFireSeqDom();
-    dom.appendChild(createTitleBarDom(rawSearchResult.length));
+    dom.appendChild(createTitleBarDom(parsedSearchResult.length));
     consoleLogForDebug(dom);
 
-    const hitList = document.createElement("ul");
 
-    consoleLogForDebug(rawSearchResult);
-    for (const rawRecord of rawSearchResult) {
-        // const e = document.createTextNode(record);
-        consoleLogForDebug(rawRecord);
-        const record = JSON.parse(rawRecord);
-        consoleLogForDebug(typeof record);
+    function buildListItems(parsedSearchResult) {
+        const hitList = document.createElement("ul");
+        for (const record of parsedSearchResult) {
 
-        const li =  createElementWithText("li", "");
+            const li =  createElementWithText("li", "");
 
 
-        if (firefoxExtensionUserOption.ShowScore) {
-            const score = createElementWithText("span", String(record.score));
-            li.appendChild(score);
+            if (firefoxExtensionUserOption.ShowScore) {
+                const score = createElementWithText("span", String(record.score));
+                li.appendChild(score);
+            }
+            const href = createHrefToLogseq(record, serverInfo);
+            li.appendChild(href);
+            li.append(' ')
+            if (firefoxExtensionUserOption.ShowHighlight) {
+                const summary = createElementWithText("span", "");
+                summary.innerHTML = record.summary;
+                summary.classList.add('fireSeqSearchHitSummary');
+                li.appendChild(summary);
+            }
+            // let e = wrapRawRecordIntoElement(record, serverInfo);
+
+            // e.style.
+            hitList.appendChild(li);
         }
-        const href = createHrefToLogseq(record, serverInfo);
-        li.appendChild(href);
-        li.append(' ')
-        if (firefoxExtensionUserOption.ShowHighlight) {
-            const summary = createElementWithText("span", "");
-            summary.innerHTML = record.summary;
-            summary.classList.add('fireSeqSearchHitSummary');
-            li.appendChild(summary);
-        }
-        // let e = wrapRawRecordIntoElement(record, serverInfo);
-
-        // e.style.
-        hitList.appendChild(li);
-        // consoleLogForDebug("Added an element to the list");
+        return hitList;
     }
+    const hitList = buildListItems(parsedSearchResult);
     dom.appendChild(hitList);
 
     if (firefoxExtensionUserOption.ExperimentalLayout) {
@@ -228,9 +234,22 @@ async function appendResultToSearchResult(fetchResultArray, _container) {
     insertDivToWebpage(dom);
 }
 
+async function processLlmSummary(serverInfo, rawSearchResult) {
+}
+
+// for the data div, may be I can create three, and let user switch between them
 async function mainProcess(fetchResultArray) {
-    console.log("main process");
-    return appendResultToSearchResult(fetchResultArray);
+    consoleLogForDebug("main process");
+    const serverInfo = fetchResultArray[0];
+    const rawSearchResult = fetchResultArray[1];
+    consoleLogForDebug(serverInfo);
+    const parsedSearchResult = parseRawList(rawSearchResult);
+    appendResultToSearchResult(serverInfo, parsedSearchResult);
+
+    if (serverInfo.llm_enabled) {
+        consoleLogForDebug("llm");
+        processLlmSummary(serverInfo, rawSearchResult);
+    }
 }
 
 
