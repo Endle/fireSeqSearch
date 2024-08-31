@@ -137,9 +137,6 @@ function parseRawList(rawSearchResult) {
     const hits = [];
     for (const rawRecord of rawSearchResult) {
         const record = JSON.parse(rawRecord);
-        console.log("parser");
-        console.log(rawRecord);
-        console.log(record);
         hits.push(record);
     }
     return hits;
@@ -177,30 +174,29 @@ async function appendResultToSearchResult(serverInfo, parsedSearchResult) {
     }
 
     const dom = createFireSeqDom();
+
     dom.appendChild(createTitleBarDom(parsedSearchResult.length));
+
+    consoleLogForDebug("dom created:");
     consoleLogForDebug(dom);
 
 
     function buildListItems(parsedSearchResult) {
         const hitList = document.createElement("ul");
         for (const record of parsedSearchResult) {
-
             const li =  createElementWithText("li", "");
-
-
             if (firefoxExtensionUserOption.ShowScore) {
                 const score = createElementWithText("span", String(record.score));
                 li.appendChild(score);
             }
             const href = createHrefToLogseq(record, serverInfo);
             li.appendChild(href);
-            li.append(' ')
-            if (firefoxExtensionUserOption.ShowHighlight) {
-                const summary = createElementWithText("span", "");
-                summary.innerHTML = record.summary;
-                summary.classList.add('fireSeqSearchHitSummary');
-                li.appendChild(summary);
-            }
+
+            const summary = createElementWithText("span", "");
+            summary.innerHTML = record.summary;
+            summary.classList.add('fireSeqSearchHitSummary');
+            li.appendChild(summary);
+
             hitList.appendChild(li);
         }
         return hitList;
@@ -258,6 +254,7 @@ async function mainProcess(fetchResultArray) {
     console.log("in main");
     console.log(rawSearchResult);
     console.log(parsedSearchResult);
+
     appendResultToSearchResult(serverInfo, parsedSearchResult);
 
     if (serverInfo.llm_enabled) {
