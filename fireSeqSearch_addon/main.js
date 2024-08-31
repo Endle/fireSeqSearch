@@ -157,11 +157,8 @@ async function appendResultToSearchResult(serverInfo, parsedSearchResult) {
         const text = document.createTextNode("Hide Summary (Tmp)");
         btn.appendChild(text);
         btn.onclick = function () {
-            // alert("Button is clicked");
             for (const el of document.querySelectorAll('.fireSeqSearchHitSummary')) {
-                // Hidden elements will still occupy the space
-                // el.style.visibility = 'hidden';
-                el.remove();
+                el.style.display='none';
             }
         };
         titleBar.appendChild(btn);
