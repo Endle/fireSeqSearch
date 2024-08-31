@@ -234,11 +234,9 @@ async function processLlmSummary(serverInfo, parsedSearchResult) {
         // TODO remove hard code port
         const llm_api = "http://127.0.0.1:3030/summarize/" + record.title;
         console.log(record.title);
-        /*
         const response = await fetch(llm_api);
         const text = await response.text();
         console.log(text);
-        */
     }
 }
 
@@ -259,7 +257,7 @@ async function mainProcess(fetchResultArray) {
 
     if (serverInfo.llm_enabled) {
         consoleLogForDebug("llm");
-        //processLlmSummary(serverInfo, parsedSearchResult);
+        processLlmSummary(serverInfo, parsedSearchResult);
     }
 }
 
