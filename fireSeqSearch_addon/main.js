@@ -158,7 +158,7 @@ function createTitleBarDom(count) {
 
     let btn = document.createElement("button");
     btn.classList.add("hideSummary");
-    text = document.createTextNode("Hide Summary");
+    let text = document.createTextNode("Hide Summary");
     btn.appendChild(text);
     btn.onclick = function () {
         setSummaryState(".fireSeqSearchHitSummary", false);
