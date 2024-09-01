@@ -172,6 +172,7 @@ function createTitleBarDom(count) {
     btn.appendChild(text);
     btn.onclick = function () {
         setSummaryState(".fireSeqSearchHitSummary", true);
+        setSummaryState(".fireSeqSearchLlmSummary", false);
     };
     titleBar.appendChild(btn);
 
@@ -181,6 +182,7 @@ function createTitleBarDom(count) {
     text = document.createTextNode("LLM");
     btn.appendChild(text);
     btn.onclick = function () {
+        setSummaryState(".fireSeqSearchHitSummary", false);
         setSummaryState(".fireSeqSearchLlmSummary", true);
     };
     titleBar.appendChild(btn);
@@ -196,18 +198,10 @@ function createFireSeqDom(count) {
     return div;
 }
 
-async function appendResultToSearchResult(serverInfo, parsedSearchResult) {
+async function appendResultToSearchResult(serverInfo, parsedSearchResult, dom) {
     const firefoxExtensionUserOption = await checkUserOptions();
 
     consoleLogForDebug('Loaded user option: ' + JSON.stringify(firefoxExtensionUserOption));
-
-
-    const dom = createFireSeqDom(parsedSearchResult.length);
-
-    //dom.appendChild(createTitleBarDom(parsedSearchResult.length));
-
-    consoleLogForDebug("dom created:");
-    consoleLogForDebug(dom);
 
 
     function buildListItems(parsedSearchResult) {
@@ -258,10 +252,11 @@ async function appendResultToSearchResult(serverInfo, parsedSearchResult) {
     insertDivToWebpage(dom);
 }
 
-async function processLlmSummary(serverInfo, parsedSearchResult) {
+async function processLlmSummary(serverInfo, parsedSearchResult, dom) {
     for (const record of parsedSearchResult) {
         // TODO remove hard code port
         const llm_api = "http://127.0.0.1:3030/summarize/" + record.title;
+        console.log("llm called");
         console.log(record.title);
         const response = await fetch(llm_api);
         const text = await response.text();
@@ -269,7 +264,6 @@ async function processLlmSummary(serverInfo, parsedSearchResult) {
     }
 }
 
-// for the data div, may be I can create three, and let user switch between them
 async function mainProcess(fetchResultArray) {
     consoleLogForDebug("main process");
 
@@ -282,11 +276,13 @@ async function mainProcess(fetchResultArray) {
     console.log(rawSearchResult);
     console.log(parsedSearchResult);
 
-    appendResultToSearchResult(serverInfo, parsedSearchResult);
+    const fireDom = createFireSeqDom(parsedSearchResult.length);
+
+    appendResultToSearchResult(serverInfo, parsedSearchResult, fireDom);
 
     if (serverInfo.llm_enabled) {
         consoleLogForDebug("llm");
-        processLlmSummary(serverInfo, parsedSearchResult);
+        processLlmSummary(serverInfo, parsedSearchResult, fireDom);
     }
 }
 
