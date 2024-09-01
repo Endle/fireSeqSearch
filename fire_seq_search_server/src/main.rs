@@ -83,6 +83,7 @@ async fn main() {
                 llm_poll.call_llm_engine().await;
                 let wait_llm = tokio::time::Duration::from_millis(500);
                 tokio::time::sleep(wait_llm).await;
+                info!("main loop: poll again");
             }
         });
 //        poll_handle.await;
@@ -132,6 +133,7 @@ fn build_server_info(args: Cli) -> ServerInformation {
         obsidian_md: args.obsidian_md,
         convert_underline_hierarchy: true,
         host,
+        llm_enabled: cfg!(feature="llm"),
     }
 }
 

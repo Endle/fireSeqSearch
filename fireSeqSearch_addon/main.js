@@ -1,5 +1,5 @@
 // MIT License
-// Copyright (c) 2021-2023 Zhenbo Li
+// Copyright (c) 2021-2024 Zhenbo Li
 
 const fireSeqSearchDomId = "fireSeqSearchDom";
 
@@ -128,79 +128,103 @@ function checkUserOptions() {
             ShowHighlight: res[2].ShowHighlight,
             ShowScore: res[3].ShowScore
         }
-        consoleLogForDebug(options);
         return options;
     });
 }
 
 
-async function appendResultToSearchResult(fetchResultArray, _container) {
-    const serverInfo = fetchResultArray[0];
-    const rawSearchResult = fetchResultArray[1];
+function parseRawList(rawSearchResult) {
+    const hits = [];
+    for (const rawRecord of rawSearchResult) {
+        const record = JSON.parse(rawRecord);
+        hits.push(record);
+    }
+    return hits;
+}
+
+function createTitleBarDom(count) {
+    const titleBar = createElementWithText("div");
+    titleBar.classList.add('fireSeqSearchTitleBar');
+    const hitCount = `<span>We found <b>${count.toString()}</b> results in your logseq notebook</span>`;
+    titleBar.insertAdjacentHTML("afterbegin",hitCount);
+
+    function setSummaryState(cl, state) {
+        let prop = 'none';
+        if (state) { prop = ''; }
+        for (const el of document.querySelectorAll(cl)) {
+            el.style.display=prop;
+        }
+    }
+
+    let btn = document.createElement("button");
+    btn.classList.add("hideSummary");
+    let text = document.createTextNode("Hide Summary");
+    btn.appendChild(text);
+    btn.onclick = function () {
+        setSummaryState(".fireSeqSearchHitSummary", false);
+        setSummaryState(".fireSeqSearchLlmSummary", false);
+    };
+    titleBar.appendChild(btn);
+
+    btn = document.createElement("button");
+    btn.classList.add("showSummary");
+    text = document.createTextNode("Summary");
+    btn.appendChild(text);
+    btn.onclick = function () {
+        setSummaryState(".fireSeqSearchHitSummary", true);
+        setSummaryState(".fireSeqSearchLlmSummary", false);
+    };
+    titleBar.appendChild(btn);
+
+
+    btn = document.createElement("button");
+    btn.classList.add("showLlm");
+    text = document.createTextNode("LLM");
+    btn.appendChild(text);
+    btn.onclick = function () {
+        setSummaryState(".fireSeqSearchHitSummary", false);
+        setSummaryState(".fireSeqSearchLlmSummary", true);
+    };
+    titleBar.appendChild(btn);
+
+
+    return titleBar;
+}
+function createFireSeqDom(count) {
+    const div = document.createElement("div");
+    div.setAttribute("id", fireSeqSearchDomId);
+    const bar = createTitleBarDom(count);
+    div.appendChild(bar);
+    return div;
+}
+
+async function appendResultToSearchResult(serverInfo, parsedSearchResult, dom) {
     const firefoxExtensionUserOption = await checkUserOptions();
 
     consoleLogForDebug('Loaded user option: ' + JSON.stringify(firefoxExtensionUserOption));
 
-    function createTitleBarDom(count) {
-        const titleBar = createElementWithText("div");
-        titleBar.classList.add('fireSeqSearchTitleBar');
-        const hitCount = `<span>We found <b>${count.toString()}</b> results in your logseq notebook</span>`;
-        titleBar.insertAdjacentHTML("afterbegin",hitCount);
-        const btn = document.createElement("button");
-        btn.classList.add("hideSummary");
-        const text = document.createTextNode("Hide Summary (Tmp)");
-        btn.appendChild(text);
-        btn.onclick = function () {
-            // alert("Button is clicked");
-            for (const el of document.querySelectorAll('.fireSeqSearchHitSummary')) {
-                // el.style.visibility = 'hidden';
-                el.remove();
+
+    function buildListItems(parsedSearchResult) {
+        const hitList = document.createElement("ul");
+        for (const record of parsedSearchResult) {
+            const li =  createElementWithText("li", "");
+            if (firefoxExtensionUserOption.ShowScore) {
+                const score = createElementWithText("span", String(record.score));
+                li.appendChild(score);
             }
-        };
-        titleBar.appendChild(btn);
-        return titleBar;
-    }
-    function createFireSeqDom() {
-        const div = document.createElement("div");
-        div.setAttribute("id", fireSeqSearchDomId);
-        return div;
-    }
+            const href = createHrefToLogseq(record, serverInfo);
+            li.appendChild(href);
 
-    const dom = createFireSeqDom();
-    dom.appendChild(createTitleBarDom(rawSearchResult.length));
-    consoleLogForDebug(dom);
-
-    const hitList = document.createElement("ul");
-
-    consoleLogForDebug(rawSearchResult);
-    for (const rawRecord of rawSearchResult) {
-        // const e = document.createTextNode(record);
-        consoleLogForDebug(rawRecord);
-        const record = JSON.parse(rawRecord);
-        consoleLogForDebug(typeof record);
-
-        const li =  createElementWithText("li", "");
-
-
-        if (firefoxExtensionUserOption.ShowScore) {
-            const score = createElementWithText("span", String(record.score));
-            li.appendChild(score);
-        }
-        const href = createHrefToLogseq(record, serverInfo);
-        li.appendChild(href);
-        li.append(' ')
-        if (firefoxExtensionUserOption.ShowHighlight) {
             const summary = createElementWithText("span", "");
             summary.innerHTML = record.summary;
             summary.classList.add('fireSeqSearchHitSummary');
             li.appendChild(summary);
-        }
-        // let e = wrapRawRecordIntoElement(record, serverInfo);
 
-        // e.style.
-        hitList.appendChild(li);
-        // consoleLogForDebug("Added an element to the list");
+            hitList.appendChild(li);
+        }
+        return hitList;
     }
+    const hitList = buildListItems(parsedSearchResult);
     dom.appendChild(hitList);
 
     if (firefoxExtensionUserOption.ExperimentalLayout) {
@@ -227,6 +251,41 @@ async function appendResultToSearchResult(fetchResultArray, _container) {
 
     insertDivToWebpage(dom);
 }
+
+async function processLlmSummary(serverInfo, parsedSearchResult, dom) {
+    for (const record of parsedSearchResult) {
+        // TODO remove hard code port
+        const llm_api = "http://127.0.0.1:3030/summarize/" + record.title;
+        console.log("llm called");
+        console.log(record.title);
+        const response = await fetch(llm_api);
+        const text = await response.text();
+        console.log(text);
+    }
+}
+
+async function mainProcess(fetchResultArray) {
+    consoleLogForDebug("main process");
+
+    const serverInfo = fetchResultArray[0];
+    const rawSearchResult = fetchResultArray[1];
+    consoleLogForDebug(serverInfo);
+    const parsedSearchResult = parseRawList(rawSearchResult);
+
+    console.log("in main");
+    console.log(rawSearchResult);
+    console.log(parsedSearchResult);
+
+    const fireDom = createFireSeqDom(parsedSearchResult.length);
+
+    appendResultToSearchResult(serverInfo, parsedSearchResult, fireDom);
+
+    if (serverInfo.llm_enabled) {
+        consoleLogForDebug("llm");
+        processLlmSummary(serverInfo, parsedSearchResult, fireDom);
+    }
+}
+
 
 function getSearchParameterFromCurrentPage() {
     let searchParam = "";
@@ -269,8 +328,9 @@ function getSearchParameterFromCurrentPage() {
     ]).then(function (responses) {
         return Promise.all(responses.map(function (response) {return response.json();}));
     }).then(function (data) {
-        consoleLogForDebug(data);
-        return appendResultToSearchResult(data);
+        //consoleLogForDebug(data);
+        mainProcess(data);
+        //return appendResultToSearchResult(data);
     }).then((_e) => {
         const highlightedItems = document.querySelectorAll('.fireSeqSearchHighlight');
         consoleLogForDebug(highlightedItems);

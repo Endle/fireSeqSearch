@@ -24,6 +24,8 @@ pub struct ServerInformation {
     pub convert_underline_hierarchy: bool,
 
     pub host: String,
+
+    pub llm_enabled: bool,
 }
 
 use crate::language_tools::tokenizer::FireSeqTokenizer;
@@ -142,11 +144,24 @@ impl QueryEngine {
 }
 
 impl QueryEngine {
+    async fn wait_for_summarize(&self, title: String) -> String {
+        let llm = self.llm.as_ref().unwrap();
+        let wait_llm = tokio::time::Duration::from_millis(50);
+        // TODO maybe add a guard to make sure don't wait too long?
+        loop {
+            let result = llm.quick_fetch(&title).await;
+            match result {
+                Some(s) => { return s; },
+                None => { }
+            };
+            tokio::time::sleep(wait_llm).await;
+        }
+        //    llm.summarize(&title).await
+    }
     pub async fn summarize(&self, title: String) -> String {
         info!("Called summarize on {}", &title);
         if cfg!(feature="llm") {
-            let llm = self.llm.as_ref().unwrap();
-            llm.summarize(&title).await
+            self.wait_for_summarize(title).await
         } else {
             "LLM turned off".to_owned()
         }
