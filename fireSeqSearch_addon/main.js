@@ -142,37 +142,40 @@ function parseRawList(rawSearchResult) {
     return hits;
 }
 
+function createTitleBarDom(count) {
+    const titleBar = createElementWithText("div");
+    titleBar.classList.add('fireSeqSearchTitleBar');
+    const hitCount = `<span>We found <b>${count.toString()}</b> results in your logseq notebook</span>`;
+    titleBar.insertAdjacentHTML("afterbegin",hitCount);
+    const btn = document.createElement("button");
+    btn.classList.add("hideSummary");
+    const text = document.createTextNode("Hide Summary (Tmp)");
+    btn.appendChild(text);
+    btn.onclick = function () {
+        for (const el of document.querySelectorAll('.fireSeqSearchHitSummary')) {
+            el.style.display='none';
+        }
+    };
+    titleBar.appendChild(btn);
+    return titleBar;
+}
+function createFireSeqDom(count) {
+    const div = document.createElement("div");
+    div.setAttribute("id", fireSeqSearchDomId);
+    const bar = createTitleBarDom(count);
+    div.appendChild(bar);
+    return div;
+}
+
 async function appendResultToSearchResult(serverInfo, parsedSearchResult) {
     const firefoxExtensionUserOption = await checkUserOptions();
 
     consoleLogForDebug('Loaded user option: ' + JSON.stringify(firefoxExtensionUserOption));
 
-    function createTitleBarDom(count) {
-        const titleBar = createElementWithText("div");
-        titleBar.classList.add('fireSeqSearchTitleBar');
-        const hitCount = `<span>We found <b>${count.toString()}</b> results in your logseq notebook</span>`;
-        titleBar.insertAdjacentHTML("afterbegin",hitCount);
-        const btn = document.createElement("button");
-        btn.classList.add("hideSummary");
-        const text = document.createTextNode("Hide Summary (Tmp)");
-        btn.appendChild(text);
-        btn.onclick = function () {
-            for (const el of document.querySelectorAll('.fireSeqSearchHitSummary')) {
-                el.style.display='none';
-            }
-        };
-        titleBar.appendChild(btn);
-        return titleBar;
-    }
-    function createFireSeqDom() {
-        const div = document.createElement("div");
-        div.setAttribute("id", fireSeqSearchDomId);
-        return div;
-    }
 
-    const dom = createFireSeqDom();
+    const dom = createFireSeqDom(parsedSearchResult.length);
 
-    dom.appendChild(createTitleBarDom(parsedSearchResult.length));
+    //dom.appendChild(createTitleBarDom(parsedSearchResult.length));
 
     consoleLogForDebug("dom created:");
     consoleLogForDebug(dom);
