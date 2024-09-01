@@ -166,6 +166,16 @@ impl QueryEngine {
             "LLM turned off".to_owned()
         }
     }
+    // TODO should serilize the whole vector
+    pub async fn get_llm_done_list(&self) -> String {
+        if cfg!(feature="llm") {
+            let llm = self.llm.as_ref().unwrap();
+            "Finished doc titles:\n====\n".to_owned()
+                + &llm.get_llm_done_list().await
+        } else {
+            "LLM turned off".to_owned()
+        }
+    }
 }
 
 fn term_preprocess(term:String) -> String {

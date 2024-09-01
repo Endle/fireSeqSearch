@@ -95,6 +95,7 @@ async fn main() {
         .route("/server_info", get(endpoints::get_server_info))
         .route("/wordcloud", get(endpoints::generate_word_cloud))
         .route("/summarize/:title", get(endpoints::summarize))
+        .route("/llm_done_list", get(endpoints::get_llm_done_list))
         .with_state(engine_arc.clone());
 
     let listener = tokio::net::TcpListener::bind(&engine_arc.server_info.host)

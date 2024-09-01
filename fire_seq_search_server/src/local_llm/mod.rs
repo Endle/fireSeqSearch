@@ -199,7 +199,7 @@ impl LlmEngine{
     pub async fn call_llm_engine(&self) {
 
         let health = self.health().await.unwrap();
-        if (health.slots_idle == 0) {
+        if health.slots_idle == 0 {
             info!("No valid slot, continue");
             return;
         }
@@ -223,8 +223,9 @@ impl LlmEngine{
         }
         drop(jcache);
 
+        info!("Start summarize job:  {}", &title);
         let summarize_result = self.summarize(&doc.body).await;
-        info!("get summarize result {}", &title);
+        info!("Finished summarize job:  {}", &title);
 
         let mut jcache = self.job_cache.lock().await;//.unwrap();
         next_job = jcache.job_queue.pop_front();
@@ -235,6 +236,16 @@ impl LlmEngine{
     pub async fn quick_fetch(&self, title: &str) -> Option<String> {
         let jcache = self.job_cache.lock().await;
         return jcache.done_job.get(title).cloned();
+    }
+
+    pub async fn get_llm_done_list(&self) -> String {
+        let mut r = Vec::new();
+        let jcache = self.job_cache.lock().await;
+        for (title, _text) in &jcache.done_job {
+            info!("already done : {}", &title);
+            r.push(title.to_owned());
+        }
+        return r.join("\n");
     }
 
     pub async fn health(&self) -> Result<HealthCheck, Box<dyn std::error::Error>>  {

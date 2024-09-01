@@ -200,9 +200,7 @@ function createFireSeqDom(count) {
 
 async function appendResultToSearchResult(serverInfo, parsedSearchResult, dom) {
     const firefoxExtensionUserOption = await checkUserOptions();
-
     consoleLogForDebug('Loaded user option: ' + JSON.stringify(firefoxExtensionUserOption));
-
 
     function buildListItems(parsedSearchResult) {
         const hitList = document.createElement("ul");
@@ -253,14 +251,29 @@ async function appendResultToSearchResult(serverInfo, parsedSearchResult, dom) {
 }
 
 async function processLlmSummary(serverInfo, parsedSearchResult, dom) {
+    async function keepRetryFetch(url) {
+        while(true) {
+            fetch(url, {
+                signal: AbortSignal.timeout(500)
+            }).then(response => {
+                let text = response.text();
+                console.log(text);
+                return text;
+            });
+            //setTimeout(() => {}, 10000);
+            break;
+        }
+        return "abc";
+    }
     for (const record of parsedSearchResult) {
         // TODO remove hard code port
         const llm_api = "http://127.0.0.1:3030/summarize/" + record.title;
         console.log("llm called");
         console.log(record.title);
-        const response = await fetch(llm_api);
-        const text = await response.text();
-        console.log(text);
+        keepRetryFetch(llm_api).then(response => {
+            console.log("returned");
+            console.log(response);
+        });
     }
 }
 
@@ -318,19 +331,18 @@ function getSearchParameterFromCurrentPage() {
 (function() {
     const searchParameter = getSearchParameterFromCurrentPage();
 
-
     addGlobalStyle(fireSeqSearchScriptCSS);
 
+    console.log("main to invoke");
     //https://gomakethings.com/waiting-for-multiple-all-api-responses-to-complete-with-the-vanilla-js-promise.all-method/
     Promise.all([
         fetch("http://127.0.0.1:3030/server_info"),
         fetch("http://127.0.0.1:3030/query/" + searchParameter)
     ]).then(function (responses) {
+        console.log("main to invoke");
         return Promise.all(responses.map(function (response) {return response.json();}));
     }).then(function (data) {
-        //consoleLogForDebug(data);
         mainProcess(data);
-        //return appendResultToSearchResult(data);
     }).then((_e) => {
         const highlightedItems = document.querySelectorAll('.fireSeqSearchHighlight');
         consoleLogForDebug(highlightedItems);
