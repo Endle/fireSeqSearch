@@ -147,16 +147,45 @@ function createTitleBarDom(count) {
     titleBar.classList.add('fireSeqSearchTitleBar');
     const hitCount = `<span>We found <b>${count.toString()}</b> results in your logseq notebook</span>`;
     titleBar.insertAdjacentHTML("afterbegin",hitCount);
-    const btn = document.createElement("button");
+
+    function setSummaryState(cl, state) {
+        let prop = 'none';
+        if (state) { prop = ''; }
+        for (const el of document.querySelectorAll(cl)) {
+            el.style.display=prop;
+        }
+    }
+
+    let btn = document.createElement("button");
     btn.classList.add("hideSummary");
-    const text = document.createTextNode("Hide Summary (Tmp)");
+    text = document.createTextNode("Hide Summary");
     btn.appendChild(text);
     btn.onclick = function () {
-        for (const el of document.querySelectorAll('.fireSeqSearchHitSummary')) {
-            el.style.display='none';
-        }
+        setSummaryState(".fireSeqSearchHitSummary", false);
+        setSummaryState(".fireSeqSearchLlmSummary", false);
     };
     titleBar.appendChild(btn);
+
+    btn = document.createElement("button");
+    btn.classList.add("showSummary");
+    text = document.createTextNode("Summary");
+    btn.appendChild(text);
+    btn.onclick = function () {
+        setSummaryState(".fireSeqSearchHitSummary", true);
+    };
+    titleBar.appendChild(btn);
+
+
+    btn = document.createElement("button");
+    btn.classList.add("showLlm");
+    text = document.createTextNode("LLM");
+    btn.appendChild(text);
+    btn.onclick = function () {
+        setSummaryState(".fireSeqSearchLlmSummary", true);
+    };
+    titleBar.appendChild(btn);
+
+
     return titleBar;
 }
 function createFireSeqDom(count) {
