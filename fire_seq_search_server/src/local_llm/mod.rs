@@ -238,14 +238,14 @@ impl LlmEngine{
         return jcache.done_job.get(title).cloned();
     }
 
-    pub async fn get_llm_done_list(&self) -> String {
+    pub async fn get_llm_done_list(&self) -> Vec<String> {
         let mut r = Vec::new();
         let jcache = self.job_cache.lock().await;
         for (title, _text) in &jcache.done_job {
             info!("already done : {}", &title);
             r.push(title.to_owned());
         }
-        return r.join("\n");
+        return r;
     }
 
     pub async fn health(&self) -> Result<HealthCheck, Box<dyn std::error::Error>>  {
