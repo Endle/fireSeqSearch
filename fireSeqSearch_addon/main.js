@@ -142,6 +142,34 @@ function parseRawList(rawSearchResult) {
     return hits;
 }
 
+async function processLlmSummary(serverInfo, parsedSearchResult) {
+    async function keepRetryFetch(url) {
+        while(true) {
+            fetch(url, {
+                signal: AbortSignal.timeout(500)
+            }).then(response => {
+                let text = response.text();
+                console.log(text);
+                return text;
+            });
+            //setTimeout(() => {}, 10000);
+            break;
+        }
+        return "abc";
+    }
+    for (const record of parsedSearchResult) {
+        // TODO remove hard code port
+        const llm_api = "http://127.0.0.1:3030/summarize/" + record.title;
+        console.log("llm called");
+        console.log(record.title);
+        keepRetryFetch(llm_api).then(response => {
+            console.log("returned");
+            console.log(response);
+        });
+    }
+}
+
+
 function createTitleBarDom(count) {
     const titleBar = createElementWithText("div");
     titleBar.classList.add('fireSeqSearchTitleBar');
@@ -176,7 +204,6 @@ function createTitleBarDom(count) {
     };
     titleBar.appendChild(btn);
 
-
     btn = document.createElement("button");
     btn.classList.add("showLlm");
     text = document.createTextNode("LLM");
@@ -186,11 +213,10 @@ function createTitleBarDom(count) {
         setSummaryState(".fireSeqSearchLlmSummary", true);
     };
     titleBar.appendChild(btn);
-
-
     return titleBar;
 }
-function createFireSeqDom(count) {
+function createFireSeqDom(serverInfo, parsedSearchResult) {
+    const count = parsedSearchResult.length;
     const div = document.createElement("div");
     div.setAttribute("id", fireSeqSearchDomId);
     const bar = createTitleBarDom(count);
@@ -250,33 +276,6 @@ async function appendResultToSearchResult(serverInfo, parsedSearchResult, dom) {
     insertDivToWebpage(dom);
 }
 
-async function processLlmSummary(serverInfo, parsedSearchResult, dom) {
-    async function keepRetryFetch(url) {
-        while(true) {
-            fetch(url, {
-                signal: AbortSignal.timeout(500)
-            }).then(response => {
-                let text = response.text();
-                console.log(text);
-                return text;
-            });
-            //setTimeout(() => {}, 10000);
-            break;
-        }
-        return "abc";
-    }
-    for (const record of parsedSearchResult) {
-        // TODO remove hard code port
-        const llm_api = "http://127.0.0.1:3030/summarize/" + record.title;
-        console.log("llm called");
-        console.log(record.title);
-        keepRetryFetch(llm_api).then(response => {
-            console.log("returned");
-            console.log(response);
-        });
-    }
-}
-
 async function mainProcess(fetchResultArray) {
     consoleLogForDebug("main process");
 
@@ -289,7 +288,7 @@ async function mainProcess(fetchResultArray) {
     console.log(rawSearchResult);
     console.log(parsedSearchResult);
 
-    const fireDom = createFireSeqDom(parsedSearchResult.length);
+    const fireDom = createFireSeqDom(serverInfo, parsedSearchResult);
 
     appendResultToSearchResult(serverInfo, parsedSearchResult, fireDom);
 
