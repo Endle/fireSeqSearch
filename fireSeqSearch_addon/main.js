@@ -158,7 +158,18 @@ async function processLlmSummary(serverInfo, parsedSearchResult, fireDom) {
         }
         return "abc";
     }
+    const doneListApi = "http://127.0.0.1:3030/llm_done_list";
+    let list = await fetch(doneListApi);
+    console.log(list);
+    list = await list.text();
+    list = JSON.parse(list);
+    console.log(list);
+        for (const r of list) {
+            console.log(r);
+        }
+
     for (const record of parsedSearchResult) {
+        
         // TODO remove hard code port
         const llm_api = "http://127.0.0.1:3030/summarize/" + record.title;
         console.log("llm called");
