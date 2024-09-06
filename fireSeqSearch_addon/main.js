@@ -164,12 +164,8 @@ async function processLlmSummary(serverInfo, parsedSearchResult, fireDom) {
     list = await list.text();
     list = JSON.parse(list);
     console.log(list);
-        for (const r of list) {
-            console.log(r);
-        }
 
     for (const record of parsedSearchResult) {
-        
         // TODO remove hard code port
         const llm_api = "http://127.0.0.1:3030/summarize/" + record.title;
         console.log("llm called");
@@ -245,8 +241,10 @@ async function appendResultToSearchResult(serverInfo, parsedSearchResult, dom) {
 
     function buildListItems(parsedSearchResult) {
         const hitList = document.createElement("ul");
+        hitList.classList.add('fireSeqSearchHitList');
         for (const record of parsedSearchResult) {
             const li =  createElementWithText("li", "");
+            li.classList.add('fireSeqSearchHitListItem');
             if (firefoxExtensionUserOption.ShowScore) {
                 const score = createElementWithText("span", String(record.score));
                 li.appendChild(score);
