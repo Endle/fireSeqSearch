@@ -142,7 +142,8 @@ function parseRawList(rawSearchResult) {
     return hits;
 }
 
-async function processLlmSummary(serverInfo, parsedSearchResult) {
+async function processLlmSummary(serverInfo, parsedSearchResult, fireDom) {
+    console.log("called");
     async function keepRetryFetch(url) {
         while(true) {
             fetch(url, {
@@ -216,11 +217,13 @@ function createFireSeqDom(serverInfo, parsedSearchResult) {
             setSummaryState(".fireSeqSearchHitSummary", false);
             setSummaryState(".fireSeqSearchLlmSummary", true);
             console.log("llm clicked");
+            console.log(div);
+            processLlmSummary(serverInfo, parsedSearchResult, div);
         };
         titleBar.appendChild(btn);
         return titleBar;
     };
-    const bar = createTitleBarDom(count);
+    const bar = createTitleBarDom();
     div.appendChild(bar);
     return div;
 }
@@ -293,10 +296,6 @@ async function mainProcess(fetchResultArray) {
 
     appendResultToSearchResult(serverInfo, parsedSearchResult, fireDom);
 
-    if (serverInfo.llm_enabled) {
-        consoleLogForDebug("llm");
-        processLlmSummary(serverInfo, parsedSearchResult, fireDom);
-    }
 }
 
 
