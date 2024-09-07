@@ -143,21 +143,7 @@ function parseRawList(rawSearchResult) {
 }
 
 async function processLlmSummary(serverInfo, parsedSearchResult, fireDom) {
-    console.log("called");
-    async function keepRetryFetch(url) {
-        while(true) {
-            fetch(url, {
-                signal: AbortSignal.timeout(500)
-            }).then(response => {
-                let text = response.text();
-                console.log(text);
-                return text;
-            });
-            //setTimeout(() => {}, 10000);
-            break;
-        }
-        return "abc";
-    }
+
     const doneListApi = "http://127.0.0.1:3030/llm_done_list";
     let list = await fetch(doneListApi);
     console.log(list);
@@ -165,15 +151,47 @@ async function processLlmSummary(serverInfo, parsedSearchResult, fireDom) {
     list = JSON.parse(list);
     console.log(list);
 
+    const findByTitle = function(title) {
+        const ul = fireDom.querySelector( ".fireSeqSearchHitList" );
+        if (ul === null)    return null;
+        for (const child of ul.children) {
+            const liTitle = child.firstChild.text;
+            if (title === liTitle) {
+                return child;
+            }
+        }
+        return null;
+    };
+    const setLlmResult = function (title, llmSummary) {
+        console.log("handle");
+        console.log(title);
+        const targetRow = findByTitle(title);
+        if (targetRow === null) {
+            consoleLogForDebug("Error! Can't find dom for ", title);
+            return;
+        }
+        console.log(targetRow);
+        if (targetRow.querySelector( ".fireSeqSearchLlmSummary" ) != null) {
+            consoleLogDebug("Skip. We have the summary for ", title);
+            return;
+        }
+
+        const summary = createElementWithText("span", "");
+        summary.innerHTML = llmSummary;
+        summary.classList.add('fireSeqSearchLlmSummary');
+        targetRow.appendChild(summary);
+    };
     for (const record of parsedSearchResult) {
+        const title = record.title;
+        if (!list.includes(title)) {
+            console.log("Not ready, skip" + title);
+            continue;
+        }
         // TODO remove hard code port
-        const llm_api = "http://127.0.0.1:3030/summarize/" + record.title;
-        console.log("llm called");
-        console.log(record.title);
-        keepRetryFetch(llm_api).then(response => {
-            console.log("returned");
-            console.log(response);
-        });
+        const llm_api = "http://127.0.0.1:3030/summarize/" + title;
+        let sum = await fetch(llm_api);
+        sum = await sum.text();
+        setLlmResult(title, sum);
     }
 }
 
