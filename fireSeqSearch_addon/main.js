@@ -146,10 +146,8 @@ async function processLlmSummary(serverInfo, parsedSearchResult, fireDom) {
 
     const doneListApi = "http://127.0.0.1:3030/llm_done_list";
     let list = await fetch(doneListApi);
-    console.log(list);
     list = await list.text();
     list = JSON.parse(list);
-    console.log(list);
 
     const findByTitle = function(title) {
         const ul = fireDom.querySelector( ".fireSeqSearchHitList" );
@@ -163,14 +161,11 @@ async function processLlmSummary(serverInfo, parsedSearchResult, fireDom) {
         return null;
     };
     const setLlmResult = function (title, llmSummary) {
-        console.log("handle");
-        console.log(title);
         const targetRow = findByTitle(title);
         if (targetRow === null) {
             consoleLogForDebug("Error! Can't find dom for ", title);
             return;
         }
-        console.log(targetRow);
         if (targetRow.querySelector( ".fireSeqSearchLlmSummary" ) != null) {
             consoleLogDebug("Skip. We have the summary for ", title);
             return;
@@ -184,7 +179,7 @@ async function processLlmSummary(serverInfo, parsedSearchResult, fireDom) {
     for (const record of parsedSearchResult) {
         const title = record.title;
         if (!list.includes(title)) {
-            console.log("Not ready, skip" + title);
+            consoleLogForDebug("Not ready, skip" + title);
             continue;
         }
         // TODO remove hard code port
@@ -241,8 +236,6 @@ function createFireSeqDom(serverInfo, parsedSearchResult) {
         btn.onclick = function () {
             setSummaryState(".fireSeqSearchHitSummary", false);
             setSummaryState(".fireSeqSearchLlmSummary", true);
-            console.log("llm clicked");
-            console.log(div);
             processLlmSummary(serverInfo, parsedSearchResult, div);
         };
         titleBar.appendChild(btn);
@@ -315,10 +308,6 @@ async function mainProcess(fetchResultArray) {
     consoleLogForDebug(serverInfo);
     const parsedSearchResult = parseRawList(rawSearchResult);
 
-    console.log("in main");
-    console.log(rawSearchResult);
-    console.log(parsedSearchResult);
-
     const fireDom = createFireSeqDom(serverInfo, parsedSearchResult);
 
     appendResultToSearchResult(serverInfo, parsedSearchResult, fireDom);
@@ -359,13 +348,11 @@ function getSearchParameterFromCurrentPage() {
 
     addGlobalStyle(fireSeqSearchScriptCSS);
 
-    console.log("main to invoke");
     //https://gomakethings.com/waiting-for-multiple-all-api-responses-to-complete-with-the-vanilla-js-promise.all-method/
     Promise.all([
         fetch("http://127.0.0.1:3030/server_info"),
         fetch("http://127.0.0.1:3030/query/" + searchParameter)
     ]).then(function (responses) {
-        console.log("main to invoke");
         return Promise.all(responses.map(function (response) {return response.json();}));
     }).then(function (data) {
         mainProcess(data);
