@@ -167,7 +167,7 @@ async function processLlmSummary(serverInfo, parsedSearchResult, fireDom) {
             return;
         }
         if (targetRow.querySelector( ".fireSeqSearchLlmSummary" ) != null) {
-            consoleLogDebug("Skip. We have the summary for ", title);
+            consoleLogForDebug("Skip. We have the summary for ", title);
             return;
         }
 
