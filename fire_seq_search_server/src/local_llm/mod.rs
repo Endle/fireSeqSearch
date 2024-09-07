@@ -90,6 +90,8 @@ pub struct LlmEngine {
 
 
 
+use std::borrow::Cow;
+use std::borrow::Cow::Borrowed;
 
 use tokio::task::yield_now;
 use tokio::task;
@@ -154,15 +156,18 @@ impl LlmEngine {
         }
     }
 
-    fn build_data(full_text: &str) -> OpenAiData {
-        fn build_message(full_text:&str) -> Message {
+    fn build_data(full_text: Cow<'_, str>) -> OpenAiData {
+
+        fn build_message(chat:String) -> Message {
             Message{
                 role: "user".to_owned(),
-                content: full_text.to_owned(),
+                content: chat,
             }
         }
         let mut msgs = Vec::new();
-        msgs.push( build_message(full_text) );
+        let mut chat_text = String::default(); // TODO
+        chat_text += &full_text;
+        msgs.push( build_message(chat_text) );
         OpenAiData {
             model: "model".to_owned(),
             messages: msgs,
@@ -174,7 +179,7 @@ impl LlmEngine{
     pub async fn summarize(&self, full_text: &str) -> String {
         //http://localhost:8080/completion
         let ep = self.endpoint.to_owned() + "/v1/chat/completions";
-        let data = Self::build_data(full_text);
+        let data = Self::build_data( Borrowed(full_text) );
         let res = self.client.post(&ep)
             .header("Content-Type", "application/json")
             .json(&data)
