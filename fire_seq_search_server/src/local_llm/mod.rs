@@ -286,8 +286,8 @@ struct LlamaFileDef {
 }
 
 
+use shellexpand::tilde;
 async fn locate_llamafile() -> Option<String> {
-    // TODO
     let mut lf = LlamaFileDef {
         filename: "mistral-7b-instruct-v0.2.Q4_0.llamafile".to_owned(),
         filepath: None,
@@ -295,10 +295,8 @@ async fn locate_llamafile() -> Option<String> {
         download_link: "mistral-7b-instruct-v0.2.Q4_0.llamafile".to_owned(),
     };
 
-    // TODO hack in dev
-    //let lf_path = "/var/home/lizhenbo/Downloads/mistral-7b-instruct-v0.2.Q4_0.llamafile";
-    let lf_base = "/Users/zhenboli/.llamafile/";
-    let lf_path = lf_base.to_owned() + &lf.filename;
+    let lf_base = tilde("~/.llamafile/");
+    let lf_path = lf_base.to_string() + &lf.filename;
     lf.filepath = Some(  lf_path.to_owned() );
     info!("lf {:?}", &lf);
 
