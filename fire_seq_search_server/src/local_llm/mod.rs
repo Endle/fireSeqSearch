@@ -46,6 +46,13 @@ pub struct Usage {
     pub total_tokens: i64,
 }
 
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HealthCheck {
+    pub slots_idle: i64,
+    pub slots_processing: i64,
+    pub status: String,
+}
+
 // End genereated
 
 const LLM_SERVER_PORT: &str = "8081"; // TODO Remove this magic number
@@ -165,7 +172,6 @@ impl LlmEngine {
 
 impl LlmEngine{
     pub async fn summarize(&self, full_text: &str) -> String {
-        info!("summarize called");
         //http://localhost:8080/completion
         let ep = self.endpoint.to_owned() + "/v1/chat/completions";
         let data = Self::build_data(full_text);
@@ -175,17 +181,12 @@ impl LlmEngine{
             .send()
             .await
             .unwrap();
-        //info!(" response {:?}", &res);
         let content = res.text().await.unwrap();
-        //info!(" text {:?}", &content);
         let parsed: LlamaResponse = serde_json::from_str(&content).unwrap();
-        //info!(" parsed {:?}", &parsed);
         let v = parsed.choices;
         let v0 = v.into_iter().next().unwrap();
         v0.message.content
-
-
-            //TODO remove unwrap
+        //TODO remove unwrap
     }
 
     pub async fn post_summarize_job(&self, doc: DocData) {
@@ -196,12 +197,18 @@ impl LlmEngine{
     }
 
     pub async fn call_llm_engine(&self) {
+
+        let health = self.health().await.unwrap();
+        if health.slots_idle == 0 {
+            info!("No valid slot, continue");
+            return;
+        }
+
         let mut next_job: Option<DocData> = None;
 
         let mut jcache = self.job_cache.lock().await;//.unwrap();
         next_job = jcache.job_queue.pop_front();
         drop(jcache);
-
 
         let doc = match next_job {
             Some(x) => x,
@@ -216,14 +223,14 @@ impl LlmEngine{
         }
         drop(jcache);
 
+        info!("Start summarize job:  {}", &title);
         let summarize_result = self.summarize(&doc.body).await;
+        info!("Finished summarize job:  {}", &title);
 
         let mut jcache = self.job_cache.lock().await;//.unwrap();
         next_job = jcache.job_queue.pop_front();
-        info!("get summarize result {}", &title);
         jcache.done_job.insert(title, summarize_result);
         drop(jcache);
-
     }
 
     pub async fn quick_fetch(&self, title: &str) -> Option<String> {
@@ -231,16 +238,24 @@ impl LlmEngine{
         return jcache.done_job.get(title).cloned();
     }
 
-    pub async fn health(&self) -> Result<(), Box<dyn std::error::Error>>  {
-        info!("Calling health check");
-        let resp = reqwest::get(self.endpoint.to_owned() + "/health")
-                .await?
-                .headers().to_owned()
-                //.status()
-                //.text().await?
-                ;
-        info!("Health check: {:#?}", resp);
-        Ok(())
+    pub async fn get_llm_done_list(&self) -> Vec<String> {
+        let mut r = Vec::new();
+        let jcache = self.job_cache.lock().await;
+        for (title, _text) in &jcache.done_job {
+            info!("already done : {}", &title);
+            r.push(title.to_owned());
+        }
+        return r;
+    }
+
+    pub async fn health(&self) -> Result<HealthCheck, Box<dyn std::error::Error>>  {
+        let res = self.client.get(self.endpoint.to_owned() + "/health")
+            .send()
+            .await
+            .unwrap();
+        let content = res.text().await.unwrap();
+        let parsed: HealthCheck = serde_json::from_str(&content).unwrap();
+        Ok(parsed)
     }
 }
 

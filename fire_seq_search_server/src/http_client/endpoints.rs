@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use log::debug;
+use log::{debug, info};
 
 use crate::query_engine::{QueryEngine, ServerInformation};
 use axum::Json;
@@ -27,6 +27,15 @@ pub async fn summarize(
     ) -> Html<String>{
 
     let r = engine_arc.summarize(title);
+    Html(r.await)
+}
+
+pub async fn get_llm_done_list(
+    State(engine_arc): State<Arc<QueryEngine>>
+    ) -> Html<String>{
+
+    info!("get list endpoint called");
+    let r = engine_arc.get_llm_done_list();
     Html(r.await)
 }
 

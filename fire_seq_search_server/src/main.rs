@@ -78,12 +78,10 @@ async fn main() {
         engine.llm = Some(llm_arc);
 
         let poll_handle = tokio::spawn( async move {
-            info!("inside main loop");
             loop {
                 llm_poll.call_llm_engine().await;
                 let wait_llm = tokio::time::Duration::from_millis(500);
                 tokio::time::sleep(wait_llm).await;
-                info!("main loop: poll again");
             }
         });
 //        poll_handle.await;
@@ -97,6 +95,7 @@ async fn main() {
         .route("/server_info", get(endpoints::get_server_info))
         .route("/wordcloud", get(endpoints::generate_word_cloud))
         .route("/summarize/:title", get(endpoints::summarize))
+        .route("/llm_done_list", get(endpoints::get_llm_done_list))
         .with_state(engine_arc.clone());
 
     let listener = tokio::net::TcpListener::bind(&engine_arc.server_info.host)
