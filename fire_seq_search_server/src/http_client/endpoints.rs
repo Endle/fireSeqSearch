@@ -33,8 +33,6 @@ pub async fn summarize(
 pub async fn get_llm_done_list(
     State(engine_arc): State<Arc<QueryEngine>>
     ) -> Html<String>{
-
-    info!("get list endpoint called");
     let r = engine_arc.get_llm_done_list();
     Html(r.await)
 }

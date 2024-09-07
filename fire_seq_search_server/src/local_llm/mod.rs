@@ -10,6 +10,18 @@ use serde_derive::Deserialize;
 use serde_derive::Serialize;
 use serde;
 
+// TODO Allow user to set prompt, instead of hard-coded in code
+const prompt_string: &'static str = r##"
+You are a seasoned summary expert, capable of condensing and summarizing given articles, papers, or posts, accurately conveying the main idea to make the content easier to understand.
+
+You place great emphasis on user experience, never adding irrelevant content like "Summary," "The summary is as follows," "Original text," "You can check the original text if interested," or "Original link." Your summaries always convey the core information directly.
+
+You are adept at handling various large, small, and even chaotic text content, always accurately extracting key information and summarizing the core content globally to make it easier to understand.
+
+=== Below is the article ===
+
+"##;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OpenAiData {
     pub model: String,
@@ -165,9 +177,11 @@ impl LlmEngine {
             }
         }
         let mut msgs = Vec::new();
-        let mut chat_text = String::default(); // TODO
+
+        let mut chat_text = prompt_string.to_owned();
         chat_text += &full_text;
         msgs.push( build_message(chat_text) );
+
         OpenAiData {
             model: "model".to_owned(),
             messages: msgs,
@@ -247,7 +261,6 @@ impl LlmEngine{
         let mut r = Vec::new();
         let jcache = self.job_cache.lock().await;
         for (title, _text) in &jcache.done_job {
-            info!("already done : {}", &title);
             r.push(title.to_owned());
         }
         return r;
