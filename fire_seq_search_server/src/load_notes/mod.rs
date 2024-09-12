@@ -7,6 +7,67 @@ use crate::query_engine::ServerInformation;
 use crate::JOURNAL_PREFIX;
 
 
+#[derive(Debug)]
+pub struct NoteListItem {
+    pub realpath: String,
+    pub title:    String,
+}
+
+use std::borrow::Cow;
+pub fn retrive_note_list(server_info: &ServerInformation) -> Vec<NoteListItem> {
+    let mut result = Vec::new();
+    let path: &str = &server_info.notebook_path;
+    let _ = list_directory( Cow::from(path) , true);
+
+    result
+}
+
+use std::borrow::Borrow;
+fn list_directory(path: Cow<'_, str>, recursive: bool) -> Vec<NoteListItem> {
+    info!("Listing directory {}", &path);
+    let result = Vec::new();
+
+    let path_ref: &str = path.borrow();
+    let notebooks = match std::fs::read_dir(path_ref) {
+        Ok(x) => x,
+        Err(e) => {
+            error!("Fatal error ({:?}) when reading {}", e, &path);
+            process::abort();
+        }
+    };
+
+    for note_result in notebooks {
+        let note = match note_result {
+            Ok(x) => x,
+            Err(e) => {
+                error!("Error during looping notebooks {:?}", &e);
+                continue;
+            }
+        };
+        info!("loop to {:?}", &note);
+    }
+
+
+    return result;
+    /*
+    let mut note_filenames: Vec<DirEntry> = Vec::new();
+    for note in notebooks {
+        let note : DirEntry = note.unwrap();
+        note_filenames.push(note);
+    }
+    // debug!("Note titles: {:?}", &note_filenames);
+    let result: Vec<(String,String)> = note_filenames.par_iter()
+        .map(|note|  read_md_file_wo_parse(&note))
+        .filter(|x| (&x).is_some())
+        .map(|x| x.unwrap())
+        .collect();
+    info!("Loaded {} notes from {}", result.len(), path);
+    // info!("After map {:?}", &result);
+
+    result
+    */
+}
+
 pub fn read_all_notes(server_info: &ServerInformation) -> Vec<(String, String)> {
     // I should remove the unwrap and convert it into map
     let path: &str = &server_info.notebook_path;
@@ -26,7 +87,10 @@ pub fn read_all_notes(server_info: &ServerInformation) -> Vec<(String, String)> 
             (title.to_string(), content)
         }).collect(); //silly collect.
 
-    // TODO: Silly filter
+    if server_info.exclude_zotero_items {
+        error!("exclude zotero disabled");
+    }
+    /*
     for (file_name, contents) in pages_tmp {
         // info!("File Name: {}", &file_name);
         if server_info.exclude_zotero_items && file_name.starts_with('@') {
@@ -34,6 +98,7 @@ pub fn read_all_notes(server_info: &ServerInformation) -> Vec<(String, String)> 
         }
         pages.push((file_name,contents));
     }
+    */
     if server_info.enable_journal_query {
         info!("Loading journals");
         let journals_page = path.clone() + "/journals";
