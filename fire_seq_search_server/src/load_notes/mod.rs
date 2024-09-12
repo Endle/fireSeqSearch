@@ -7,13 +7,15 @@ use crate::query_engine::ServerInformation;
 use crate::JOURNAL_PREFIX;
 
 
+use std::borrow::Cow;
+use std::borrow::Borrow;
+
 #[derive(Debug)]
 pub struct NoteListItem {
     pub realpath: String,
     pub title:    String,
 }
 
-use std::borrow::Cow;
 pub fn retrive_note_list(server_info: &ServerInformation) -> Vec<NoteListItem> {
     let mut result = Vec::new();
     let path: &str = &server_info.notebook_path;
@@ -22,10 +24,9 @@ pub fn retrive_note_list(server_info: &ServerInformation) -> Vec<NoteListItem> {
     result
 }
 
-use std::borrow::Borrow;
 fn list_directory(path: Cow<'_, str>, recursive: bool) -> Vec<NoteListItem> {
     info!("Listing directory {}", &path);
-    let result = Vec::new();
+    let mut result = Vec::new();
 
     let path_ref: &str = path.borrow();
     let notebooks = match std::fs::read_dir(path_ref) {
@@ -44,7 +45,7 @@ fn list_directory(path: Cow<'_, str>, recursive: bool) -> Vec<NoteListItem> {
                 continue;
             }
         };
-        info!("loop to {:?}", &entry);
+        //info!("loop to {:?}", &entry);
         let file_type = match entry.file_type() {
             Ok(x) => x,
             Err(e) => {
@@ -53,14 +54,32 @@ fn list_directory(path: Cow<'_, str>, recursive: bool) -> Vec<NoteListItem> {
             }
         };
 
-        if (file_type.is_dir()) {
+        let entry_path = entry.path();
+        let entry_path_str = entry_path.to_string_lossy();
+
+        if file_type.is_dir() {
             if (recursive) {
                 info!("Recursive loop {:?}", &entry);
-                let next_path = Cow::from(entry.path().to_str().unwrap().to_owned());
-                let next = list_directory(next_path, true);
+                //let next_path = Cow::from(entry.path().to_str().unwrap().to_owned());
+                //let next_path = entry.path().to_string_lossy().to_owned();
+                let next = list_directory(entry_path_str, true);
+                result.extend(next);
             }
             continue;
         }
+
+        if !entry_path_str.ends_with(".md") {
+            info!("skip non-md file {:?}", &entry);
+            continue;
+        }
+
+        let note_title = match entry_path.file_stem() {
+            Some(osstr) => osstr.to_str().unwrap(),
+            None => {
+                error!("Couldn't get file_stem for {:?}", entry_path);
+                continue;
+            }
+        };
     }
 
 
