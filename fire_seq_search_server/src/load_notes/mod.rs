@@ -17,11 +17,12 @@ pub struct NoteListItem {
 }
 
 pub fn retrive_note_list(server_info: &ServerInformation) -> Vec<NoteListItem> {
-    let mut result = Vec::new();
     let path: &str = &server_info.notebook_path;
-    let _ = list_directory( Cow::from(path) , true);
+    let note_list = list_directory( Cow::from(path) , true);
+    info!("Got note list {:?}", &note_list);
 
-    result
+    // TODO didn't handle logseq
+    note_list
 }
 
 fn list_directory(path: Cow<'_, str>, recursive: bool) -> Vec<NoteListItem> {
@@ -45,7 +46,6 @@ fn list_directory(path: Cow<'_, str>, recursive: bool) -> Vec<NoteListItem> {
                 continue;
             }
         };
-        //info!("loop to {:?}", &entry);
         let file_type = match entry.file_type() {
             Ok(x) => x,
             Err(e) => {
@@ -60,8 +60,6 @@ fn list_directory(path: Cow<'_, str>, recursive: bool) -> Vec<NoteListItem> {
         if file_type.is_dir() {
             if (recursive) {
                 info!("Recursive loop {:?}", &entry);
-                //let next_path = Cow::from(entry.path().to_str().unwrap().to_owned());
-                //let next_path = entry.path().to_string_lossy().to_owned();
                 let next = list_directory(entry_path_str, true);
                 result.extend(next);
             }
@@ -80,27 +78,14 @@ fn list_directory(path: Cow<'_, str>, recursive: bool) -> Vec<NoteListItem> {
                 continue;
             }
         };
+        let row = NoteListItem {
+            realpath: entry_path_str.to_string(),
+            title: note_title.to_string(),
+        };
+        result.push(row);
     }
-
 
     return result;
-    /*
-    let mut note_filenames: Vec<DirEntry> = Vec::new();
-    for note in notebooks {
-        let note : DirEntry = note.unwrap();
-        note_filenames.push(note);
-    }
-    // debug!("Note titles: {:?}", &note_filenames);
-    let result: Vec<(String,String)> = note_filenames.par_iter()
-        .map(|note|  read_md_file_wo_parse(&note))
-        .filter(|x| (&x).is_some())
-        .map(|x| x.unwrap())
-        .collect();
-    info!("Loaded {} notes from {}", result.len(), path);
-    // info!("After map {:?}", &result);
-
-    result
-    */
 }
 
 pub fn read_all_notes(server_info: &ServerInformation) -> Vec<(String, String)> {
