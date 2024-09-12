@@ -37,14 +37,30 @@ fn list_directory(path: Cow<'_, str>, recursive: bool) -> Vec<NoteListItem> {
     };
 
     for note_result in notebooks {
-        let note = match note_result {
+        let entry = match note_result {
             Ok(x) => x,
             Err(e) => {
-                error!("Error during looping notebooks {:?}", &e);
+                error!("Error during looping {:?}", &e);
                 continue;
             }
         };
-        info!("loop to {:?}", &note);
+        info!("loop to {:?}", &entry);
+        let file_type = match entry.file_type() {
+            Ok(x) => x,
+            Err(e) => {
+                error!("Error: Can't get file type {:?}  {:?}", &entry, &e);
+                continue;
+            }
+        };
+
+        if (file_type.is_dir()) {
+            if (recursive) {
+                info!("Recursive loop {:?}", &entry);
+                let next_path = Cow::from(entry.path().to_str().unwrap().to_owned());
+                let next = list_directory(next_path, true);
+            }
+            continue;
+        }
     }
 
 
