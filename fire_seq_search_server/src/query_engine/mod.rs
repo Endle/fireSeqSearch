@@ -43,12 +43,23 @@ pub struct QueryEngine {
     pub llm: Option<Arc<LlmEngine>>,
 }
 
+
+use crate::load_notes::NoteListItem;
 impl QueryEngine {
+    fn build_index(server_info: &ServerInformation,
+        document_setting: &DocumentSetting,
+        note_list: Vec<NoteListItem>) -> tantivy::Index {
+
+        todo!()
+    }
     pub fn construct(server_info: ServerInformation) -> Self {
 
         let document_setting: DocumentSetting = build_document_setting();
         let note_list = crate::load_notes::retrive_note_list(&server_info);
-        info!("Note list {:?}", &note_list);
+        let index = QueryEngine::build_index(&server_info,
+            &document_setting,
+            note_list);
+
         let loaded_notes = crate::load_notes::read_all_notes(&server_info);
         let loaded_articles: Vec<Article> = loaded_notes.into_iter().map(
             |x| Article{file_name:x.0, content:x.1}

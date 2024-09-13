@@ -19,7 +19,6 @@ pub struct NoteListItem {
 pub fn retrive_note_list(server_info: &ServerInformation) -> Vec<NoteListItem> {
     let path: &str = &server_info.notebook_path;
     let note_list = list_directory( Cow::from(path) , true);
-    info!("Got note list {:?}", &note_list);
 
     // TODO didn't handle logseq
     note_list
@@ -58,7 +57,7 @@ fn list_directory(path: Cow<'_, str>, recursive: bool) -> Vec<NoteListItem> {
         let entry_path_str = entry_path.to_string_lossy();
 
         if file_type.is_dir() {
-            if (recursive) {
+            if recursive {
                 info!("Recursive loop {:?}", &entry);
                 let next = list_directory(entry_path_str, true);
                 result.extend(next);
