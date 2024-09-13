@@ -46,12 +46,6 @@ pub struct QueryEngine {
 
 use crate::load_notes::NoteListItem;
 impl QueryEngine {
-    async fn build_index(server_info: &ServerInformation,
-        document_setting: &DocumentSetting,
-        note_list: Vec<NoteListItem>) -> tantivy::Index {
-
-        todo!()
-    }
     pub async fn construct(server_info: ServerInformation) -> Self {
 
         let document_setting: DocumentSetting = build_document_setting();
@@ -76,6 +70,12 @@ impl QueryEngine {
             articles: loaded_articles,
             llm: None,
         }
+    }
+    async fn build_index(server_info: &ServerInformation,
+        document_setting: &DocumentSetting,
+        note_list: Vec<NoteListItem>) -> tantivy::Index {
+
+        todo!()
     }
 }
 
@@ -108,9 +108,6 @@ impl DocData {
 }
 
 impl QueryEngine {
-
-
-
     pub fn generate_wordcloud(self: &Self) -> String {
         crate::word_frequency::generate_wordcloud(&self.articles)
     }
