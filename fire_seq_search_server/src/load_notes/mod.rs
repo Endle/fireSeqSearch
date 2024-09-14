@@ -10,7 +10,7 @@ use crate::JOURNAL_PREFIX;
 use std::borrow::Cow;
 use std::borrow::Borrow;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NoteListItem {
     pub realpath: String,
     pub title:    String,

@@ -43,8 +43,13 @@ pub struct QueryEngine {
     pub llm: Option<Arc<LlmEngine>>,
 }
 
+use tantivy::IndexWriter;
+use tantivy::TantivyDocument;
 
 use crate::load_notes::NoteListItem;
+use futures::stream::FuturesUnordered;
+ use futures::StreamExt;
+
 impl QueryEngine {
     pub async fn construct(server_info: ServerInformation) -> Self {
 
@@ -74,6 +79,50 @@ impl QueryEngine {
             llm: None,
         }
     }
+
+    async fn load_single_note(
+        server_info: &ServerInformation,
+        document_setting: &DocumentSetting,
+        note: NoteListItem,
+        index_writer: &IndexWriter<TantivyDocument>) {
+
+        info!(" inside future {:?}", note);
+    }
+
+    async fn load_all_notes(server_info: &ServerInformation,
+        document_setting: &DocumentSetting,
+        note_list: Vec<NoteListItem>,
+        index_writer: &IndexWriter<TantivyDocument>) {
+
+        let schema = &document_setting.schema;
+        let title = schema.get_field("title").unwrap();
+        let body = schema.get_field("body").unwrap();
+
+        let mut futs: FuturesUnordered<_>  = FuturesUnordered::new();
+
+
+        for article in note_list {
+            futs.push(
+                QueryEngine::load_single_note(
+                    server_info,
+                    document_setting,
+                    article,
+                    index_writer)
+            );
+            /*
+            tokio::task::spawn( async move {
+                let a = article.clone();
+                info!(" inside tokio {:?}", a);
+                index_writer.add_document(
+                    tantivy::doc!{
+                        title => article.title,
+                        body => "test data input"}
+                ).unwrap();
+            });
+            */
+        }
+        while let Some(_result) = futs.next().await {}
+    }
     async fn build_index(server_info: &ServerInformation,
         document_setting: &DocumentSetting,
         note_list: Vec<NoteListItem>) -> tantivy::Index {
@@ -85,19 +134,26 @@ impl QueryEngine {
 
         let mut index_writer = index.writer(50_000_000).unwrap();
 
+        let article = note_list[0].clone();
+
+        QueryEngine::load_all_notes(&server_info,
+            &document_setting,
+            note_list,
+            &index_writer).await;
 
 
         let title = schema.get_field("title").unwrap();
         let body = schema.get_field("body").unwrap();
 
 
-        for article in note_list {
             index_writer.add_document(
                 tantivy::doc!{
-                    title => article.title,
+                    title => article.title.clone(),
                     body => "test data input"}
             ).unwrap();
-        }
+
+        
+        
         index_writer.commit().unwrap();
         index
     }
