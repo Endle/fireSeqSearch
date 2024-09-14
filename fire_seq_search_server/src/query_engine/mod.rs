@@ -87,6 +87,15 @@ impl QueryEngine {
         index_writer: &IndexWriter<TantivyDocument>) {
 
         info!(" inside future {:?}", note);
+
+        let schema = &document_setting.schema;
+        let title = schema.get_field("title").unwrap();
+        let body = schema.get_field("body").unwrap();
+        index_writer.add_document(
+            tantivy::doc!{
+                title => note.title,
+                body => "test data input"}
+        ).unwrap();
     }
 
     async fn load_all_notes(server_info: &ServerInformation,
@@ -94,13 +103,7 @@ impl QueryEngine {
         note_list: Vec<NoteListItem>,
         index_writer: &IndexWriter<TantivyDocument>) {
 
-        let schema = &document_setting.schema;
-        let title = schema.get_field("title").unwrap();
-        let body = schema.get_field("body").unwrap();
-
         let mut futs: FuturesUnordered<_>  = FuturesUnordered::new();
-
-
         for article in note_list {
             futs.push(
                 QueryEngine::load_single_note(
@@ -109,17 +112,6 @@ impl QueryEngine {
                     article,
                     index_writer)
             );
-            /*
-            tokio::task::spawn( async move {
-                let a = article.clone();
-                info!(" inside tokio {:?}", a);
-                index_writer.add_document(
-                    tantivy::doc!{
-                        title => article.title,
-                        body => "test data input"}
-                ).unwrap();
-            });
-            */
         }
         while let Some(_result) = futs.next().await {}
     }
@@ -141,19 +133,17 @@ impl QueryEngine {
             note_list,
             &index_writer).await;
 
-
+        /*
         let title = schema.get_field("title").unwrap();
         let body = schema.get_field("body").unwrap();
-
 
             index_writer.add_document(
                 tantivy::doc!{
                     title => article.title.clone(),
                     body => "test data input"}
             ).unwrap();
+        */
 
-        
-        
         index_writer.commit().unwrap();
         index
     }
