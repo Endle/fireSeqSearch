@@ -1,6 +1,6 @@
 // Everything about Tantivy should be hidden behind this component
 
-use log::{debug, info, warn};
+use log::{debug, info, warn, error};
 use crate::{Article, decode_cjk_str};
 use crate::post_query::post_query_wrapper;
 use std::sync::Arc;
@@ -39,7 +39,7 @@ pub struct QueryEngine {
     pub server_info: ServerInformation,
     reader: tantivy::IndexReader,
     query_parser: tantivy::query::QueryParser,
-    articles: Vec<Article>, //TODO remove it. only word cloud needs it
+    //articles: Vec<Article>, //TODO remove it. only word cloud needs it
     pub llm: Option<Arc<LlmEngine>>,
 }
 
@@ -49,6 +49,8 @@ use tantivy::TantivyDocument;
 use crate::load_notes::NoteListItem;
 use futures::stream::FuturesUnordered;
  use futures::StreamExt;
+
+ use tantivy::doc;
 
 impl QueryEngine {
     pub async fn construct(server_info: ServerInformation) -> Self {
@@ -74,7 +76,7 @@ impl QueryEngine {
             server_info,
             reader,
             query_parser,
-            articles: Vec::new(),
+        //    articles: Vec::new(),
          //   articles: loaded_articles,
             llm: None,
         }
@@ -88,13 +90,23 @@ impl QueryEngine {
 
         info!(" inside future {:?}", note);
 
+        let raw_content = match std::fs::read_to_string(&note.realpath) {
+            Ok(s) => s,
+            Err(e) => {
+                error!("Failed to read {:?} err({:?}, skipping", &note, &e);
+                return;
+            }
+        };
+        let content = raw_content; // TODO parse file after read
+
         let schema = &document_setting.schema;
         let title = schema.get_field("title").unwrap();
         let body = schema.get_field("body").unwrap();
         index_writer.add_document(
             tantivy::doc!{
                 title => note.title,
-                body => "test data input"}
+                body => content,
+            }
         ).unwrap();
     }
 
@@ -123,26 +135,12 @@ impl QueryEngine {
         let index = tantivy::Index::create_in_ram(schema.clone());
 
         index.tokenizers().register(TOKENIZER_ID, document_setting.tokenizer.clone());
-
         let mut index_writer = index.writer(50_000_000).unwrap();
-
-        let article = note_list[0].clone();
 
         QueryEngine::load_all_notes(&server_info,
             &document_setting,
             note_list,
             &index_writer).await;
-
-        /*
-        let title = schema.get_field("title").unwrap();
-        let body = schema.get_field("body").unwrap();
-
-            index_writer.add_document(
-                tantivy::doc!{
-                    title => article.title.clone(),
-                    body => "test data input"}
-            ).unwrap();
-        */
 
         index_writer.commit().unwrap();
         index
@@ -179,7 +177,8 @@ impl DocData {
 
 impl QueryEngine {
     pub fn generate_wordcloud(self: &Self) -> String {
-        crate::word_frequency::generate_wordcloud(&self.articles)
+        todo!()
+        //crate::word_frequency::generate_wordcloud(&self.articles)
     }
 
     pub async fn query_pipeline(self: &Self, term: String) -> String {
@@ -206,7 +205,6 @@ impl QueryEngine {
 
         let json = serde_json::to_string(&result).unwrap();
 
-        // info!("Search result {}", &json);
         json
     }
 
@@ -236,7 +234,6 @@ impl QueryEngine {
             };
             tokio::time::sleep(wait_llm).await;
         }
-        //    llm.summarize(&title).await
     }
     pub async fn summarize(&self, title: String) -> String {
         info!("Called summarize on {}", &title);
@@ -278,6 +275,7 @@ fn build_reader_parser(index: &tantivy::Index, document_setting: &DocumentSettin
     (reader, query_parser)
 }
 
+/*
 fn indexing_documents(server_info: &ServerInformation,
                       document_setting: &DocumentSetting,
                       pages:&Vec<crate::Article>) -> tantivy::Index {
@@ -305,12 +303,10 @@ fn indexing_documents(server_info: &ServerInformation,
                 body => article.content.clone()}
         ).unwrap();
     }
-
-
-
     index_writer.commit().unwrap();
     index
 }
+*/
 
 
 
