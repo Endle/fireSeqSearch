@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 
 
+use std::borrow::Cow;
 
 // This struct should be immutable when the program starts running
 #[derive(Debug, Clone, serde::Serialize)]
@@ -97,7 +98,9 @@ impl QueryEngine {
                 return;
             }
         };
-        let content = raw_content; // TODO parse file after read
+
+        let content = crate::markdown_parser::parse_logseq_notebook(
+            Cow::from(raw_content), &note.title, server_info);
 
         let schema = &document_setting.schema;
         let title = schema.get_field("title").unwrap();
