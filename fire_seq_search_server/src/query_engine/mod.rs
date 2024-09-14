@@ -54,11 +54,13 @@ impl QueryEngine {
             &document_setting,
             note_list).await;
 
+        /*
         let loaded_notes = crate::load_notes::read_all_notes(&server_info);
         let loaded_articles: Vec<Article> = loaded_notes.into_iter().map(
             |x| Article{file_name:x.0, content:x.1}
         ).collect();
         let index = indexing_documents(&server_info, &document_setting, &loaded_articles);
+        */
         let (reader, query_parser) = build_reader_parser(&index, &document_setting);
 
         debug!("Query engine construction finished");
@@ -67,7 +69,8 @@ impl QueryEngine {
             server_info,
             reader,
             query_parser,
-            articles: loaded_articles,
+            articles: Vec::new(),
+         //   articles: loaded_articles,
             llm: None,
         }
     }
@@ -75,7 +78,28 @@ impl QueryEngine {
         document_setting: &DocumentSetting,
         note_list: Vec<NoteListItem>) -> tantivy::Index {
 
-        todo!()
+        let schema = &document_setting.schema;
+        let index = tantivy::Index::create_in_ram(schema.clone());
+
+        index.tokenizers().register(TOKENIZER_ID, document_setting.tokenizer.clone());
+
+        let mut index_writer = index.writer(50_000_000).unwrap();
+
+
+
+        let title = schema.get_field("title").unwrap();
+        let body = schema.get_field("body").unwrap();
+
+
+        for article in note_list {
+            index_writer.add_document(
+                tantivy::doc!{
+                    title => article.title,
+                    body => "test data input"}
+            ).unwrap();
+        }
+        index_writer.commit().unwrap();
+        index
     }
 }
 
