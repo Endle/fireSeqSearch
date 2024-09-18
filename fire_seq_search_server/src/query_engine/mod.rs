@@ -180,7 +180,7 @@ impl DocData {
 
 impl QueryEngine {
     pub fn generate_wordcloud(self: &Self) -> String {
-        todo!()
+        String::from("TODO: wordcloud is turned off")
         //crate::word_frequency::generate_wordcloud(&self.articles)
     }
 
