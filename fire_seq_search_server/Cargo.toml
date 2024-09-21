@@ -7,7 +7,7 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["llm"]
+#default = ["llm"]
 llm = []
 
 [dependencies]
@@ -37,6 +37,7 @@ env_logger = "0.11.5"
 clap = { version = "4.0", features = ["derive"] }
 lazy_static = "1.4.0"
 rayon = "1.5"
+futures = "0.3"
 
 urlencoding = "2.1.0"
 
@@ -66,5 +67,4 @@ pdf-extract-temporary-mitigation-panic = "0.7.1"
 # TODO I should make them optional
 sha256 = "1.5.0"
 reqwest = { version = "0.12", features = ["json"] }
-futures = "0.3"
 serde_derive = "1.0.209"

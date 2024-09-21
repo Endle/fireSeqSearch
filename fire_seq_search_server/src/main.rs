@@ -68,7 +68,7 @@ async fn main() {
     let matches = Cli::parse();
     let server_info: ServerInformation = build_server_info(matches);
 
-    let mut engine = QueryEngine::construct(server_info);
+    let mut engine = QueryEngine::construct(server_info).await;
 
     info!("query engine build finished");
     if cfg!(feature="llm") {
@@ -77,15 +77,13 @@ async fn main() {
         let llm_poll = llm_arc.clone();
         engine.llm = Some(llm_arc);
 
-        let poll_handle = tokio::spawn( async move {
+        let _poll_handle = tokio::spawn( async move {
             loop {
                 llm_poll.call_llm_engine().await;
                 let wait_llm = tokio::time::Duration::from_millis(500);
                 tokio::time::sleep(wait_llm).await;
             }
         });
-//        poll_handle.await;
-
     }
 
     let engine_arc = std::sync::Arc::new(engine);

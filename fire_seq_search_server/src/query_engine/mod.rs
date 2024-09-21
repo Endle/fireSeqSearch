@@ -1,12 +1,13 @@
 // Everything about Tantivy should be hidden behind this component
 
-use log::{debug, info, warn};
+use log::{debug, info, warn, error};
 use crate::{Article, decode_cjk_str};
 use crate::post_query::post_query_wrapper;
 use std::sync::Arc;
 
 
 
+use std::borrow::Cow;
 
 // This struct should be immutable when the program starts running
 #[derive(Debug, Clone, serde::Serialize)]
@@ -39,19 +40,35 @@ pub struct QueryEngine {
     pub server_info: ServerInformation,
     reader: tantivy::IndexReader,
     query_parser: tantivy::query::QueryParser,
-    articles: Vec<Article>, //TODO remove it. only word cloud needs it
+    //articles: Vec<Article>, //TODO remove it. only word cloud needs it
     pub llm: Option<Arc<LlmEngine>>,
 }
 
+use tantivy::IndexWriter;
+use tantivy::TantivyDocument;
+
+use crate::load_notes::NoteListItem;
+use futures::stream::FuturesUnordered;
+ use futures::StreamExt;
+
+ use tantivy::doc;
+
 impl QueryEngine {
-    pub fn construct(server_info: ServerInformation) -> Self {
+    pub async fn construct(server_info: ServerInformation) -> Self {
 
         let document_setting: DocumentSetting = build_document_setting();
+        let note_list = crate::load_notes::retrive_note_list(&server_info);
+        let index: tantivy::Index = QueryEngine::build_index(&server_info,
+            &document_setting,
+            note_list).await;
+
+        /*
         let loaded_notes = crate::load_notes::read_all_notes(&server_info);
         let loaded_articles: Vec<Article> = loaded_notes.into_iter().map(
             |x| Article{file_name:x.0, content:x.1}
         ).collect();
         let index = indexing_documents(&server_info, &document_setting, &loaded_articles);
+        */
         let (reader, query_parser) = build_reader_parser(&index, &document_setting);
 
         debug!("Query engine construction finished");
@@ -60,9 +77,76 @@ impl QueryEngine {
             server_info,
             reader,
             query_parser,
-            articles: loaded_articles,
+        //    articles: Vec::new(),
+         //   articles: loaded_articles,
             llm: None,
         }
+    }
+
+    async fn load_single_note(
+        server_info: &ServerInformation,
+        document_setting: &DocumentSetting,
+        note: NoteListItem,
+        index_writer: &IndexWriter<TantivyDocument>) {
+
+        info!(" inside future {:?}", note);
+
+        let raw_content = match std::fs::read_to_string(&note.realpath) {
+            Ok(s) => s,
+            Err(e) => {
+                error!("Failed to read {:?} err({:?}, skipping", &note, &e);
+                return;
+            }
+        };
+
+        let content = crate::markdown_parser::parse_logseq_notebook(
+            Cow::from(raw_content), &note.title, server_info);
+
+        let schema = &document_setting.schema;
+        let title = schema.get_field("title").unwrap();
+        let body = schema.get_field("body").unwrap();
+        index_writer.add_document(
+            tantivy::doc!{
+                title => note.title,
+                body => content,
+            }
+        ).unwrap();
+    }
+
+    async fn load_all_notes(server_info: &ServerInformation,
+        document_setting: &DocumentSetting,
+        note_list: Vec<NoteListItem>,
+        index_writer: &IndexWriter<TantivyDocument>) {
+
+        let mut futs: FuturesUnordered<_>  = FuturesUnordered::new();
+        for article in note_list {
+            futs.push(
+                QueryEngine::load_single_note(
+                    server_info,
+                    document_setting,
+                    article,
+                    index_writer)
+            );
+        }
+        while let Some(_result) = futs.next().await {}
+    }
+    async fn build_index(server_info: &ServerInformation,
+        document_setting: &DocumentSetting,
+        note_list: Vec<NoteListItem>) -> tantivy::Index {
+
+        let schema = &document_setting.schema;
+        let index = tantivy::Index::create_in_ram(schema.clone());
+
+        index.tokenizers().register(TOKENIZER_ID, document_setting.tokenizer.clone());
+        let mut index_writer = index.writer(50_000_000).unwrap();
+
+        QueryEngine::load_all_notes(&server_info,
+            &document_setting,
+            note_list,
+            &index_writer).await;
+
+        index_writer.commit().unwrap();
+        index
     }
 }
 
@@ -95,11 +179,9 @@ impl DocData {
 }
 
 impl QueryEngine {
-
-
-
     pub fn generate_wordcloud(self: &Self) -> String {
-        crate::word_frequency::generate_wordcloud(&self.articles)
+        String::from("TODO: wordcloud is turned off")
+        //crate::word_frequency::generate_wordcloud(&self.articles)
     }
 
     pub async fn query_pipeline(self: &Self, term: String) -> String {
@@ -126,7 +208,6 @@ impl QueryEngine {
 
         let json = serde_json::to_string(&result).unwrap();
 
-        // info!("Search result {}", &json);
         json
     }
 
@@ -156,7 +237,6 @@ impl QueryEngine {
             };
             tokio::time::sleep(wait_llm).await;
         }
-        //    llm.summarize(&title).await
     }
     pub async fn summarize(&self, title: String) -> String {
         info!("Called summarize on {}", &title);
@@ -198,6 +278,7 @@ fn build_reader_parser(index: &tantivy::Index, document_setting: &DocumentSettin
     (reader, query_parser)
 }
 
+/*
 fn indexing_documents(server_info: &ServerInformation,
                       document_setting: &DocumentSetting,
                       pages:&Vec<crate::Article>) -> tantivy::Index {
@@ -225,12 +306,10 @@ fn indexing_documents(server_info: &ServerInformation,
                 body => article.content.clone()}
         ).unwrap();
     }
-
-
-
     index_writer.commit().unwrap();
     index
 }
+*/
 
 
 
