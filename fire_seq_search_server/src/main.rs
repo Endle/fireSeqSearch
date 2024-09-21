@@ -2,6 +2,7 @@ use log::info;
 use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
 use fire_seq_search_server::local_llm::LlmEngine;
 
+use fire_seq_search_server::query_engine::NotebookSoftware::*;
 
 use clap::Parser;
 
@@ -118,6 +119,10 @@ fn build_server_info(args: Cli) -> ServerInformation {
         }
     };
     let host: String = args.host.clone().unwrap_or_else(|| "127.0.0.1:3030".to_string());
+    let mut software = Logseq;
+    if args.obsidian_md {
+        software = Obsidian;
+    }
     ServerInformation{
         notebook_path: args.notebook_path,
         notebook_name,
@@ -127,7 +132,7 @@ fn build_server_info(args: Cli) -> ServerInformation {
             args.show_summary_single_line_chars_limit,
         parse_pdf_links: args.parse_pdf_links,
         exclude_zotero_items:args.exclude_zotero_items,
-        obsidian_md: args.obsidian_md,
+        software,
         convert_underline_hierarchy: true,
         host,
         llm_enabled: cfg!(feature="llm"),

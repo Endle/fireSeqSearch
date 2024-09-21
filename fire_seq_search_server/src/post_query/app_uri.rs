@@ -3,9 +3,11 @@ use crate::post_query::logseq_uri::generate_logseq_uri;
 use crate::post_query::obsidian_uri::generate_obsidian_uri;
 use crate::query_engine::ServerInformation;
 
+use crate::query_engine::NotebookSoftware::Obsidian;
+
 // Maybe I should wrap them with the same interface? -Zhenbo Li 2023-Feb-05
 pub fn generate_uri(title: &str, is_page_hit: &bool, server_info: &ServerInformation) -> String {
-    if server_info.obsidian_md {
+    if server_info.software == Obsidian {
         info!("Generating Obsidian URI for {}", title);
         if !is_page_hit {
             error!("Journal is unsupported for Obsidian yet");

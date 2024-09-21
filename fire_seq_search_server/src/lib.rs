@@ -10,6 +10,7 @@ pub mod local_llm;
 
 use log::{debug, info};
 use crate::query_engine::ServerInformation;
+use crate::query_engine::NotebookSoftware::Logseq;
 
 
 #[macro_use]
@@ -168,7 +169,7 @@ pub fn generate_server_info_for_test() -> ServerInformation {
         show_summary_single_line_chars_limit: 0,
         parse_pdf_links: false,
         exclude_zotero_items: false,
-        obsidian_md: false,
+        software: Logseq,
         convert_underline_hierarchy: true,
         host: "127.0.0.1:22024".to_string(),
         llm_enabled: false,
