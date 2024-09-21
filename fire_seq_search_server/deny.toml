@@ -23,6 +23,7 @@ allow = [
     "MIT", "Apache-2.0",
     "BSD-2-Clause", "BSD-3-Clause",
     "CC0-1.0",
+    "MPL-2.0",
 ]
 # The confidence threshold for detecting a license from license text.
 # The higher the value, the more closely the license text must be to the
@@ -34,7 +35,6 @@ confidence-threshold = 0.8
 exceptions = [
     { name = "fastdivide", allow = ["zlib-acknowledgement"] },
     { name = "unicode-ident", allow = ["Unicode-DFS-2016"] },
-    { allow = ["Unlicense"], crate = "measure_time" }, # tantivy
 ]
 
 # This section is considered when running `cargo deny check bans`.
