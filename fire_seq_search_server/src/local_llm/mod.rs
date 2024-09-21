@@ -17,13 +17,15 @@ use std::borrow::Cow;
 use std::borrow::Cow::Borrowed;
 
 
-use reqwest;
-use reqwest::StatusCode;
-use shellexpand::tilde;
+//#[cfg(feature = "llm")]
+use {
+    reqwest,
+    reqwest::StatusCode,
+    shellexpand::tilde,
 
-use serde_derive::Deserialize;
-use serde_derive::Serialize;
-use serde;
+    serde_derive::Deserialize,
+    serde_derive::Serialize,
+};
 
 
 
