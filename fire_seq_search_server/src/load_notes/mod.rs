@@ -16,10 +16,24 @@ pub struct NoteListItem {
     pub title:    String,
 }
 
+use crate::query_engine::NotebookSoftware;
 pub fn retrive_note_list(server_info: &ServerInformation) -> Vec<NoteListItem> {
     let path: &str = &server_info.notebook_path;
-    let note_list = list_directory( Cow::from(path) , true);
 
+    let note_list = match &server_info.software {
+        NotebookSoftware::Obsidian => list_directory( Cow::from(path) , true),
+        NotebookSoftware::Logseq => {
+            let pp = path.to_string() + "/pages";
+            let mut pages = list_directory( Cow::from(pp), false );
+
+            // TODO Journal prefix
+            let pp = path.to_string() + "/journals";
+            let jours = list_directory( Cow::from(pp), false );
+
+            pages.extend(jours);
+            pages
+        },
+    };
     // TODO didn't handle logseq
     note_list
 }
@@ -82,7 +96,6 @@ fn list_directory(path: Cow<'_, str>, recursive: bool) -> Vec<NoteListItem> {
         };
         result.push(row);
     }
-
     return result;
 }
 
