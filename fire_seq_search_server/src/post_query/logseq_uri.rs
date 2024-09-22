@@ -205,18 +205,18 @@ mod test_logseq_uri {
         let server_info = generate_server_info_for_test();
 
         // Don't encode / at here. It would be processed by serde. - 2022-11-27
-        let r = generate_logseq_uri("Games/EU4", &true, &server_info);
+        let r = generate_logseq_uri("Games/EU4", true, &server_info);
         assert_eq!(&r, "logseq://graph/logseq_notebook?page=Games%2FEU4");
 
-        let r = generate_logseq_uri("Games/赛马娘", &true, &server_info);
+        let r = generate_logseq_uri("Games/赛马娘", true, &server_info);
         assert_eq!(&r, "logseq://graph/logseq_notebook?page=Games%2F%E8%B5%9B%E9%A9%AC%E5%A8%98");
         let r = generate_logseq_journal_uri("2022_12_14", &server_info);
         assert_eq!(&r,"logseq://graph/logseq_notebook?page=Dec+14th%2C+2022");
 
-        let r = generate_logseq_uri("fireSeqSearch___test___5", &true, &server_info);
+        let r = generate_logseq_uri("fireSeqSearch___test___5", true, &server_info);
         assert_eq!(&r,"logseq://graph/logseq_notebook?page=fireSeqSearch%2Ftest%2F5");
 
-        let r = generate_logseq_uri("C++", &true, &server_info);
+        let r = generate_logseq_uri("C++", true, &server_info);
         assert_eq!(&r, "logseq://graph/logseq_notebook?page=C%2B%2B");
     }
 }
