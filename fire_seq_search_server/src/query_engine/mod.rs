@@ -67,14 +67,6 @@ impl QueryEngine {
         let index: tantivy::Index = QueryEngine::build_index(&server_info,
             &document_setting,
             note_list).await;
-
-        /*
-        let loaded_notes = crate::load_notes::read_all_notes(&server_info);
-        let loaded_articles: Vec<Article> = loaded_notes.into_iter().map(
-            |x| Article{file_name:x.0, content:x.1}
-        ).collect();
-        let index = indexing_documents(&server_info, &document_setting, &loaded_articles);
-        */
         let (reader, query_parser) = build_reader_parser(&index, &document_setting);
 
         debug!("Query engine construction finished");

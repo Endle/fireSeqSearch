@@ -1,4 +1,4 @@
-use log::error;
+use log::{error,info};
 use crate::ServerInformation;
 use url::Url;
 
@@ -37,8 +37,8 @@ pub fn process_note_title(file_name: &str, server_info: &ServerInformation) -> S
     file_name
 }
 
-pub fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &ServerInformation) -> String {
-    return if *is_page_hit {
+pub fn generate_logseq_uri(title: &str, is_page_hit: bool, server_info: &ServerInformation) -> String {
+    return if is_page_hit {
         let title = process_note_title(title, server_info);
         let mut uri = Url::parse("logseq://graph/").unwrap();
         uri.set_path(&server_info.notebook_name);
@@ -53,7 +53,7 @@ pub fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &Server
 }
 
 #[derive(PartialEq, Debug)]
-struct JournalDate {
+pub struct JournalDate {
     pub year: u32,
     pub month: u32,
     pub date: u32,
@@ -152,9 +152,9 @@ fn parse_slice_to_u8(slice: Option<&str>) -> Option<u32> {
     }
 }
 
-fn parse_date_from_str(title: &str) -> Option<JournalDate> {
+pub fn parse_date_from_str(title: &str) -> Option<JournalDate> {
     if title.len() != 10 {
-        error!("Journal length unexpected: {}", title);
+        info!("Journal length unexpected: {}", title);
         return None;
     }
 
