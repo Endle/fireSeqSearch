@@ -1,5 +1,4 @@
 use log::{info, error};
-use crate::query_engine::ServerInformation;
 use crate::query_engine::DocData;
 
 use std::collections::HashMap;
@@ -166,7 +165,7 @@ impl LlmEngine {
         let client = reqwest::Client::new();
 
         info!("llm engine initialized");
-        let mut map = Arc::new(Mutex::new(
+        let map = Arc::new(Mutex::new(
                 JobProcessor::new()));
         Self {
             endpoint,
@@ -230,7 +229,7 @@ impl LlmEngine{
             return;
         }
 
-        let mut next_job: Option<DocData> = None;
+        let next_job: Option<DocData>;
 
         let mut jcache = self.job_cache.lock().await;//.unwrap();
         next_job = jcache.job_queue.pop_front();
@@ -306,7 +305,7 @@ async fn locate_llamafile() -> Option<String> {
     lf.filepath = Some(  lf_path.to_owned() );
     info!("lf {:?}", &lf);
 
-    let ppath = std::path::Path::new(&lf_path);
+    let _ppath = std::path::Path::new(&lf_path);
     //let val = sha256::try_digest(ppath).unwrap();
     let val = "1903778f7defd921347b25327ebe5dd902f29417ba524144a8e4f7c32d83dee8";
     if val != lf.sha256 {

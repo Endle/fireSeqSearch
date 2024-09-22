@@ -8,7 +8,7 @@ pub mod word_frequency;
 pub mod local_llm;
 
 
-use log::{debug, info};
+use log::debug;
 use crate::query_engine::ServerInformation;
 use crate::query_engine::NotebookSoftware::Logseq;
 
@@ -20,6 +20,7 @@ pub static JOURNAL_PREFIX: &str = "@journal@";
 
 
 pub struct Article {
+    #[allow(dead_code)] /* TODO rethink if we need it 2024 Sep 21 */
     file_name: String,
     content: String
 }
@@ -73,7 +74,6 @@ tanvity's default tokenizer will lowercase all English characters.
 However, I think there could be a better approach
 1. use https://github.com/pemistahl/lingua-rs to determine the language of the text
 2. Select proper tokenizer
- */
 fn process_token_text(text: &str, indices: &Vec<(usize, char)>, token: &jieba_rs::Token<'_>) -> Option<String> {
     let raw = String::from(&text[(indices[token.start].0)..(indices[token.end].0)]);
     let lower = raw.to_lowercase();
@@ -83,6 +83,7 @@ fn process_token_text(text: &str, indices: &Vec<(usize, char)>, token: &jieba_rs
         Some(lower)
     }
 }
+ */
 
 // TODO use stub now
 pub fn tokenize_default(sentence: &str) -> Vec<String> {

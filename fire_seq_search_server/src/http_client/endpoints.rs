@@ -1,10 +1,10 @@
 use std::sync::Arc;
-use log::{debug, info};
+use log::{debug};
 
 use crate::query_engine::{QueryEngine, ServerInformation};
 use axum::Json;
 use axum::extract::State;
-use axum::{response::Html, routing::get, Router, extract::Path};
+use axum::{response::Html, extract::Path};
 
 pub async fn get_server_info(State(engine_arc): State<Arc<QueryEngine>>)
                                                 -> Json<ServerInformation> {

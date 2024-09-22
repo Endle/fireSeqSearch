@@ -1,10 +1,7 @@
-use std::fs::DirEntry;
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use std::process;
 
-use rayon::prelude::*;
 use crate::query_engine::ServerInformation;
-use crate::JOURNAL_PREFIX;
 
 
 use std::borrow::Cow;

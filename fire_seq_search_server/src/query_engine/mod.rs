@@ -1,7 +1,7 @@
 // Everything about Tantivy should be hidden behind this component
 
-use log::{debug, info, warn, error};
-use crate::{Article, decode_cjk_str};
+use log::{debug, info, error};
+use crate::decode_cjk_str;
 use crate::post_query::post_query_wrapper;
 use std::sync::Arc;
 
@@ -86,8 +86,6 @@ impl QueryEngine {
         document_setting: &DocumentSetting,
         note: NoteListItem,
         index_writer: &IndexWriter<TantivyDocument>) {
-
-        info!(" inside future {:?}", note);
 
         let raw_content = match std::fs::read_to_string(&note.realpath) {
             Ok(s) => s,
