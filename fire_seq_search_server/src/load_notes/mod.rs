@@ -1,10 +1,7 @@
-use std::fs::DirEntry;
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use std::process;
 
-use rayon::prelude::*;
 use crate::query_engine::ServerInformation;
-use crate::JOURNAL_PREFIX;
 
 
 use std::borrow::Cow;
@@ -16,10 +13,24 @@ pub struct NoteListItem {
     pub title:    String,
 }
 
+use crate::query_engine::NotebookSoftware;
 pub fn retrive_note_list(server_info: &ServerInformation) -> Vec<NoteListItem> {
     let path: &str = &server_info.notebook_path;
-    let note_list = list_directory( Cow::from(path) , true);
 
+    let note_list = match &server_info.software {
+        NotebookSoftware::Obsidian => list_directory( Cow::from(path) , true),
+        NotebookSoftware::Logseq => {
+            let pp = path.to_string() + "/pages";
+            let mut pages = list_directory( Cow::from(pp), false );
+
+            // TODO Journal prefix
+            let pp = path.to_string() + "/journals";
+            let jours = list_directory( Cow::from(pp), false );
+
+            pages.extend(jours);
+            pages
+        },
+    };
     // TODO didn't handle logseq
     note_list
 }
@@ -82,66 +93,9 @@ fn list_directory(path: Cow<'_, str>, recursive: bool) -> Vec<NoteListItem> {
         };
         result.push(row);
     }
-
     return result;
 }
 
-/*
-pub fn read_all_notes(server_info: &ServerInformation) -> Vec<(String, String)> {
-    // I should remove the unwrap and convert it into map
-    let path: &str = &server_info.notebook_path;
-    let path = path.to_owned();
-    let pages_path = if server_info.obsidian_md {
-        path.clone()
-    } else{
-        path.clone() + "/pages"
-    };
-
-
-    let mut pages: Vec<(String, String)> = Vec:: new();
-
-    let pages_tmp: Vec<(String, String)>  = read_specific_directory(&pages_path).par_iter()
-        .map(|(title,md)| {
-            let content = crate::markdown_parser::parse_logseq_notebook(md, title, server_info);
-            (title.to_string(), content)
-        }).collect(); //silly collect.
-
-    if server_info.exclude_zotero_items {
-        error!("exclude zotero disabled");
-    }
-    /*
-    for (file_name, contents) in pages_tmp {
-        // info!("File Name: {}", &file_name);
-        if server_info.exclude_zotero_items && file_name.starts_with('@') {
-            continue;
-        }
-        pages.push((file_name,contents));
-    }
-    */
-    if server_info.enable_journal_query {
-        info!("Loading journals");
-        let journals_page = path.clone() + "/journals";
-        let journals:Vec<(String, String)>
-            = read_specific_directory(&journals_page).par_iter()
-            .map(|(title,md)| {
-                let content = crate::markdown_parser::parse_logseq_notebook(md, title, server_info);
-                let tantivy_title = JOURNAL_PREFIX.to_owned() + &title;
-                (tantivy_title, content)
-            }).collect(); //silly collect.
-
-
-        for (file_name, contents) in journals {
-            pages.push((file_name,contents));
-        }
-
-    }
-
-    pages
-
-}
-
-
-*/
 
 
 

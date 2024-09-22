@@ -1,5 +1,6 @@
-use fire_seq_search_server::load_notes::read_specific_directory;
 use fire_seq_search_server::markdown_parser::{exclude_advanced_query, parse_to_plain_text};
+
+use std::borrow::Cow;
 
 
 fn load_articles() -> Vec<(String, String)> {
@@ -39,12 +40,79 @@ fn parse() {
 #[test]
 fn exclude_advance_query() {
     let md = read_file_to_line("advanced_query.md");
-    let result = exclude_advanced_query(&md);
+    let md = Cow::from(md);
+    let result = exclude_advanced_query(md);
     assert!(!result.contains("exempli"));
     assert!(result.contains("In this test page we have"));
 
 
     let md = read_file_to_line("blog_thunderbird_zh.md");
-    let result = exclude_advanced_query(&md);
+    let md = Cow::from(md);
+    let result = exclude_advanced_query(md.clone());
     assert_eq!(md, result);
+}
+
+
+
+
+
+
+
+// =====================
+// These functions are removed in https://github.com/Endle/fireSeqSearch/pull/149/commits/7692bd9091380858b0cbeb2fa10d8c01dabcba91
+//  aka https://github.com/Endle/fireSeqSearch/pull/147
+// To make unit test happy, I copied them as test helper functions
+// Zhenbo - 2024 Sep 21
+use std::fs::DirEntry;
+use rayon::iter::IntoParallelRefIterator;
+use rayon::iter::ParallelIterator;
+use std::process;
+fn read_md_file_wo_parse(note: &std::fs::DirEntry) -> Option<(String, String)> {
+    if let Ok(file_type) = note.file_type() {
+        // Now let's show our entry's file type!
+        if file_type.is_dir() {
+            return None;
+        }
+    } else {
+        return None;
+    }
+
+    let note_path = note.path();
+    let note_title = match note_path.file_stem() {
+        Some(osstr) => osstr.to_str().unwrap(),
+        None => {
+            return None;
+        }
+    };
+    let content : String = match std::fs::read_to_string(&note_path) {
+        Ok(c) => c,
+        Err(e) => {
+            if note_title.to_lowercase() == ".ds_store" {
+            } else {
+            }
+            return None;
+        }
+    };
+
+    Some((note_title.to_string(),content))
+}
+fn read_specific_directory(path: &str) -> Vec<(String, String)> {
+    let notebooks = match std::fs::read_dir(path) {
+        Ok(x) => x,
+        Err(e) => {
+            process::abort();
+        }
+    };
+    let mut note_filenames: Vec<DirEntry> = Vec::new();
+    for note in notebooks {
+        let note : DirEntry = note.unwrap();
+        note_filenames.push(note);
+    }
+    let result: Vec<(String,String)> = note_filenames.par_iter()
+        .map(|note|  read_md_file_wo_parse(&note))
+        .filter(|x| (&x).is_some())
+        .map(|x| x.unwrap())
+        .collect();
+
+    result
 }

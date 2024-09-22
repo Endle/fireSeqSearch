@@ -1,13 +1,19 @@
 // Everything about Tantivy should be hidden behind this component
 
-use log::{debug, info, warn, error};
-use crate::{Article, decode_cjk_str};
+use log::{debug, info, error};
+use crate::decode_cjk_str;
 use crate::post_query::post_query_wrapper;
 use std::sync::Arc;
 
 
 
 use std::borrow::Cow;
+
+#[derive(Debug, Clone, serde::Serialize,PartialEq)]
+pub enum NotebookSoftware {
+    Logseq,
+    Obsidian,
+}
 
 // This struct should be immutable when the program starts running
 #[derive(Debug, Clone, serde::Serialize)]
@@ -19,7 +25,7 @@ pub struct ServerInformation {
     pub show_summary_single_line_chars_limit: usize,
     pub parse_pdf_links: bool,
     pub exclude_zotero_items:bool,
-    pub obsidian_md: bool,
+    pub software: NotebookSoftware,
 
     /// Experimental. Not sure if I should use this global config - 2022-12-30
     pub convert_underline_hierarchy: bool,
@@ -61,14 +67,6 @@ impl QueryEngine {
         let index: tantivy::Index = QueryEngine::build_index(&server_info,
             &document_setting,
             note_list).await;
-
-        /*
-        let loaded_notes = crate::load_notes::read_all_notes(&server_info);
-        let loaded_articles: Vec<Article> = loaded_notes.into_iter().map(
-            |x| Article{file_name:x.0, content:x.1}
-        ).collect();
-        let index = indexing_documents(&server_info, &document_setting, &loaded_articles);
-        */
         let (reader, query_parser) = build_reader_parser(&index, &document_setting);
 
         debug!("Query engine construction finished");
@@ -88,8 +86,6 @@ impl QueryEngine {
         document_setting: &DocumentSetting,
         note: NoteListItem,
         index_writer: &IndexWriter<TantivyDocument>) {
-
-        info!(" inside future {:?}", note);
 
         let raw_content = match std::fs::read_to_string(&note.realpath) {
             Ok(s) => s,
@@ -277,41 +273,6 @@ fn build_reader_parser(index: &tantivy::Index, document_setting: &DocumentSettin
     let query_parser = tantivy::query::QueryParser::for_index(index, vec![title, body]);
     (reader, query_parser)
 }
-
-/*
-fn indexing_documents(server_info: &ServerInformation,
-                      document_setting: &DocumentSetting,
-                      pages:&Vec<crate::Article>) -> tantivy::Index {
-
-    let schema = &document_setting.schema;
-    let index = tantivy::Index::create_in_ram(schema.clone());
-
-    index.tokenizers().register(TOKENIZER_ID, document_setting.tokenizer.clone());
-
-    let mut index_writer = index.writer(50_000_000).unwrap();
-
-
-    if server_info.obsidian_md {
-        warn!("Obsidian mode.");
-        assert!(!server_info.enable_journal_query);
-    }
-
-    let title = schema.get_field("title").unwrap();
-    let body = schema.get_field("body").unwrap();
-
-
-    for article in pages {
-        index_writer.add_document(
-            tantivy::doc!{ title => article.file_name.clone(),
-                body => article.content.clone()}
-        ).unwrap();
-    }
-    index_writer.commit().unwrap();
-    index
-}
-*/
-
-
 
 fn build_document_setting() -> DocumentSetting {
     let (schema, tokenizer) = build_schema_tokenizer();
