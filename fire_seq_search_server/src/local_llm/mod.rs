@@ -224,7 +224,6 @@ impl LlmEngine{
     }
 
     pub async fn call_llm_engine(&self) {
-
         let health = self.health().await.unwrap();
         if health.slots_idle == 0 {
             info!("No valid slot, continue");
@@ -254,8 +253,7 @@ impl LlmEngine{
         let summarize_result = self.summarize(&doc.body).await;
         info!("Finished summarize job:  {}", &title);
 
-        let mut jcache = self.job_cache.lock().await;//.unwrap();
-        next_job = jcache.job_queue.pop_front();
+        let mut jcache = self.job_cache.lock().await;
         jcache.done_job.insert(title, summarize_result);
         drop(jcache);
     }
@@ -290,6 +288,7 @@ struct LlamaFileDef {
     pub filename: String,
     pub filepath: Option<String>,
     pub sha256: String,
+    #[allow(dead_code)] /* TODO rethink if we want auto download 2024 Sep 21 */
     pub download_link: String,
 }
 
