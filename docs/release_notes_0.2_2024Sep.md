@@ -1,6 +1,6 @@
 ### 0.2.1  
 
-New feature: Note Summarization with Local LLM.
+New feature: Note Summarization with Local LLM. What happens locally, what stays locally. Your notes will be sent to a local language model (Mistral-7B). 
 
 #### Run server with local LLM  
 fireSeqSearch facilitates [llamafile](https://github.com/Mozilla-Ocho/llamafile) by [Mozilla](https://github.com/Mozilla-Ocho). 
