@@ -1,8 +1,10 @@
 set -e
-cargo build
+cargo build --features llm
 rm ./fire_seq_search_server -f
-cp --force target/debug/fire_seq_search_server.exe ./fire_seq_search_server
+cp --force target/debug/fire_seq_search_server ./fire_seq_search_server
+
+NOTEBOOK_NAME=AstroWiki_2.0-main
 
 RUST_BACKTRACE=1 RUST_LOG=debug ./fire_seq_search_server \
---notebook_path /c/Users/z2369li/Documents/graph-note-of-greek-myth/希腊神话 \
---obsidian-md
+    --notebook_path ~/Documents/$NOTEBOOK_NAME \
+    --obsidian-md

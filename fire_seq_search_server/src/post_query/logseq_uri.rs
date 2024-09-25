@@ -1,4 +1,4 @@
-use log::error;
+use log::{error,info};
 use crate::ServerInformation;
 use url::Url;
 
@@ -37,8 +37,8 @@ pub fn process_note_title(file_name: &str, server_info: &ServerInformation) -> S
     file_name
 }
 
-pub fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &ServerInformation) -> String {
-    return if *is_page_hit {
+pub fn generate_logseq_uri(title: &str, is_page_hit: bool, server_info: &ServerInformation) -> String {
+    return if is_page_hit {
         let title = process_note_title(title, server_info);
         let mut uri = Url::parse("logseq://graph/").unwrap();
         uri.set_path(&server_info.notebook_name);
@@ -53,7 +53,7 @@ pub fn generate_logseq_uri(title: &str, is_page_hit: &bool, server_info: &Server
 }
 
 #[derive(PartialEq, Debug)]
-struct JournalDate {
+pub struct JournalDate {
     pub year: u32,
     pub month: u32,
     pub date: u32,
@@ -152,9 +152,9 @@ fn parse_slice_to_u8(slice: Option<&str>) -> Option<u32> {
     }
 }
 
-fn parse_date_from_str(title: &str) -> Option<JournalDate> {
+pub fn parse_date_from_str(title: &str) -> Option<JournalDate> {
     if title.len() != 10 {
-        error!("Journal length unexpected: {}", title);
+        info!("Journal length unexpected: {}", title);
         return None;
     }
 
@@ -205,18 +205,18 @@ mod test_logseq_uri {
         let server_info = generate_server_info_for_test();
 
         // Don't encode / at here. It would be processed by serde. - 2022-11-27
-        let r = generate_logseq_uri("Games/EU4", &true, &server_info);
+        let r = generate_logseq_uri("Games/EU4", true, &server_info);
         assert_eq!(&r, "logseq://graph/logseq_notebook?page=Games%2FEU4");
 
-        let r = generate_logseq_uri("Games/赛马娘", &true, &server_info);
+        let r = generate_logseq_uri("Games/赛马娘", true, &server_info);
         assert_eq!(&r, "logseq://graph/logseq_notebook?page=Games%2F%E8%B5%9B%E9%A9%AC%E5%A8%98");
         let r = generate_logseq_journal_uri("2022_12_14", &server_info);
         assert_eq!(&r,"logseq://graph/logseq_notebook?page=Dec+14th%2C+2022");
 
-        let r = generate_logseq_uri("fireSeqSearch___test___5", &true, &server_info);
+        let r = generate_logseq_uri("fireSeqSearch___test___5", true, &server_info);
         assert_eq!(&r,"logseq://graph/logseq_notebook?page=fireSeqSearch%2Ftest%2F5");
 
-        let r = generate_logseq_uri("C++", &true, &server_info);
+        let r = generate_logseq_uri("C++", true, &server_info);
         assert_eq!(&r, "logseq://graph/logseq_notebook?page=C%2B%2B");
     }
 }

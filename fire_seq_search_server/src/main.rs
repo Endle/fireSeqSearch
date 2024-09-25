@@ -1,9 +1,8 @@
-use std::net::SocketAddr;
-
-use warp::Filter;
 use log::info;
 use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
+use fire_seq_search_server::local_llm::LlmEngine;
 
+use fire_seq_search_server::query_engine::NotebookSoftware::*;
 
 use clap::Parser;
 
@@ -45,7 +44,12 @@ struct Cli{
     host: Option<String>,
 }
 
+use tokio::task;
 
+use axum;
+use axum::routing::get;
+use fire_seq_search_server::http_client::endpoints;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() {
@@ -54,53 +58,50 @@ async fn main() {
         .format_target(false)
         .init();
 
-    let matches = Cli::parse();
-    let host = matches.host.clone().unwrap_or_else(|| "127.0.0.1:3030".to_string());
-    let host: SocketAddr = host.parse().unwrap_or_else(
-        |_| panic!("Invalid host: {}", host)
-    );
-    let server_info: ServerInformation = build_server_info(matches);
-    let engine = QueryEngine::construct(server_info);
+    let mut llm_loader = None;
+    if cfg!(feature="llm") {
+        info!("LLM Enabled");
+        //tokio::task::JoinHandle<LlmEngine>
+        llm_loader = Some(task::spawn( async { LlmEngine::llm_init().await }));
+    }
 
+    info!("main thread running");
+    let matches = Cli::parse();
+    let server_info: ServerInformation = build_server_info(matches);
+
+    let mut engine = QueryEngine::construct(server_info).await;
+
+    info!("query engine build finished");
+    if cfg!(feature="llm") {
+        let llm:LlmEngine = llm_loader.unwrap().await.unwrap();
+        let llm_arc = Arc::new(llm);
+        let llm_poll = llm_arc.clone();
+        engine.llm = Some(llm_arc);
+
+        let _poll_handle = tokio::spawn( async move {
+            loop {
+                llm_poll.call_llm_engine().await;
+                let wait_llm = tokio::time::Duration::from_millis(500);
+                tokio::time::sleep(wait_llm).await;
+            }
+        });
+    }
 
     let engine_arc = std::sync::Arc::new(engine);
-    let arc_for_query = engine_arc.clone();
-    let call_query = warp::path!("query" / String)
-        .map(move |name| {
-            fire_seq_search_server::http_client::endpoints::query(
-                name, arc_for_query.clone() )
-        });
 
-    let arc_for_server_info = engine_arc.clone();
-    let get_server_info = warp::path("server_info")
-        .map(move ||
-                 fire_seq_search_server::http_client::endpoints::get_server_info(
-                     arc_for_server_info.clone()
-                 ));
+    let app = axum::Router::new()
+        .route("/query/:term", get(endpoints::query))
+        .route("/server_info", get(endpoints::get_server_info))
+        .route("/wordcloud", get(endpoints::generate_word_cloud))
+        .route("/summarize/:title", get(endpoints::summarize))
+        .route("/llm_done_list", get(endpoints::get_llm_done_list))
+        .with_state(engine_arc.clone());
 
-    let arc_for_wordcloud = engine_arc.clone();
-    let create_word_cloud = warp::path("wordcloud")
-        .map(move || {
-            let div = fire_seq_search_server::http_client::endpoints::generate_word_cloud(
-                arc_for_wordcloud.clone()
-            );
-            warp::http::Response::builder()
-                .header("content-type", "text/html; charset=utf-8")
-                .body(div)
-                // .status(warp::http::StatusCode::OK)
-        });
-
-    let routes = warp::get().and(
-        call_query
-            .or(get_server_info)
-            .or(create_word_cloud)
-    );
-    warp::serve(routes)
-        .run(host)
-        .await;
-
-
-
+    let listener = tokio::net::TcpListener::bind(&engine_arc.server_info.host)
+        .await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+   // let llm = llm.await.unwrap();
+    //llm.summarize("hi my friend").await;
 }
 
 
@@ -117,6 +118,11 @@ fn build_server_info(args: Cli) -> ServerInformation {
             String::from(guess)
         }
     };
+    let host: String = args.host.clone().unwrap_or_else(|| "127.0.0.1:3030".to_string());
+    let mut software = Logseq;
+    if args.obsidian_md {
+        software = Obsidian;
+    }
     ServerInformation{
         notebook_path: args.notebook_path,
         notebook_name,
@@ -126,8 +132,10 @@ fn build_server_info(args: Cli) -> ServerInformation {
             args.show_summary_single_line_chars_limit,
         parse_pdf_links: args.parse_pdf_links,
         exclude_zotero_items:args.exclude_zotero_items,
-        obsidian_md: args.obsidian_md,
+        software,
         convert_underline_hierarchy: true,
+        host,
+        llm_enabled: cfg!(feature="llm"),
     }
 }
 

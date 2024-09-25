@@ -7,9 +7,9 @@ use crate::query_engine::ServerInformation;
 
 // https://docs.rs/regex/latest/regex/#repetitions
 // https://stackoverflow.com/a/8303552/1166518
-pub fn exclude_advanced_query(md: &str) -> Cow<str> {
+pub fn exclude_advanced_query(md: Cow<'_,str>) -> Cow<'_, str> {
     if !md.contains('#') {
-        return Cow::Borrowed(md);
+        return md;
     }
 
     lazy_static! {
@@ -17,8 +17,7 @@ pub fn exclude_advanced_query(md: &str) -> Cow<str> {
             r"\#\+BEGIN_QUERY[\S\s]+?\#\+END_QUERY")
             .unwrap();
     }
-    // return RE.replace_all(&md, "    ")
-    return RE.replace_all(&md, "    ");
+    return RE.replace_all(&md, "    ").into_owned().into();
 }
 
 fn hack_specific_chars_cow(text: Cow<str>) -> String {
@@ -27,13 +26,39 @@ fn hack_specific_chars_cow(text: Cow<str>) -> String {
     text.replace(bullet, " ")
 }
 
-pub fn parse_logseq_notebook(md: &str, title: &str, server_info: &ServerInformation) -> String {
+use crate::query_engine::NotebookSoftware;
+use std::borrow::Borrow;
+use log::info;
+
+fn remove_obsidian_header<'a>(content: Cow<'a, str>) -> Cow<'a, str> {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(
+            r"---[\s\S]*?---"
+        ).unwrap();
+    }
+    info!("from {:?}", &content);
+    let cr = content.borrow();
+    let ret: Cow<str> = RE.replace(cr, "    ");
+    info!("into {:?}", &ret);
+    ret.into_owned().into()
+}
+
+pub fn parse_logseq_notebook(md: Cow<'_,str>, title: &str, server_info: &ServerInformation) -> String {
     // Now we do some parsing for this file
     let content = exclude_advanced_query(md);
     let content = hack_specific_chars_cow(content);
+
+    let content = Cow::from(content);
+    let content = match &server_info.software {
+        NotebookSoftware::Obsidian => remove_obsidian_header(content),
+        _ => content,
+    };
     let content: String = markdown_to_text::convert_from_logseq(
         &content, title, server_info);
+
+    //let content = content.into_owned();
     content
+
 }
 
 

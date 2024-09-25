@@ -10,17 +10,15 @@ jobs:
   cargo-deny:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Install Rust 
+    - uses: actions/checkout@v4
+    - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
           toolchain: stable
           profile: minimal
           override: true
     - name: Run sccache-cache
-      uses: Xuanwo/sccache-action@c94e27bef21ab3fb4a5152c8a878c53262b4abb0
-      with:
-        version: "v0.4.0-pre.6"
+      uses: mozilla-actions/sccache-action@v0.0.5
     - name: Get Date
       id: get-date
       run: |
