@@ -125,8 +125,9 @@ impl LlmEngine {
         let lfile = locate_llamafile().await;
         let lfile:String = lfile.unwrap();
 
-        let _cmd = Command::new("sh")
-            .args([ &lfile, "--nobrowser",
+        let _cmd = Command::new("nice")
+            .args([ "-n", "19",
+                &lfile, "--nobrowser",
                 "--port", LLM_SERVER_PORT,
                 //">/tmp/llamafile.stdout", "2>/tmp/llamafile.stderr",
             ])
