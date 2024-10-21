@@ -1,12 +1,8 @@
-fireSeqSearch: Append Logseq notes while Googling
+fireSeqSearch: Append Logseq/Obsidian notes while Googling
 
 Introduction
 --------
 [fireSeqSearch](https://github.com/Endle/fireSeqSearch) is inspired by [Evernote](https://evernote.com)'s browser extension - if we search a term, for example, `softmax` in Google, [fireSeqSearch](https://github.com/Endle/fireSeqSearch) will also search in our personal notebook, and append the hits into Google results.
-
-
-With [logseq 0.6.6](https://discuss.logseq.com/t/done-deep-linking-or-url-scheme-allow-linking-to-logseq-pages-from-outside-the-app/3146/26?u=endle), [Logseq URL Protocol](http://discordapp.com/channels/725182569297215569/756886540038438992/965024044183339088) ,  it's time for [fireSeqSearch](https://github.com/Endle/fireSeqSearch) to support jumping into Logseq!
-
 
 More examples at <https://github.com/Endle/fireSeqSearch/blob/master/docs/examples.md>
 
@@ -40,33 +36,6 @@ Steps:
 4. `target/debug/fire_seq_search_server --notebook_path /home/li/my_notebook`
 5. Min rust version: See https://github.com/Endle/fireSeqSearch/blob/master/.github/workflows/rust.yml#L21
 
-
-#### Docker (experimental)
-
-```
-git clone https://github.com/Endle/fireSeqSearch && cd fireSeqSearch
-```
-
-Configure the path to your logseq notebook by
-
-```
-cp example.env .env
-```
-
-and edit `.env`.
-
-Finally run
-
-```
-docker-compose up -d
-```
-
-> **Note**: Alternatively, you can also run docker directly without docker-compose via:
-
-```bash
-export $(cat .env | xargs)
-docker run -d -v $NOTEBOOK_DIR:$NOTEBOOK_DIR -p 127.0.0.1:3030:3030 --env-file .env ghcr.io/endle/fireseqsearch:latest
-```
 
 
 License
