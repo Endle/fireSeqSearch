@@ -1,4 +1,4 @@
-use log::{error,info};
+use log::error;
 use crate::ServerInformation;
 use url::Url;
 
@@ -154,7 +154,6 @@ fn parse_slice_to_u8(slice: Option<&str>) -> Option<u32> {
 
 pub fn parse_date_from_str(title: &str) -> Option<JournalDate> {
     if title.len() != 10 {
-        info!("Journal length unexpected: {}", title);
         return None;
     }
 

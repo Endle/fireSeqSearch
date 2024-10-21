@@ -50,7 +50,7 @@ impl FireSeqSearchHitParsed {
 
         let logseq_uri = generate_uri_v2(&title, server_info);
 
-        debug!("Processing a hit, title={}, uri={}", &title, &logseq_uri);
+        debug!("Processing a hit, title={}, uri={}, summary_len={}", &title, &logseq_uri,summary.len());
 
         let metadata: String = if is_page_hit {
             String::from("page_hit")

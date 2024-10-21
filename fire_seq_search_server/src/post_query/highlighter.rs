@@ -180,8 +180,9 @@ impl RenderBlock {
     // pub for test
     pub fn split_leaf_node_by_terms(&self, terms: &[&str], server_info: &ServerInformation) ->Vec<RenderBlock>{
         if terms.is_empty() { return Vec::new(); }
-        debug!("Highlighting token: {:?}", terms);
+        debug!("Highlighting token: {:?}, num={}", terms, terms.len());
         let r = self.split_leaf_node_by_single_term(terms[0], server_info);
+        debug!("Split into children {:?}", &r);
         if r.is_empty() { return self.split_leaf_node_by_terms(&terms[1..], server_info); }
         let mut result = Vec::new();
         debug!("We have {} blocks: {:?}", r.len(), &r);
@@ -200,10 +201,10 @@ impl RenderBlock {
         self.check();
         if self.is_hit { return ; }
         if self.children.is_empty() {
-            let child = self.split_leaf_node_by_terms(terms, server_info);
-            debug!("Children list: {:?}", &child);
-            if !child.is_empty() {
-                self.children = child;
+            let children_vec: Vec<RenderBlock> = self.split_leaf_node_by_terms(terms, server_info);
+            debug!("Children number after split: {}", children_vec.len());
+            if !children_vec.is_empty() {
+                self.children = children_vec;
                 self.text = String::default();
             }
         }
@@ -238,9 +239,7 @@ pub fn highlight_keywords_in_body(body: &str, term_tokens: &Vec<String>,
     let mut tree_root: RenderBlock = build_tree(body, server_info);
     tree_root.parse_highlight(&terms_selected, server_info);
     tree_root.flattern();
-    
     tree_root.render_to_string()
-
 }
 
 pub fn highlight_sentence_with_keywords(sentence: &str,
