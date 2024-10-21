@@ -1,6 +1,6 @@
 use log::info;
 use crate::query_engine::ServerInformation;
-use crate::tokenize_default;
+use crate::language_tools::tokenizer::tokenize;
 
 pub mod logseq_uri;
 pub mod highlighter;
@@ -15,8 +15,8 @@ pub fn post_query_wrapper(top_docs: Vec<(f32, tantivy::DocAddress)>,
                       term: &str,
                       searcher: &tantivy::Searcher,
                       server_info: &ServerInformation) -> Vec<String> {
-    let term_tokens = tokenize_default(term);
-    info!("get term tokens {:?}", &term_tokens);
+    let term_tokens = tokenize(term);
+    info!("get term tokens({}) {:?}", term_tokens.len(), &term_tokens);
     let result: Vec<String> = top_docs.par_iter()
         .map(|x| parse_and_serde(x, searcher, &term_tokens, server_info))
         .collect();
@@ -33,6 +33,6 @@ fn parse_and_serde(x: &(f32, tantivy::DocAddress),
     let hit_parsed = FireSeqSearchHitParsed::from_tantivy(
         &doc, score, term_tokens, server_info
     ); // it also provides the highlight
-
     hit_parsed.serde_to_string()
 }
+
