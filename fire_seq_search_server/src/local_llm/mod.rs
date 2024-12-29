@@ -10,7 +10,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::task::yield_now;
 use tokio::task;
-use tokio::time;
+use tokio;
 
 use std::borrow::Cow;
 use std::borrow::Cow::Borrowed;
@@ -88,9 +88,17 @@ pub struct HealthCheck {
 
 const LLM_SERVER_PORT: &str = "8081"; // TODO Remove this magic number
 
+
+#[derive(Debug)]
+pub struct LlmJob {
+    pub title: String,
+    pub body : String,
+    pub time : std::time::Instant, /* 16 bytes */
+}
+
 struct JobProcessor {
     done_job: HashMap<String, String>,
-    job_queue: VecDeque<DocData>,
+    job_queue: VecDeque<LlmJob>,
 }
 
 impl JobProcessor {
@@ -104,7 +112,12 @@ impl JobProcessor {
         let title: &str = &doc.title;
         info!("Job posted for {}", &title);
         if !self.done_job.contains_key(title) {
-            self.job_queue.push_back(doc);
+            let job: LlmJob = LlmJob {
+                title: doc.title,
+                body:  doc.body,
+                time:  std::time::Instant::now(),
+            };
+            self.job_queue.push_back(job);
         }
     }
 }
@@ -129,7 +142,6 @@ impl LlmEngine {
             .args([ "-n", "19",
                 &lfile, "--nobrowser",
                 "--port", LLM_SERVER_PORT,
-                //">/tmp/llamafile.stdout", "2>/tmp/llamafile.stderr",
             ])
             .stdout(Stdio::from(File::create("/tmp/llamafile.stdout.txt").unwrap()))
             .stderr(Stdio::from(File::create("/tmp/llamafile.stderr.txt").unwrap()))
@@ -137,19 +149,18 @@ impl LlmEngine {
             .expect("llm model failed to launch");
 
         yield_now().await;
-        let wait_llm = time::Duration::from_millis(500);
+        let wait_llm = tokio::time::Duration::from_millis(500);
         tokio::time::sleep(wait_llm).await;
         task::yield_now().await;
 
         let endpoint = format!("http://127.0.0.1:{}", LLM_SERVER_PORT).to_string();
-
 
         loop {
             let resp = reqwest::get(endpoint.to_owned() + "/health").await;
             let resp = match resp {
                 Err(_e) => {
                     info!("llm not ready");
-                    let wait_llm = time::Duration::from_millis(1000);
+                    let wait_llm = tokio::time::Duration::from_millis(1000);
                     tokio::time::sleep(wait_llm).await;
                     task::yield_now().await;
                     continue;
@@ -230,7 +241,7 @@ impl LlmEngine{
             return;
         }
 
-        let next_job: Option<DocData>;
+        let next_job: Option<LlmJob>;
 
         let mut jcache = self.job_cache.lock().await;//.unwrap();
         next_job = jcache.job_queue.pop_front();
