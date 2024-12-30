@@ -35,7 +35,6 @@ confidence-threshold = 0.8
 # aren't accepted for every possible crate as with the normal allow list
 exceptions = [
     { name = "fastdivide", allow = ["zlib-acknowledgement"] },
-    { name = "unicode-ident", allow = ["Unicode-DFS-2016"] },
 ]
 
 # This section is considered when running `cargo deny check bans`.
