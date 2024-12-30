@@ -13,6 +13,7 @@ use log::{debug, info};
 pub fn filter_out_stopwords<'a,'b>(term_tokens: &'a [String], nltk: &'b HashSet<String>) -> Vec<&'a str> {
     let term_ref: Vec<&str> = term_tokens.iter().map(|s| &**s).collect();
     let terms_selected: Vec<&str> = term_ref.into_iter()
+        .filter(|&s| ! (s.trim().is_empty()  ) )
         .filter(|&s| !nltk.contains(&(&s).to_lowercase()  )  )
         .collect();
     terms_selected

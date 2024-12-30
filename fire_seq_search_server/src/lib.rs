@@ -174,6 +174,7 @@ pub fn generate_server_info_for_test() -> ServerInformation {
         convert_underline_hierarchy: true,
         host: "127.0.0.1:22024".to_string(),
         llm_enabled: false,
+        llm_max_waiting_time: 60,
     };
     server_info
 }
