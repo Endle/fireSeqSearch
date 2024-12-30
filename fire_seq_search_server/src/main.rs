@@ -136,7 +136,7 @@ fn build_server_info(args: Cli) -> ServerInformation {
         convert_underline_hierarchy: true,
         host,
         llm_enabled: cfg!(feature="llm"),
-        llm_max_waiting_time: 60,
+        llm_max_waiting_time: 180,
     }
 }
 
