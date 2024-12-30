@@ -33,6 +33,7 @@ pub struct ServerInformation {
     pub host: String,
 
     pub llm_enabled: bool,
+    pub llm_max_waiting_time: u64, /* in secs */
 }
 
 use crate::language_tools::tokenizer::FireSeqTokenizer;

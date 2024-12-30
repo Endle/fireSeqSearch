@@ -122,17 +122,19 @@ impl JobProcessor {
     }
 }
 
+use crate::ServerInformation;
+
 pub struct LlmEngine {
     endpoint: String,
     client: reqwest::Client,
     job_cache: Arc<Mutex<JobProcessor>>,
-    //job_cache :Arc<Mutex<HashMap<String, Option<String> >>>,
+    server_info: Arc<ServerInformation>,
 }
 
 
 
 impl LlmEngine {
-    pub async fn llm_init() -> Self {
+    pub async fn llm_init(server_info: Arc<ServerInformation>) -> Self {
         info!("llm called");
 
         let lfile = locate_llamafile().await;
@@ -182,7 +184,8 @@ impl LlmEngine {
         Self {
             endpoint,
             client,
-            job_cache: map
+            job_cache: map,
+            server_info,
         }
     }
 
@@ -259,6 +262,15 @@ impl LlmEngine{
             return;
         }
         drop(jcache);
+
+        let waiting_time = doc.time.elapsed().as_secs();
+        let allowed_wait = self.server_info.llm_max_waiting_time;
+        if waiting_time > allowed_wait {
+            info!("Waiting for {} for {} seconds, discard",
+                &title, waiting_time);
+            return;
+        }
+
 
         info!("Start summarize job:  {}", &title);
         let summarize_result = self.summarize(&doc.body).await;

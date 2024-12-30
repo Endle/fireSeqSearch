@@ -58,16 +58,16 @@ async fn main() {
         .format_target(false)
         .init();
 
-    let mut llm_loader = None;
-    if cfg!(feature="llm") {
-        info!("LLM Enabled");
-        //tokio::task::JoinHandle<LlmEngine>
-        llm_loader = Some(task::spawn( async { LlmEngine::llm_init().await }));
-    }
-
     info!("main thread running");
     let matches = Cli::parse();
     let server_info: ServerInformation = build_server_info(matches);
+
+    let mut llm_loader = None;
+    if cfg!(feature="llm") {
+        info!("LLM Enabled");
+        let serv_info = Arc::new(server_info.clone());
+        llm_loader = Some(task::spawn( async { LlmEngine::llm_init( serv_info ).await }));
+    }
 
     let mut engine = QueryEngine::construct(server_info).await;
 
@@ -136,6 +136,7 @@ fn build_server_info(args: Cli) -> ServerInformation {
         convert_underline_hierarchy: true,
         host,
         llm_enabled: cfg!(feature="llm"),
+        llm_max_waiting_time: 60,
     }
 }
 
