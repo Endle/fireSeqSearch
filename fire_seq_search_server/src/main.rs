@@ -100,11 +100,7 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(&engine_arc.server_info.host)
         .await.unwrap();
     axum::serve(listener, app).await.unwrap();
-   // let llm = llm.await.unwrap();
-    //llm.summarize("hi my friend").await;
 }
-
-
 
 
 
