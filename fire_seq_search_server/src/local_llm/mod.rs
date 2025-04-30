@@ -124,23 +124,30 @@ impl JobProcessor {
 
 use crate::ServerInformation;
 
+
+use sysinfo::Pid;
+
 pub struct LlmEngine {
     endpoint: String,
     client: reqwest::Client,
     job_cache: Arc<Mutex<JobProcessor>>,
     server_info: Arc<ServerInformation>,
+    engine_pid: Pid,
 }
 
 
 
 impl LlmEngine {
+    pub fn pid_hit_list(&self)->Pid { // TODO not a list yet
+        return self.engine_pid;
+    }
     pub async fn llm_init(server_info: Arc<ServerInformation>) -> Self {
         info!("llm called");
 
         let lfile = locate_llamafile().await;
         let lfile:String = lfile.unwrap();
 
-        let _cmd = Command::new("nice")
+        let cmd = Command::new("nice")
             .args([ "-n", "19",
                 &lfile, "--nobrowser",
                 "--port", LLM_SERVER_PORT,
@@ -186,6 +193,7 @@ impl LlmEngine {
             client,
             job_cache: map,
             server_info,
+            engine_pid: Pid::from_u32(cmd.id()),
         }
     }
 

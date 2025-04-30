@@ -50,6 +50,8 @@ use axum;
 use axum::routing::get;
 use fire_seq_search_server::http_client::endpoints;
 use std::sync::Arc;
+use ctrlc;
+use kill_tree::{blocking::kill_tree};
 
 #[tokio::main]
 async fn main() {
@@ -87,7 +89,20 @@ async fn main() {
         });
     }
 
+
     let engine_arc = std::sync::Arc::new(engine);
+
+    let engine_arc_for_destructor = engine_arc.clone();
+    ctrlc::set_handler(move|| {
+        info!("Ctrl - C received. Exiting...");
+        if cfg!(feature="llm") {
+            let llm = engine_arc_for_destructor.llm.as_ref().unwrap();
+            let pid = llm.pid_hit_list();
+            info!("Kill LLM Engine by pid {}", &pid);
+            kill_tree(pid.as_u32()).unwrap();
+        }
+        std::process::exit(0);
+    }).expect("Error setting Ctrl-C handler");
 
     let app = axum::Router::new()
         .route("/query/:term", get(endpoints::query))

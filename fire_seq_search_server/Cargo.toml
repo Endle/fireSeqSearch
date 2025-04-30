@@ -35,7 +35,9 @@ clap = { version = "4.0", features = ["derive"] }
 lazy_static = "1.4.0"
 rayon = "1.5"
 futures = "0.3"
-
+ctrlc = "3.4"
+sysinfo = "0.34.2"
+kill_tree = "0.2.4"
 urlencoding = "2.1.0"
 
 
