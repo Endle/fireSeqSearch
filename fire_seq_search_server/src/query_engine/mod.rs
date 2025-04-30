@@ -61,6 +61,9 @@ use futures::stream::FuturesUnordered;
  use tantivy::doc;
 
 impl QueryEngine {
+    pub fn exit(&mut self) {
+    }
+
     pub async fn construct(server_info: ServerInformation) -> Self {
 
         let document_setting: DocumentSetting = build_document_setting();
