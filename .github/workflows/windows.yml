@@ -161,7 +161,7 @@ jobs:
           mv fire_seq_search_server/target/debug/fire_seq_search_server.exe builds
         shell: cmd
       - name: Upload Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: logseq-${{ runner.os }}-builds
           path: builds
