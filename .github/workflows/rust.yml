@@ -113,7 +113,7 @@ jobs:
           mkdir builds
           mv fire_seq_search_server/target/debug/fire_seq_search_server builds
       - name: Upload Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: logseq-${{ runner.os }}-builds
           path: builds
