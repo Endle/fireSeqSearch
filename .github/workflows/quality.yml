@@ -18,7 +18,7 @@ jobs:
           profile: minimal
           override: true
     - name: Run sccache-cache
-      uses: mozilla-actions/sccache-action@v0.0.5
+      uses: mozilla-actions/sccache-action@v0.0.8
     - name: Get Date
       id: get-date
       run: |

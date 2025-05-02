@@ -51,9 +51,7 @@ jobs:
           rustup target add ${{ matrix.target }}
         shell: powershell
       - name: Run sccache-cache
-        uses: Xuanwo/sccache-action@c94e27bef21ab3fb4a5152c8a878c53262b4abb0
-        with:
-          version: "v0.4.0-pre.6"
+        uses: mozilla-actions/sccache-action@v0.0.8
       - name: Get Date
         id: get-date
         run: |
@@ -163,7 +161,7 @@ jobs:
           mv fire_seq_search_server/target/debug/fire_seq_search_server.exe builds
         shell: cmd
       - name: Upload Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: logseq-${{ runner.os }}-builds
           path: builds
