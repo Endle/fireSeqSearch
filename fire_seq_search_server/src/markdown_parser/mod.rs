@@ -47,6 +47,7 @@ pub fn parse_logseq_notebook(md: Cow<'_,str>, title: &str, server_info: &ServerI
     // Now we do some parsing for this file
     let content = exclude_advanced_query(md);
     let content = hack_specific_chars_cow(content);
+    let content = remove_angled_bracket(content);
 
     let content = Cow::from(content);
     let content = match &server_info.software {
@@ -61,13 +62,21 @@ pub fn parse_logseq_notebook(md: Cow<'_,str>, title: &str, server_info: &ServerI
 
 }
 
-
+// TODO This function is no longer used. 2025-04-30
 pub fn parse_to_plain_text(md: &str) -> String {
     let plain_text: String = markdown_to_text::convert(&md);
     let plain_text = hack_specific_chars(plain_text);
+    let plain_text = remove_angled_bracket(plain_text);
 
     // println!("{}", &plain_text);
     plain_text
+}
+
+// < > will break html elements
+fn remove_angled_bracket(text: String) -> String {
+    let s1 = text.replace('<', "(");
+    let s2 =   s1.replace('>', ")");
+    s2
 }
 
 fn hack_specific_chars(text: String) -> String {
