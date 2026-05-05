@@ -42,13 +42,13 @@ struct DocumentSetting {
     tokenizer: FireSeqTokenizer,
 }
 
-use crate::local_llm::LlmEngine;
+use crate::llm_backend::SummaryEngine;
 pub struct QueryEngine {
     pub server_info: ServerInformation,
     reader: tantivy::IndexReader,
     query_parser: tantivy::query::QueryParser,
     //articles: Vec<Article>, //TODO remove it. only word cloud needs it
-    pub llm: Option<Arc<LlmEngine>>,
+    pub llm: Option<Arc<SummaryEngine>>,
 }
 
 use tantivy::IndexWriter;
@@ -191,12 +191,10 @@ impl QueryEngine {
         let top_docs: Vec<(f32, tantivy::DocAddress)> = self.get_top_docs(&term);
         let searcher: tantivy::Searcher = self.reader.searcher();
 
-        if cfg!(feature="llm") {
-            for (_f, docid) in &top_docs {
-                let doc = DocData::retrive(&searcher, *docid);
-                let llm = self.llm.as_ref().unwrap();
-                llm.post_summarize_job(doc).await;
-            }
+        for (_f, docid) in &top_docs {
+            let doc = DocData::retrive(&searcher, *docid);
+            let llm = self.llm.as_ref().unwrap();
+            llm.post_summarize_job(doc).await;
         }
 
 
@@ -237,21 +235,12 @@ impl QueryEngine {
     }
     pub async fn summarize(&self, title: String) -> String {
         info!("Called summarize on {}", &title);
-        if cfg!(feature="llm") {
-            self.wait_for_summarize(title).await
-        } else {
-            "LLM turned off".to_owned()
-        }
+        self.wait_for_summarize(title).await
     }
     pub async fn get_llm_done_list(&self) -> String {
-        if cfg!(feature="llm") {
-            let llm = self.llm.as_ref().unwrap();
-            let result = &llm.get_llm_done_list().await;
-            let json = serde_json::to_string(&result).unwrap();
-            return json;
-        } else {
-            "LLM turned off".to_owned()
-        }
+        let llm = self.llm.as_ref().unwrap();
+        let result = &llm.get_llm_done_list().await;
+        serde_json::to_string(&result).unwrap()
     }
 }
 

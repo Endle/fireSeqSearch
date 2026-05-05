@@ -1,19 +1,28 @@
-use log::info;
-use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
-use fire_seq_search_server::local_llm::LlmEngine;
-
-use fire_seq_search_server::query_engine::NotebookSoftware::*;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use clap::Parser;
+use kill_tree::blocking::kill_tree;
+use log::{error, info};
+use tokio::task;
+
+use fire_seq_search_server::http_client::endpoints;
+use fire_seq_search_server::llm_backend::{
+    EndpointSource, LlmBackend, LlmBackendConfig, SummaryEngine,
+};
+use fire_seq_search_server::query_engine::NotebookSoftware::*;
+use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
 
 #[derive(Parser)]
 #[command(author, version)]
-#[command(about = "Server for fireSeqSearch: hosting logseq notebooks at 127.0.0.1",
-    long_about = None)]
-struct Cli{
-    #[arg(long="notebook_path")]
+#[command(
+    about = "Server for fireSeqSearch: hosting logseq notebooks at 127.0.0.1",
+    long_about = None
+)]
+struct Cli {
+    #[arg(long = "notebook_path")]
     notebook_path: String,
-    #[arg(long="notebook_name")]
+    #[arg(long = "notebook_name")]
     notebook_name: Option<String>,
 
     #[arg(long, default_value_t = false)]
@@ -22,36 +31,62 @@ struct Cli{
     #[arg(long, default_value_t = false)]
     obsidian_md: bool,
 
-    #[arg(long,default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     enable_journal_query: bool,
 
-    #[arg(long,default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     exclude_zotero_items: bool,
 
-    #[arg(long,default_value_t = 10, value_name="HITS")]
+    #[arg(long, default_value_t = 10, value_name = "HITS")]
     show_top_hits: usize,
 
-/*
-        This is really an arbitrary limit.
-        https://stackoverflow.com/a/33758289/1166518
-        It doesn't mean the width limit of output,
-            but a threshold between short paragraph and long paragraph
- */
-    #[arg(long,default_value_t = 120*2, value_name="LEN")]
+    #[arg(long, default_value_t = 120 * 2, value_name = "LEN")]
     show_summary_single_line_chars_limit: usize,
 
-    #[arg(long="host")]
+    #[arg(long = "host")]
     host: Option<String>,
+
+    // ----- LLM backend (phase 1) -----
+    /// External embeddings endpoint URL (e.g. http://127.0.0.1:11434). When set, no embedding subprocess is spawned.
+    #[arg(long)]
+    embed_endpoint: Option<String>,
+
+    /// External chat endpoint URL. When set, no chat subprocess is spawned.
+    #[arg(long)]
+    chat_endpoint: Option<String>,
+
+    /// Path to embedding model (gguf). Used only when --embed-endpoint is unset.
+    #[arg(long, default_value = "~/.cache/fire_seq_search/models/bge-m3-Q4_K_M.gguf")]
+    embed_model: PathBuf,
+
+    /// Path to chat model. Defaults to the legacy mistral llamafile location for back-compat.
+    #[arg(long, default_value = "~/.llamafile/mistral-7b-instruct-v0.2.Q4_0.llamafile")]
+    chat_model: PathBuf,
+
+    /// Path to llama-server binary. Ignored when the model is a `.llamafile`.
+    #[arg(long, default_value = "llama-server")]
+    llama_server_bin: PathBuf,
+
+    #[arg(long, default_value_t = 8082)]
+    embed_port: u16,
+
+    #[arg(long, default_value_t = 8081)]
+    chat_port: u16,
+
+    /// Model name sent in OpenAI-compat request `model` field. Required by Ollama.
+    #[arg(long, default_value = "default")]
+    embed_model_name: String,
+
+    #[arg(long, default_value = "default")]
+    chat_model_name: String,
+
+    /// Extra args passed verbatim to the spawned embed llama-server.
+    #[arg(long, default_value = "")]
+    embed_extra_args: String,
+
+    #[arg(long, default_value = "")]
+    chat_extra_args: String,
 }
-
-use tokio::task;
-
-use axum;
-use axum::routing::get;
-use fire_seq_search_server::http_client::endpoints;
-use std::sync::Arc;
-use ctrlc;
-use kill_tree::{blocking::kill_tree};
 
 #[tokio::main]
 async fn main() {
@@ -62,94 +97,118 @@ async fn main() {
 
     info!("main thread running");
     let matches = Cli::parse();
-    let server_info: ServerInformation = build_server_info(matches);
+    let llm_cfg = build_llm_config(&matches);
+    let server_info: ServerInformation = build_server_info(&matches);
 
-    let mut llm_loader = None;
-    if cfg!(feature="llm") {
-        info!("LLM Enabled");
-        let serv_info = Arc::new(server_info.clone());
-        llm_loader = Some(task::spawn( async { LlmEngine::llm_init( serv_info ).await }));
-    }
+    let llm_loader = task::spawn(async move { LlmBackend::launch(llm_cfg).await });
 
     let mut engine = QueryEngine::construct(server_info).await;
-
     info!("query engine build finished");
-    if cfg!(feature="llm") {
-        let llm:LlmEngine = llm_loader.unwrap().await.unwrap();
-        let llm_arc = Arc::new(llm);
-        let llm_poll = llm_arc.clone();
-        engine.llm = Some(llm_arc);
 
-        let _poll_handle = tokio::spawn( async move {
-            loop {
-                llm_poll.call_llm_engine().await;
-                let wait_llm = tokio::time::Duration::from_millis(500);
-                tokio::time::sleep(wait_llm).await;
+    let backend = match llm_loader.await.unwrap() {
+        Ok(b) => Arc::new(b),
+        Err(e) => {
+            error!("LLM backend failed to start: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let summary = Arc::new(SummaryEngine::new(
+        backend.clone(),
+        engine.server_info.llm_max_waiting_time,
+    ));
+    engine.llm = Some(summary.clone());
+
+    let summary_poll = summary.clone();
+    let _poll_handle = tokio::spawn(async move {
+        loop {
+            summary_poll.call_llm_engine().await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        }
+    });
+
+    let engine_arc = Arc::new(engine);
+    let backend_for_destructor = backend.clone();
+    ctrlc::set_handler(move || {
+        info!("Ctrl-C received. Exiting...");
+        for pid in backend_for_destructor.child_pids() {
+            info!("Kill child pid {}", pid);
+            if let Err(e) = kill_tree(pid) {
+                error!("kill_tree({}) failed: {:?}", pid, e);
             }
-        });
-    }
-
-
-    let engine_arc = std::sync::Arc::new(engine);
-
-    let engine_arc_for_destructor = engine_arc.clone();
-    ctrlc::set_handler(move|| {
-        info!("Ctrl - C received. Exiting...");
-        if cfg!(feature="llm") {
-            let llm = engine_arc_for_destructor.llm.as_ref().unwrap();
-            let pid = llm.pid_hit_list();
-            info!("Kill LLM Engine by pid {}", &pid);
-            kill_tree(pid.as_u32()).unwrap();
         }
         std::process::exit(0);
-    }).expect("Error setting Ctrl-C handler");
+    })
+    .expect("Error setting Ctrl-C handler");
 
     let app = axum::Router::new()
-        .route("/query/:term", get(endpoints::query))
-        .route("/server_info", get(endpoints::get_server_info))
-        .route("/wordcloud", get(endpoints::generate_word_cloud))
-        .route("/summarize/:title", get(endpoints::summarize))
-        .route("/llm_done_list", get(endpoints::get_llm_done_list))
+        .route("/query/:term", axum::routing::get(endpoints::query))
+        .route("/server_info", axum::routing::get(endpoints::get_server_info))
+        .route("/wordcloud", axum::routing::get(endpoints::generate_word_cloud))
+        .route("/summarize/:title", axum::routing::get(endpoints::summarize))
+        .route("/llm_done_list", axum::routing::get(endpoints::get_llm_done_list))
         .with_state(engine_arc.clone());
 
     let listener = tokio::net::TcpListener::bind(&engine_arc.server_info.host)
-        .await.unwrap();
+        .await
+        .unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
+fn build_llm_config(args: &Cli) -> LlmBackendConfig {
+    let embed = match &args.embed_endpoint {
+        Some(url) => EndpointSource::External(url.clone()),
+        None => EndpointSource::Spawn {
+            model: args.embed_model.clone(),
+            port: args.embed_port,
+            extra_args: split_extra_args(&args.embed_extra_args),
+        },
+    };
+    let chat = match &args.chat_endpoint {
+        Some(url) => EndpointSource::External(url.clone()),
+        None => EndpointSource::Spawn {
+            model: args.chat_model.clone(),
+            port: args.chat_port,
+            extra_args: split_extra_args(&args.chat_extra_args),
+        },
+    };
+    LlmBackendConfig {
+        embed,
+        chat,
+        embed_model_name: args.embed_model_name.clone(),
+        chat_model_name: args.chat_model_name.clone(),
+        llama_server_bin: args.llama_server_bin.clone(),
+    }
+}
 
+fn split_extra_args(s: &str) -> Vec<String> {
+    s.split_whitespace().map(|t| t.to_owned()).collect()
+}
 
-fn build_server_info(args: Cli) -> ServerInformation {
-    let notebook_name = match args.notebook_name {
-        Some(x) => x.to_string(),
+fn build_server_info(args: &Cli) -> ServerInformation {
+    let notebook_name = match &args.notebook_name {
+        Some(x) => x.clone(),
         None => {
             let chunks: Vec<&str> = args.notebook_path.split('/').collect();
-            let guess: &str = *chunks.last().unwrap();
+            let guess: &str = chunks.last().unwrap();
             info!("fire_seq_search guess the notebook name is {}", guess);
             String::from(guess)
         }
     };
     let host: String = args.host.clone().unwrap_or_else(|| "127.0.0.1:3030".to_string());
-    let mut software = Logseq;
-    if args.obsidian_md {
-        software = Obsidian;
-    }
-    ServerInformation{
-        notebook_path: args.notebook_path,
+    let software = if args.obsidian_md { Obsidian } else { Logseq };
+    ServerInformation {
+        notebook_path: args.notebook_path.clone(),
         notebook_name,
         enable_journal_query: args.enable_journal_query,
         show_top_hits: args.show_top_hits,
-        show_summary_single_line_chars_limit:
-            args.show_summary_single_line_chars_limit,
+        show_summary_single_line_chars_limit: args.show_summary_single_line_chars_limit,
         parse_pdf_links: args.parse_pdf_links,
-        exclude_zotero_items:args.exclude_zotero_items,
+        exclude_zotero_items: args.exclude_zotero_items,
         software,
         convert_underline_hierarchy: true,
         host,
-        llm_enabled: cfg!(feature="llm"),
+        llm_enabled: true,
         llm_max_waiting_time: 180,
     }
 }
-
-
-

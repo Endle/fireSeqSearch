@@ -63,15 +63,7 @@ pdf-extract-temporary-mitigation-panic = "0.7.1"
 
 
 
-# TODO Currently turn them off will make cargo build fail
-#   I should make these deps optional, so those who doesn't want LLM could have a smaller binary
-sha256 = { version = "1.5.0", optional = true }
-reqwest = { version = "0.12", features = ["json"], optional = false }
-serde_derive = { version = "1.0.209", optional = false}
-
-[features]
-#default = ["llm"]
-llm = ["sha256",
-    #"serde_derive",
-        #"request"
-]
+# LLM backend (always on)
+reqwest = { version = "0.12", features = ["json"] }
+serde_derive = "1.0.209"
+thiserror = "1"
