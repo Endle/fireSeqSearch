@@ -43,12 +43,14 @@ struct DocumentSetting {
 }
 
 use crate::llm_backend::SummaryEngine;
+use crate::indexer::IndexerHandle;
 pub struct QueryEngine {
     pub server_info: ServerInformation,
     reader: tantivy::IndexReader,
     query_parser: tantivy::query::QueryParser,
     //articles: Vec<Article>, //TODO remove it. only word cloud needs it
     pub llm: Option<Arc<SummaryEngine>>,
+    pub indexer: Option<IndexerHandle>,
 }
 
 use tantivy::IndexWriter;
@@ -79,6 +81,7 @@ impl QueryEngine {
         //    articles: Vec::new(),
          //   articles: loaded_articles,
             llm: None,
+            indexer: None,
         }
     }
 

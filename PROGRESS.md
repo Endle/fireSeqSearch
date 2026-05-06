@@ -9,7 +9,7 @@ RAG-based Q&A.
 | Phase | Scope | Status |
 |---|---|---|
 | 1 | Replace `local_llm/` with `llm_backend/` (OpenAI-compat embed + chat) | **Done** (commit `8b5eb34`) |
-| 2 | Indexer + SQLite persistence + markdown-aware chunker + embedding pipeline | Not started |
+| 2 | Indexer + SQLite persistence + markdown-aware chunker + embedding pipeline | **Done** |
 | 3 | Semantic `/query`, drop tantivy, update browser-extension contract | Not started |
 | 4 | New `/ask` endpoint with full RAG (retrieve → generate → cite), streaming | Not started |
 | 5 | Delete `summary_shim.rs`, retire `/summarize` and `/llm_done_list` | Not started |
@@ -120,9 +120,9 @@ These apply to all remaining phases.
 
 ---
 
-## Phase 2 — planned scope
+## Phase 2 — Indexer + SQLite + chunker (Done)
 
-Designed; not yet started. See `llm_plan.md` Phase 2 section for the full spec.
+See `phase2_plan.md` for the full spec.
 
 ### Locked decisions
 
@@ -142,18 +142,31 @@ Designed; not yet started. See `llm_plan.md` Phase 2 section for the full spec.
 - **Embedding batch size:** 32 chunks per `/v1/embeddings` request.
 - **`/server_info` shape:** add `{indexed_notes, total_notes, indexed_chunks, in_flight}`.
 
-### Outline
+### What was built
 
-1. New module `fire_seq_search_server/src/indexer/`:
-   - `chunker.rs` — bullet-tree splitter
-   - `store.rs` — SQLite (`notes`, `chunks`)
-   - `pipeline.rs` — scan → diff → embed → write
-2. New deps: `rusqlite`, `blake3`, `walkdir`.
-3. Background task in `main.rs`: hydrate from DB → scan → embed → loop with
-   10-min timer. `POST /reindex` triggers via `tokio::sync::Notify`.
-4. In-memory `Vec<(ChunkId, [f32; 1024])>` hydrated from SQLite on boot.
-5. `/server_info` extended; new `/reindex` route.
-6. Phase 2 deliberately does not touch `/query` or tantivy — that's phase 3.
+- New module `fire_seq_search_server/src/indexer/`:
+  - `chunker.rs` — Logseq bullet-tree splitter with YAML/property/query stripping.
+    5 unit tests.
+  - `store.rs` — SQLite schema (`notes`, `chunks`), `Mutex<Connection>` for
+    `Send + Sync`. All CRUD helpers. 3 unit tests (roundtrip, cascade delete,
+    list_paths).
+  - `pipeline.rs` — `Indexer` with `hydrate`, `scan_once`, `run`. Handles
+    fast-path (mtime), hash-only mtime update, full re-embed, stale-note deletion,
+    and in-memory `Vec` splicing.
+  - `mod.rs` — `IndexerHandle` (status + vec + reindex_notify, all behind Arc),
+    `IndexerStatus`, `IndexerError`.
+- New deps: `rusqlite` (bundled), `blake3`, `walkdir`.
+- `main.rs`: `--db-path` flag, hydrate before server starts, `tokio::spawn`
+  background scan loop, `POST /reindex` route.
+- `query_engine/mod.rs`: `pub indexer: Option<IndexerHandle>`.
+- `endpoints.rs`: `get_server_info` now returns `ServerInfoResponse` with
+  flattened `ServerInformation` + optional `IndexerStatusJson`; new `reindex`
+  handler.
+
+### Verification
+
+- `cargo build` — clean (1 pre-existing warning in `logseq_uri.rs`).
+- `cargo test` — 46/46 pass (38 prior + 3 store + 5 chunker).
 
 ---
 

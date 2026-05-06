@@ -7,6 +7,7 @@ use log::{error, info};
 use tokio::task;
 
 use fire_seq_search_server::http_client::endpoints;
+use fire_seq_search_server::indexer::{Indexer, IndexerHandle, Store};
 use fire_seq_search_server::llm_backend::{
     EndpointSource, LlmBackend, LlmBackendConfig, SummaryEngine,
 };
@@ -86,6 +87,10 @@ struct Cli {
 
     #[arg(long, default_value = "")]
     chat_extra_args: String,
+
+    /// Path to the SQLite database. Defaults to ~/.cache/fire_seq_search/{notebook_name}.sqlite
+    #[arg(long)]
+    db_path: Option<String>,
 }
 
 #[tokio::main]
@@ -127,6 +132,35 @@ async fn main() {
         }
     });
 
+    // ---- Indexer (phase 2) ----
+    let db_path = resolve_db_path(&matches.db_path, &engine.server_info.notebook_name);
+    if let Some(parent) = db_path.parent() {
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            error!("Failed to create DB directory {:?}: {}", parent, e);
+            std::process::exit(1);
+        }
+    }
+    let store = match Store::open(&db_path) {
+        Ok(s) => s,
+        Err(e) => {
+            error!("Failed to open SQLite DB {:?}: {}", db_path, e);
+            std::process::exit(1);
+        }
+    };
+    let indexer_handle = IndexerHandle::default();
+    let indexer = Indexer::new(
+        store,
+        backend.clone(),
+        PathBuf::from(&engine.server_info.notebook_path),
+        indexer_handle.clone(),
+    );
+    if let Err(e) = indexer.hydrate().await {
+        error!("Indexer hydrate failed: {}", e);
+    }
+    tokio::spawn(indexer.run());
+    engine.indexer = Some(indexer_handle);
+    // ---------------------------
+
     let engine_arc = Arc::new(engine);
     let backend_for_destructor = backend.clone();
     ctrlc::set_handler(move || {
@@ -147,6 +181,7 @@ async fn main() {
         .route("/wordcloud", axum::routing::get(endpoints::generate_word_cloud))
         .route("/summarize/:title", axum::routing::get(endpoints::summarize))
         .route("/llm_done_list", axum::routing::get(endpoints::get_llm_done_list))
+        .route("/reindex", axum::routing::post(endpoints::reindex))
         .with_state(engine_arc.clone());
 
     let listener = tokio::net::TcpListener::bind(&engine_arc.server_info.host)
@@ -183,6 +218,16 @@ fn build_llm_config(args: &Cli) -> LlmBackendConfig {
 
 fn split_extra_args(s: &str) -> Vec<String> {
     s.split_whitespace().map(|t| t.to_owned()).collect()
+}
+
+fn resolve_db_path(db_path_arg: &Option<String>, notebook_name: &str) -> PathBuf {
+    match db_path_arg {
+        Some(p) => PathBuf::from(shellexpand::tilde(p).as_ref()),
+        None => {
+            let expanded = shellexpand::tilde("~/.cache/fire_seq_search").into_owned();
+            PathBuf::from(format!("{}/{}.sqlite", expanded, notebook_name))
+        }
+    }
 }
 
 fn build_server_info(args: &Cli) -> ServerInformation {

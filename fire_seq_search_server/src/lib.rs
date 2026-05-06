@@ -6,6 +6,7 @@ pub mod http_client;
 pub mod query_engine;
 pub mod word_frequency;
 pub mod llm_backend;
+pub mod indexer;
 
 
 use log::debug;

@@ -67,3 +67,8 @@ pdf-extract-temporary-mitigation-panic = "0.7.1"
 reqwest = { version = "0.12", features = ["json"] }
 serde_derive = "1.0.209"
 thiserror = "1"
+
+# Indexer (phase 2)
+rusqlite = { version = "0.31", features = ["bundled"] }
+blake3 = "1"
+walkdir = "2"
