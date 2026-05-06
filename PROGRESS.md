@@ -170,10 +170,128 @@ See `phase2_plan.md` for the full spec.
 
 ---
 
+---
+
+## Phase 3 — Semantic `/query`, drop tantivy (planned)
+
+### What phase 3 does
+
+1. Rewrite `/query` handler: embed the query term → cosine-rank the in-memory vec
+   → group hits by page → return structured JSON.
+2. Remove `tantivy`, `tantivy-jieba`, `jieba-rs` from `Cargo.toml` and delete the
+   BM25 code paths in `query_engine/`.
+3. Update the browser extension (`main.js`) to consume the new JSON shape.
+   All three ship in one commit — no compatibility window.
+
+### Proposed new `/query` JSON contract
+
+Current response: `Vec<String>` where each string is itself a JSON-encoded object
+(double-encoded). The extension calls `JSON.parse(rawRecord)` on each element.
+
+Proposed response: a proper JSON array, directly parseable, grouped by page:
+
+```json
+[
+  {
+    "title": "My Page",
+    "logseq_uri": "logseq://graph/notebook?page=My%20Page",
+    "top_score": 0.73,
+    "chunks": [
+      { "score": 0.73, "text": "- relevant bullet\n  - child bullet" }
+    ]
+  }
+]
+```
+
+- Records ordered by `top_score` descending.
+- If multiple chunks from the same page are in the top-k, they are all listed
+  under `chunks` (ordered by score desc).
+- Chunk `text` is plain markdown — no server-side HTML. Extension escapes before
+  inserting into the DOM.
+- `logseq_uri` is generated server-side (same logic as today, moved into the new
+  query path).
+
+### Server-side plan
+
+New file `src/query_engine/semantic_query.rs` (or inline in `mod.rs`):
+
+```rust
+pub struct ChunkHit   { pub score: f32, pub text: String }
+pub struct PageHit    { pub title: String, pub logseq_uri: String,
+                        pub top_score: f32, pub chunks: Vec<ChunkHit> }
+
+pub async fn semantic_query(
+    term: &str,
+    backend: &LlmBackend,
+    indexer: &IndexerHandle,
+    store: &Store,
+    top_k: usize,
+    min_score: f32,
+) -> Result<Vec<PageHit>, ...>
+```
+
+Steps:
+1. `backend.embed(&[term.to_owned()])` → 1024-dim query vector.
+2. `indexer.vec.read()` → iterate all `(chunk_id, emb)`, compute cosine similarity,
+   collect top-k above `min_score`.
+3. `store` lookup: for each chunk_id, fetch `(note_id, ord, text)` + join to
+   `notes.page_title` and `notes.rel_path` for URI generation.
+4. Group by `note_id`. Build `Vec<PageHit>` sorted by top_score.
+
+`top_k` default 20, `min_score` default 0.55 (both CLI-configurable; `min_score`
+also overridable per-request via `?min_score=` query param).
+
+New `Store` methods needed:
+- `get_chunks_by_ids(ids: &[i64]) -> Vec<ChunkDetail>` — batch fetch text + note_id.
+- `get_notes_by_ids(ids: &[i64]) -> Vec<NoteDetail>` — batch fetch title + rel_path.
+
+The existing `/query/:term` route is replaced in-place; the handler signature and
+route path stay the same.
+
+### Extension changes
+
+`main.js` changes:
+- Remove `parseRawList` (which does `JSON.parse` on each element) — response is
+  already a proper JSON array after `response.json()`.
+- Update `buildListItems` to render `record.chunks` instead of `record.summary`.
+  Each chunk's `text` is escaped (use `textContent`, not `innerHTML`) and shown
+  as a `<pre>`-style or `<p>` block.
+- Keep `record.score` display (now `record.top_score`).
+- Remove the "Summary" / "LLM" button logic that polls `/summarize` and
+  `/llm_done_list` — those endpoints are still alive (phase 5 removes them) but
+  there's no point wiring them to semantic chunks.
+
+### Open questions — need answers before starting
+
+1. **Top-k and grouping**: Return top-20 chunks grouped into at most N pages? Or
+   just return all chunks above `min_score` up to some cap? What's the right max
+   number of pages to show in the sidebar?
+
+2. **Chunk text display in extension**: The chunk text is Logseq bullet markdown
+   (e.g. `- bullet\n  - child`). Should the extension render it as raw text in a
+   `<pre>` block, convert bullet indentation to an `<ul>`, or just show the first
+   line (the top-level bullet) as the "summary" and hide descendants?
+
+3. **`logseq_uri` vs Obsidian**: The current `createHrefToLogseq` uses
+   `record.logseq_uri` if present, else falls back to constructing a logseq://
+   URL. For Obsidian users, the server currently generates `obsidian://` URIs
+   differently. The new JSON should carry a single `uri` field that the server
+   populates correctly for both notebook types — or should the extension handle
+   this with a `software` field from `/server_info`?
+
+4. **`min_score` CLI flag**: Add `--min-score FLOAT` (default 0.55) to the CLI,
+   and accept `?min_score=` as a query param on `/query`? Or keep it server-only
+   for now?
+
+5. **Tantivy removal scope**: `query_engine/mod.rs` currently builds a full
+   tantivy in-RAM index on startup (loading all notes). Phase 3 removes this.
+   The `load_notes/` module is used only by tantivy — can it be deleted entirely,
+   or does anything else depend on it?
+
+---
+
 ## Open questions deferred to later phases
 
-- **Phase 3:** does the browser extension stay on the existing `Vec<String>` HTML
-  contract during a transition window, or do we cut over in one PR? Lean: one PR.
 - **Phase 4:** SSE vs chunked transfer for `/ask` streaming. Lean: SSE.
 - **Phase 5:** is there any value in keeping a keyword fallback for very short
   queries where dense retrieval is weak (e.g. exact-match page-title lookups)?
