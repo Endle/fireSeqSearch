@@ -53,10 +53,10 @@ struct Cli {
     #[arg(long)]
     chat_endpoint: Option<String>,
 
-    #[arg(long, default_value = "~/.cache/fire_seq_search/models/bge-m3-Q4_K_M.gguf")]
+    #[arg(long, default_value = "~/llm/bge-m3-Q4_K_M.gguf")]
     embed_model: PathBuf,
 
-    #[arg(long, default_value = "~/.llamafile/mistral-7b-instruct-v0.2.Q4_0.llamafile")]
+    #[arg(long, default_value = "~/llm/mistral-7b-instruct-v0.2.Q4_0.llamafile")]
     chat_model: PathBuf,
 
     #[arg(long, default_value = "llama-server")]
