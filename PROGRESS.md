@@ -178,54 +178,78 @@ See `phase2_plan.md` for the full spec.
 
 1. Rewrite `/query` handler: embed the query term → cosine-rank the in-memory vec
    → group hits by page → return structured JSON.
-2. Remove `tantivy`, `tantivy-jieba`, `jieba-rs` from `Cargo.toml` and delete the
-   BM25 code paths in `query_engine/`.
-3. Update the browser extension (`main.js`) to consume the new JSON shape.
-   All three ship in one commit — no compatibility window.
+2. Add `POST /highlight` endpoint: given a chunk + query, return 1–2 extracted
+   sentences via the chat model. Called on-hover from the extension.
+3. Remove `tantivy`, `tantivy-jieba`, `jieba-rs` from `Cargo.toml` and delete the
+   BM25 code paths in `query_engine/`. Delete `load_notes/` entirely.
+4. Update the browser extension (`main.js`) to consume the new JSON shape and
+   call `/highlight` on hover.
+   All ship in one commit — no compatibility window.
 
-### Proposed new `/query` JSON contract
+### Locked decisions
+
+| Question | Decision |
+|---|---|
+| Top-k / grouping | Per-page top-1, max 10 pages |
+| Chunk display | Show first line (top-level bullet) immediately; on-hover call `/highlight` |
+| LLM highlight | Server-side: chat model extracts 1–2 relevant sentences given query + chunk |
+| Highlight trigger | On-hover via separate `POST /highlight` endpoint — keeps `/query` embedding-only |
+| URI field | Logseq-only; server generates `logseq://` URI, extension uses it directly |
+| `min_score` | CLI flag only (`--min-score`, default 0.55), no per-request override |
+| `load_notes/` | Delete entirely when tantivy is removed |
+| Obsidian URIs | Deferred — out of scope for phase 3 |
+
+### New `/query` JSON contract
 
 Current response: `Vec<String>` where each string is itself a JSON-encoded object
 (double-encoded). The extension calls `JSON.parse(rawRecord)` on each element.
 
-Proposed response: a proper JSON array, directly parseable, grouped by page:
+New response — proper JSON array, grouped by page, one chunk per page:
 
 ```json
 [
   {
     "title": "My Page",
     "logseq_uri": "logseq://graph/notebook?page=My%20Page",
-    "top_score": 0.73,
-    "chunks": [
-      { "score": 0.73, "text": "- relevant bullet\n  - child bullet" }
-    ]
+    "score": 0.73,
+    "top_chunk": "- relevant bullet text (first line only)"
   }
 ]
 ```
 
-- Records ordered by `top_score` descending.
-- If multiple chunks from the same page are in the top-k, they are all listed
-  under `chunks` (ordered by score desc).
-- Chunk `text` is plain markdown — no server-side HTML. Extension escapes before
-  inserting into the DOM.
-- `logseq_uri` is generated server-side (same logic as today, moved into the new
-  query path).
+- At most 10 records, ordered by `score` descending.
+- One record per page (best-scoring chunk only).
+- `top_chunk` is the first line of the best chunk — plain text, no HTML.
+- `logseq_uri` generated server-side.
+
+### New `POST /highlight` contract
+
+Request:
+```json
+{ "query": "search term", "chunk": "full chunk text" }
+```
+
+Response:
+```json
+{ "highlight": "1–2 sentences extracted from the chunk most relevant to the query." }
+```
+
+Called by the extension on hover; response replaces the `top_chunk` one-liner in
+the result card.
 
 ### Server-side plan
 
-New file `src/query_engine/semantic_query.rs` (or inline in `mod.rs`):
+New file `src/query_engine/semantic_query.rs`:
 
 ```rust
-pub struct ChunkHit   { pub score: f32, pub text: String }
-pub struct PageHit    { pub title: String, pub logseq_uri: String,
-                        pub top_score: f32, pub chunks: Vec<ChunkHit> }
+pub struct PageHit { pub title: String, pub logseq_uri: String,
+                     pub score: f32, pub top_chunk: String }
 
 pub async fn semantic_query(
     term: &str,
     backend: &LlmBackend,
     indexer: &IndexerHandle,
     store: &Store,
-    top_k: usize,
     min_score: f32,
 ) -> Result<Vec<PageHit>, ...>
 ```
@@ -233,60 +257,32 @@ pub async fn semantic_query(
 Steps:
 1. `backend.embed(&[term.to_owned()])` → 1024-dim query vector.
 2. `indexer.vec.read()` → iterate all `(chunk_id, emb)`, compute cosine similarity,
-   collect top-k above `min_score`.
-3. `store` lookup: for each chunk_id, fetch `(note_id, ord, text)` + join to
-   `notes.page_title` and `notes.rel_path` for URI generation.
-4. Group by `note_id`. Build `Vec<PageHit>` sorted by top_score.
-
-`top_k` default 20, `min_score` default 0.55 (both CLI-configurable; `min_score`
-also overridable per-request via `?min_score=` query param).
+   keep top-scoring chunk per note_id, filter by `min_score`, take top 10 by score.
+3. `store` lookup: batch fetch `(note_id, text)` + join to `notes.page_title` and
+   `notes.rel_path` for URI generation.
+4. Extract first line of each chunk as `top_chunk`. Build `Vec<PageHit>`.
 
 New `Store` methods needed:
-- `get_chunks_by_ids(ids: &[i64]) -> Vec<ChunkDetail>` — batch fetch text + note_id.
-- `get_notes_by_ids(ids: &[i64]) -> Vec<NoteDetail>` — batch fetch title + rel_path.
+- `get_chunks_by_ids(ids: &[i64]) -> Vec<ChunkDetail>`
+- `get_notes_by_ids(ids: &[i64]) -> Vec<NoteDetail>`
 
-The existing `/query/:term` route is replaced in-place; the handler signature and
-route path stay the same.
+New `POST /highlight` handler:
+- Parse `{query, chunk}` from JSON body.
+- Call `backend.chat` with a focused extraction prompt.
+- Return `{highlight: String}`.
 
 ### Extension changes
 
 `main.js` changes:
-- Remove `parseRawList` (which does `JSON.parse` on each element) — response is
-  already a proper JSON array after `response.json()`.
-- Update `buildListItems` to render `record.chunks` instead of `record.summary`.
-  Each chunk's `text` is escaped (use `textContent`, not `innerHTML`) and shown
-  as a `<pre>`-style or `<p>` block.
-- Keep `record.score` display (now `record.top_score`).
+- Remove `parseRawList` (`JSON.parse` on each element) — response is already
+  proper JSON after `response.json()`.
+- `buildListItems` renders `record.title` as the link, `record.top_chunk` as the
+  one-liner preview.
+- On hover of a result card: `POST /highlight` with `{query, chunk: record.top_chunk}`,
+  replace preview text with returned highlight.
+- Keep `record.score` display.
 - Remove the "Summary" / "LLM" button logic that polls `/summarize` and
-  `/llm_done_list` — those endpoints are still alive (phase 5 removes them) but
-  there's no point wiring them to semantic chunks.
-
-### Open questions — need answers before starting
-
-1. **Top-k and grouping**: Return top-20 chunks grouped into at most N pages? Or
-   just return all chunks above `min_score` up to some cap? What's the right max
-   number of pages to show in the sidebar?
-
-2. **Chunk text display in extension**: The chunk text is Logseq bullet markdown
-   (e.g. `- bullet\n  - child`). Should the extension render it as raw text in a
-   `<pre>` block, convert bullet indentation to an `<ul>`, or just show the first
-   line (the top-level bullet) as the "summary" and hide descendants?
-
-3. **`logseq_uri` vs Obsidian**: The current `createHrefToLogseq` uses
-   `record.logseq_uri` if present, else falls back to constructing a logseq://
-   URL. For Obsidian users, the server currently generates `obsidian://` URIs
-   differently. The new JSON should carry a single `uri` field that the server
-   populates correctly for both notebook types — or should the extension handle
-   this with a `software` field from `/server_info`?
-
-4. **`min_score` CLI flag**: Add `--min-score FLOAT` (default 0.55) to the CLI,
-   and accept `?min_score=` as a query param on `/query`? Or keep it server-only
-   for now?
-
-5. **Tantivy removal scope**: `query_engine/mod.rs` currently builds a full
-   tantivy in-RAM index on startup (loading all notes). Phase 3 removes this.
-   The `load_notes/` module is used only by tantivy — can it be deleted entirely,
-   or does anything else depend on it?
+  `/llm_done_list`.
 
 ---
 

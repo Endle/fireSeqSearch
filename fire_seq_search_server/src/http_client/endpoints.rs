@@ -1,7 +1,9 @@
 use std::sync::Arc;
-use log::debug;
+use log::{debug, error, info};
 
-use crate::query_engine::{QueryEngine, ServerInformation};
+use crate::llm_backend::Message;
+use crate::query_engine::{term_preprocess, QueryEngine, ServerInformation};
+use crate::query_engine::semantic_query::{semantic_query, PageHit};
 use axum::http::StatusCode;
 use axum::Json;
 use axum::extract::State;
@@ -56,9 +58,62 @@ pub async fn reindex(
 pub async fn query(
     Path(term): Path<String>,
     State(engine_arc): State<Arc<QueryEngine>>,
-) -> Html<String> {
-    debug!("Original Search term {}", term);
-    Html(engine_arc.query_pipeline(term).await)
+) -> Json<Vec<PageHit>> {
+    let term = term_preprocess(term);
+    info!("Semantic search: {}", &term);
+
+    let indexer = match &engine_arc.indexer {
+        Some(h) => h,
+        None => {
+            debug!("Indexer not ready, returning empty results");
+            return Json(vec![]);
+        }
+    };
+
+    match semantic_query(
+        &term,
+        &engine_arc.backend,
+        indexer,
+        &engine_arc.store,
+        engine_arc.min_score,
+        &engine_arc.server_info,
+    )
+    .await
+    {
+        Ok(hits) => Json(hits),
+        Err(e) => {
+            error!("Semantic query failed: {}", e);
+            Json(vec![])
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct HighlightRequest {
+    pub query: String,
+    pub chunk: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct HighlightResponse {
+    pub highlight: String,
+}
+
+pub async fn highlight(
+    State(engine_arc): State<Arc<QueryEngine>>,
+    Json(req): Json<HighlightRequest>,
+) -> Json<HighlightResponse> {
+    let prompt = format!(
+        "Given the search query: \"{}\"\n\nExtract 1-2 sentences from the following text that are most relevant to the query. Return only the extracted text, no explanation.\n\nText:\n{}",
+        req.query, req.chunk
+    );
+    let messages = vec![Message { role: "user".to_string(), content: prompt }];
+    let highlight = engine_arc
+        .backend
+        .chat(messages)
+        .await
+        .unwrap_or_else(|_| req.chunk.lines().next().unwrap_or("").to_string());
+    Json(HighlightResponse { highlight })
 }
 
 pub async fn summarize(

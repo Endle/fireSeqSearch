@@ -4,7 +4,6 @@ use std::sync::Arc;
 use clap::Parser;
 use kill_tree::blocking::kill_tree;
 use log::{error, info};
-use tokio::task;
 
 use fire_seq_search_server::http_client::endpoints;
 use fire_seq_search_server::indexer::{Indexer, IndexerHandle, Store};
@@ -47,24 +46,19 @@ struct Cli {
     #[arg(long = "host")]
     host: Option<String>,
 
-    // ----- LLM backend (phase 1) -----
-    /// External embeddings endpoint URL (e.g. http://127.0.0.1:11434). When set, no embedding subprocess is spawned.
+    // ----- LLM backend -----
     #[arg(long)]
     embed_endpoint: Option<String>,
 
-    /// External chat endpoint URL. When set, no chat subprocess is spawned.
     #[arg(long)]
     chat_endpoint: Option<String>,
 
-    /// Path to embedding model (gguf). Used only when --embed-endpoint is unset.
     #[arg(long, default_value = "~/.cache/fire_seq_search/models/bge-m3-Q4_K_M.gguf")]
     embed_model: PathBuf,
 
-    /// Path to chat model. Defaults to the legacy mistral llamafile location for back-compat.
     #[arg(long, default_value = "~/.llamafile/mistral-7b-instruct-v0.2.Q4_0.llamafile")]
     chat_model: PathBuf,
 
-    /// Path to llama-server binary. Ignored when the model is a `.llamafile`.
     #[arg(long, default_value = "llama-server")]
     llama_server_bin: PathBuf,
 
@@ -74,23 +68,24 @@ struct Cli {
     #[arg(long, default_value_t = 8081)]
     chat_port: u16,
 
-    /// Model name sent in OpenAI-compat request `model` field. Required by Ollama.
     #[arg(long, default_value = "default")]
     embed_model_name: String,
 
     #[arg(long, default_value = "default")]
     chat_model_name: String,
 
-    /// Extra args passed verbatim to the spawned embed llama-server.
     #[arg(long, default_value = "")]
     embed_extra_args: String,
 
     #[arg(long, default_value = "")]
     chat_extra_args: String,
 
-    /// Path to the SQLite database. Defaults to ~/.cache/fire_seq_search/{notebook_name}.sqlite
     #[arg(long)]
     db_path: Option<String>,
+
+    /// Minimum cosine similarity score to include a result (default 0.55).
+    #[arg(long, default_value_t = 0.55)]
+    min_score: f32,
 }
 
 #[tokio::main]
@@ -105,18 +100,35 @@ async fn main() {
     let llm_cfg = build_llm_config(&matches);
     let server_info: ServerInformation = build_server_info(&matches);
 
-    let llm_loader = task::spawn(async move { LlmBackend::launch(llm_cfg).await });
+    let notebook_name = server_info.notebook_name.clone();
+    let notebook_path = PathBuf::from(&server_info.notebook_path);
 
-    let mut engine = QueryEngine::construct(server_info).await;
-    info!("query engine build finished");
-
-    let backend = match llm_loader.await.unwrap() {
+    let backend = match LlmBackend::launch(llm_cfg).await {
         Ok(b) => Arc::new(b),
         Err(e) => {
             error!("LLM backend failed to start: {}", e);
             std::process::exit(1);
         }
     };
+
+    // ---- Store + Indexer ----
+    let db_path = resolve_db_path(&matches.db_path, &notebook_name);
+    if let Some(parent) = db_path.parent() {
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            error!("Failed to create DB directory {:?}: {}", parent, e);
+            std::process::exit(1);
+        }
+    }
+    let store = match Store::open(&db_path) {
+        Ok(s) => Arc::new(s),
+        Err(e) => {
+            error!("Failed to open SQLite DB {:?}: {}", db_path, e);
+            std::process::exit(1);
+        }
+    };
+
+    let mut engine = QueryEngine::new(server_info, backend.clone(), store.clone(), matches.min_score);
+    info!("Query engine ready");
 
     let summary = Arc::new(SummaryEngine::new(
         backend.clone(),
@@ -132,26 +144,11 @@ async fn main() {
         }
     });
 
-    // ---- Indexer (phase 2) ----
-    let db_path = resolve_db_path(&matches.db_path, &engine.server_info.notebook_name);
-    if let Some(parent) = db_path.parent() {
-        if let Err(e) = std::fs::create_dir_all(parent) {
-            error!("Failed to create DB directory {:?}: {}", parent, e);
-            std::process::exit(1);
-        }
-    }
-    let store = match Store::open(&db_path) {
-        Ok(s) => s,
-        Err(e) => {
-            error!("Failed to open SQLite DB {:?}: {}", db_path, e);
-            std::process::exit(1);
-        }
-    };
     let indexer_handle = IndexerHandle::default();
     let indexer = Indexer::new(
         store,
         backend.clone(),
-        PathBuf::from(&engine.server_info.notebook_path),
+        notebook_path,
         indexer_handle.clone(),
     );
     if let Err(e) = indexer.hydrate().await {
@@ -159,7 +156,6 @@ async fn main() {
     }
     tokio::spawn(indexer.run());
     engine.indexer = Some(indexer_handle);
-    // ---------------------------
 
     let engine_arc = Arc::new(engine);
     let backend_for_destructor = backend.clone();
@@ -177,6 +173,7 @@ async fn main() {
 
     let app = axum::Router::new()
         .route("/query/:term", axum::routing::get(endpoints::query))
+        .route("/highlight", axum::routing::post(endpoints::highlight))
         .route("/server_info", axum::routing::get(endpoints::get_server_info))
         .route("/wordcloud", axum::routing::get(endpoints::generate_word_cloud))
         .route("/summarize/:title", axum::routing::get(endpoints::summarize))

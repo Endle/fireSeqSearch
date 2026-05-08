@@ -10,9 +10,12 @@ use std::time::Instant;
 use log::{error, info};
 use tokio::sync::Mutex;
 
-use crate::query_engine::DocData;
-
 use super::{LlmBackend, Message};
+
+pub struct DocData {
+    pub title: String,
+    pub body: String,
+}
 
 const HARD_CODED_PROMPT_STR: &str = r##"
 You are a seasoned summary expert, capable of condensing and summarizing given articles, papers, or posts, accurately conveying the main idea to make the content easier to understand.

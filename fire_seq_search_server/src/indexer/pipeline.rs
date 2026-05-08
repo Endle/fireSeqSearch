@@ -13,7 +13,7 @@ use crate::indexer::{IndexerError, IndexerHandle};
 use crate::llm_backend::LlmBackend;
 
 pub struct Indexer {
-    store: Store,
+    store: Arc<Store>,
     backend: Arc<LlmBackend>,
     notebook_path: PathBuf,
     handle: IndexerHandle,
@@ -21,7 +21,7 @@ pub struct Indexer {
 
 impl Indexer {
     pub fn new(
-        store: Store,
+        store: Arc<Store>,
         backend: Arc<LlmBackend>,
         notebook_path: PathBuf,
         handle: IndexerHandle,

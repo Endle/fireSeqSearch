@@ -8,6 +8,18 @@ use crate::indexer::IndexerError;
 
 pub const CHUNKER_VERSION: i64 = 1;
 
+pub struct ChunkDetail {
+    pub id: i64,
+    pub note_id: i64,
+    pub text: String,
+}
+
+pub struct NoteDetail {
+    pub id: i64,
+    pub page_title: String,
+    pub rel_path: String,
+}
+
 pub struct NoteRow {
     pub id: i64,
     pub mtime: i64,
@@ -145,6 +157,42 @@ impl Store {
             .unwrap()
             .execute("DELETE FROM notes WHERE rel_path = ?1", params![rel_path])?;
         Ok(())
+    }
+
+    pub fn get_chunks_by_ids(&self, ids: &[i64]) -> Result<Vec<ChunkDetail>, IndexerError> {
+        if ids.is_empty() {
+            return Ok(vec![]);
+        }
+        let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!("SELECT id, note_id, text FROM chunks WHERE id IN ({placeholders})");
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt.query_map(rusqlite::params_from_iter(ids.iter()), |row| {
+            Ok(ChunkDetail { id: row.get(0)?, note_id: row.get(1)?, text: row.get(2)? })
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
+    }
+
+    pub fn get_notes_by_ids(&self, ids: &[i64]) -> Result<Vec<NoteDetail>, IndexerError> {
+        if ids.is_empty() {
+            return Ok(vec![]);
+        }
+        let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!("SELECT id, page_title, rel_path FROM notes WHERE id IN ({placeholders})");
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt.query_map(rusqlite::params_from_iter(ids.iter()), |row| {
+            Ok(NoteDetail { id: row.get(0)?, page_title: row.get(1)?, rel_path: row.get(2)? })
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
     }
 
     pub fn load_all_embeddings(&self) -> Result<Vec<(i64, [f32; 1024])>, IndexerError> {
