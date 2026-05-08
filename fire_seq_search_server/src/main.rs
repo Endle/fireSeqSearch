@@ -56,7 +56,7 @@ struct Cli {
     #[arg(long, default_value = "~/llm/bge-m3-Q4_K_M.gguf")]
     embed_model: PathBuf,
 
-    #[arg(long, default_value = "~/llm/mistral-7b-instruct-v0.2.Q4_0.llamafile")]
+    #[arg(long, default_value = "~/llm/Qwen2.5-7B-Instruct-Q4_K_M.gguf")]
     chat_model: PathBuf,
 
     #[arg(long, default_value = "llama-server")]

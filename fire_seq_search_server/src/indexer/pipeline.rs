@@ -189,47 +189,41 @@ impl Indexer {
         let notebook = &self.notebook_path;
         let mut entries = Vec::new();
 
-        for entry in WalkDir::new(notebook).follow_links(false) {
-            let entry = entry?;
-
-            if !entry.file_type().is_file() {
+        for sub in ["pages", "journals"] {
+            let root = notebook.join(sub);
+            if !root.exists() {
                 continue;
             }
 
-            let path = entry.path();
+            for entry in WalkDir::new(&root).follow_links(false) {
+                let entry = entry?;
 
-            // Skip files under dotdirs (`.logseq/`, `.git/`, etc.) or `assets/`
-            let skip = path.components().any(|c| {
-                if let std::path::Component::Normal(n) = c {
-                    let s = n.to_string_lossy();
-                    s.starts_with('.') || s == "assets"
-                } else {
-                    false
+                if !entry.file_type().is_file() {
+                    continue;
                 }
-            });
-            if skip {
-                continue;
+
+                let path = entry.path();
+
+                if path.extension().and_then(|e| e.to_str()) != Some("md") {
+                    continue;
+                }
+
+                let mtime = entry
+                    .metadata()?
+                    .modified()
+                    .unwrap_or(UNIX_EPOCH)
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs() as i64;
+
+                let rel_path = path
+                    .strip_prefix(notebook)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .into_owned();
+
+                entries.push((rel_path, mtime, path.to_owned()));
             }
-
-            if path.extension().and_then(|e| e.to_str()) != Some("md") {
-                continue;
-            }
-
-            let mtime = entry
-                .metadata()?
-                .modified()
-                .unwrap_or(UNIX_EPOCH)
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs() as i64;
-
-            let rel_path = path
-                .strip_prefix(notebook)
-                .unwrap_or(path)
-                .to_string_lossy()
-                .into_owned();
-
-            entries.push((rel_path, mtime, path.to_owned()));
         }
 
         Ok(entries)

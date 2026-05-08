@@ -51,9 +51,15 @@ async fn spawn(
         .unwrap_or(false);
 
     let mut cmd = if is_llamafile {
-        // .llamafile is a self-executing binary; ignore --llama-server-bin.
-        let mut c = Command::new(&model_path);
-        c.arg("--server").arg("--port").arg(port.to_string()).arg("--nobrowser");
+        // .llamafile is a polyglot APE binary. On Linux the kernel often refuses
+        // to exec it directly ("Exec format error") unless binfmt_misc is set up,
+        // so we hand it to /bin/sh — the file's shell prelude bootstraps APE.
+        let mut c = Command::new("sh");
+        c.arg(&model_path)
+            .arg("--server")
+            .arg("--port")
+            .arg(port.to_string())
+            .arg("--nobrowser");
         if is_embedding {
             c.arg("--embedding");
         }
