@@ -29,7 +29,20 @@ You are a smoke-test runner for fire_seq_search_server. You will be given a quer
    - **Indexer state.** From `/server_info`: `in_flight: true` means results may be partial — note it.
    - **Log errors.** `grep -iE 'error|panic|warn' /dev/shm/fsq_debug.log`. Surface anything non-routine. HTTP 500 from the embed backend is a known regression class (chunk-size related); call it out specifically.
 
-6. **Tear down.** `kill <pid>` (and `wait` if needed). Always do this, even on failure paths.
+6. **Tear down.** Always do this, even on failure paths. Order matters — the captured `$!` is the *bash wrapper* PID, not the server, and the server in turn manages two `llama-server` subprocesses (embed + chat). Killing the bash wrapper alone leaves the real server and its llama children orphaned.
+
+   ```
+   # Send SIGTERM to the real server first; it cleans up its llama children on its own Ctrl-C path.
+   pkill -TERM -f 'fire_seq_search_server --notebook'
+   sleep 2
+   # Backstop: sweep any orphan llama-servers (e.g. from a hard crash where the parent died without cleanup).
+   pkill -f llama-server || true
+   sleep 1
+   # Verify nothing is still listening.
+   ss -tlnp 2>/dev/null | grep -E ':3030|llama-server' && echo "WARN: leftover processes" || echo "all clean"
+   ```
+
+   Mention any "WARN: leftover processes" in your report — it points to a teardown bug worth flagging.
 
 ## Reporting
 
