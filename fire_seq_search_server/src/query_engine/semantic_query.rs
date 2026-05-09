@@ -84,7 +84,7 @@ pub async fn semantic_query(
             Some(c) => c,
             None => continue,
         };
-        let top_chunk = chunk.text.lines().next().unwrap_or("").to_string();
+        let top_chunk = first_content_line(&chunk.text, &note.page_title);
         let logseq_uri = generate_uri_v2(&note.page_title, server_info);
         result.push(PageHit {
             title: note.page_title.clone(),
@@ -99,4 +99,18 @@ pub async fn semantic_query(
 
 fn dot(a: &[f32; 1024], b: &[f32]) -> f32 {
     a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
+}
+
+/// Pick the first non-empty line from `text` that isn't the `# {title}` prefix
+/// the chunker prepends. Falls back to the first non-empty line, then "".
+fn first_content_line(text: &str, page_title: &str) -> String {
+    let title_line = format!("# {}", page_title);
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed == title_line {
+            continue;
+        }
+        return line.to_string();
+    }
+    String::new()
 }

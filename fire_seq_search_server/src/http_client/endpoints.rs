@@ -104,7 +104,14 @@ pub async fn highlight(
     Json(req): Json<HighlightRequest>,
 ) -> Json<HighlightResponse> {
     let prompt = format!(
-        "Given the search query: \"{}\"\n\nExtract 1-2 sentences from the following text that are most relevant to the query. Return only the extracted text, no explanation.\n\nText:\n{}",
+        "You will be given a search query and a source text. Extract 1-2 sentences \
+from the source text that are most relevant to the query.\n\n\
+Rules:\n\
+- Return ONLY text that appears verbatim in the source.\n\
+- Do NOT paraphrase, summarize, or invent content.\n\
+- If nothing in the source relates to the query, return an empty string.\n\
+- Do NOT explain your choice. Return the extracted text and nothing else.\n\n\
+Query: {}\n\nSource:\n{}",
         req.query, req.chunk
     );
     let messages = vec![Message { role: "user".to_string(), content: prompt }];
