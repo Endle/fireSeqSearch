@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use log::info;
+
 use crate::indexer::store::{ChunkDetail, NoteDetail};
 use crate::indexer::{IndexerHandle, Store};
 use crate::llm_backend::LlmBackend;
@@ -86,6 +88,13 @@ pub async fn semantic_query(
         };
         let top_chunk = first_content_line(&chunk.text, &note.page_title);
         let logseq_uri = generate_uri_v2(&note.page_title, server_info);
+        info!(
+            "hit: page={:?} score={:.3} chunk_id={} chunk_text={:?}",
+            note.page_title,
+            score,
+            chunk_id,
+            preview(&chunk.text, 200)
+        );
         result.push(PageHit {
             title: note.page_title.clone(),
             logseq_uri,
@@ -99,6 +108,16 @@ pub async fn semantic_query(
 
 fn dot(a: &[f32; 1024], b: &[f32]) -> f32 {
     a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
+}
+
+fn preview(s: &str, max_chars: usize) -> String {
+    let cleaned = s.replace('\n', " ⏎ ");
+    if cleaned.chars().count() <= max_chars {
+        cleaned
+    } else {
+        let truncated: String = cleaned.chars().take(max_chars).collect();
+        format!("{}…", truncated)
+    }
 }
 
 /// Pick the first non-empty line from `text` that isn't the `# {title}` prefix

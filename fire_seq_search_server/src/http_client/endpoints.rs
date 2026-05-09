@@ -103,6 +103,12 @@ pub async fn highlight(
     State(engine_arc): State<Arc<QueryEngine>>,
     Json(req): Json<HighlightRequest>,
 ) -> Json<HighlightResponse> {
+    info!(
+        "/highlight in: query={:?} chunk_chars={} chunk_preview={:?}",
+        req.query,
+        req.chunk.chars().count(),
+        req.chunk.replace('\n', " ⏎ ").chars().take(200).collect::<String>(),
+    );
     let prompt = format!(
         "You will be given a search query and a source text. Extract 1-2 sentences \
 from the source text that are most relevant to the query.\n\n\
@@ -115,11 +121,16 @@ Query: {}\n\nSource:\n{}",
         req.query, req.chunk
     );
     let messages = vec![Message { role: "user".to_string(), content: prompt }];
-    let highlight = engine_arc
-        .backend
-        .chat(messages)
-        .await
-        .unwrap_or_else(|_| req.chunk.lines().next().unwrap_or("").to_string());
+    let highlight = match engine_arc.backend.chat(messages).await {
+        Ok(text) => {
+            info!("/highlight out: {:?}", text);
+            text
+        }
+        Err(e) => {
+            error!("/highlight chat call failed: {}", e);
+            req.chunk.lines().next().unwrap_or("").to_string()
+        }
+    };
     Json(HighlightResponse { highlight })
 }
 
