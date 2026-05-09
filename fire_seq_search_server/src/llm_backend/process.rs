@@ -61,7 +61,14 @@ async fn spawn(
             .arg(port.to_string())
             .arg("--nobrowser");
         if is_embedding {
-            c.arg("--embedding");
+            // bge-m3 supports up to 8K-token inputs; raise the physical and
+            // logical batch sizes so a single chunk can be embedded in one
+            // shot. llama-server's default ubatch=512 rejects larger inputs
+            // with HTTP 500 ("input too large to process").
+            c.arg("--embedding")
+                .arg("-ub").arg("8192")
+                .arg("-b").arg("8192")
+                .arg("-c").arg("8192");
         }
         c
     } else {
@@ -72,7 +79,11 @@ async fn spawn(
             .arg("--model")
             .arg(&model_path);
         if is_embedding {
-            c.arg("--embedding");
+            // See note above re: -ub / -b sizing for embedding backends.
+            c.arg("--embedding")
+                .arg("-ub").arg("8192")
+                .arg("-b").arg("8192")
+                .arg("-c").arg("8192");
         }
         c
     };
