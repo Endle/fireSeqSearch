@@ -50,12 +50,12 @@ def run_query(term):
     return hits
 
 
-def run_highlight(term, chunk):
-    return http_post("/highlight", {"query": term, "chunk": chunk})["highlight"]
+def run_highlight(term, chunk_id):
+    return http_post("/highlight", {"query": term, "chunk_id": chunk_id})["highlight"]
 
 
 def render_hit(i, hit, highlight):
-    print(f"  [{i}] {hit['title']}   score={hit['score']:.3f}")
+    print(f"  [{i}] {hit['title']}   score={hit['score']:.3f}   chunk_id={hit['chunk_id']}")
     print(f"      {hit['logseq_uri']}")
     print(f"      top_chunk : {hit['top_chunk']}")
     print(f"      highlight : {highlight}")
@@ -86,7 +86,7 @@ def main():
 
         for i, hit in enumerate(hits, 1):
             try:
-                hl = run_highlight(term, hit["top_chunk"])
+                hl = run_highlight(term, hit["chunk_id"])
             except Exception as e:
                 hl = f"[/highlight failed: {e}]"
             render_hit(i, hit, hl)

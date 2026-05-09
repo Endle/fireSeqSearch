@@ -8,13 +8,60 @@ pub struct Chunk {
 
 pub fn chunk_note(page_title: &str, raw: &str) -> Vec<Chunk> {
     let preprocessed = preprocess(raw);
-    let units = split_into_top_level_units(&preprocessed);
+    let units: Vec<Vec<String>> = split_into_top_level_units(&preprocessed)
+        .into_iter()
+        .filter(|u| !is_stub_unit(u))
+        .collect();
+
     let mut chunks = Vec::new();
     let mut ord = 0usize;
+    let mut buffer: Vec<String> = Vec::new();
+    let mut buffer_tokens = 0usize;
+
     for unit in units {
-        chunks.extend(size_cap(page_title, &unit, &mut ord));
+        let unit_tokens = approx_tokens(&unit.join("\n"));
+
+        if unit_tokens > CAP_TOKENS {
+            flush_buffer(page_title, &mut buffer, &mut buffer_tokens, &mut chunks, &mut ord);
+            chunks.extend(size_cap(page_title, &unit, &mut ord));
+        } else if buffer_tokens > 0 && buffer_tokens + unit_tokens > CAP_TOKENS {
+            flush_buffer(page_title, &mut buffer, &mut buffer_tokens, &mut chunks, &mut ord);
+            buffer.extend(unit);
+            buffer_tokens = unit_tokens;
+        } else {
+            buffer.extend(unit);
+            buffer_tokens += unit_tokens;
+        }
     }
+    flush_buffer(page_title, &mut buffer, &mut buffer_tokens, &mut chunks, &mut ord);
+
     chunks
+}
+
+fn flush_buffer(
+    page_title: &str,
+    buffer: &mut Vec<String>,
+    buffer_tokens: &mut usize,
+    chunks: &mut Vec<Chunk>,
+    ord: &mut usize,
+) {
+    if buffer.is_empty() {
+        return;
+    }
+    let text = format!("# {}\n\n{}", page_title, buffer.join("\n"));
+    chunks.push(Chunk { ord: *ord, text });
+    *ord += 1;
+    buffer.clear();
+    *buffer_tokens = 0;
+}
+
+/// A unit is "stub" if every line, after stripping bullet markers and whitespace,
+/// is empty. Logseq's editor leaves bare `-` lines as placeholders.
+fn is_stub_unit(unit: &[String]) -> bool {
+    unit.iter().all(|line| {
+        let t = line.trim();
+        t.is_empty() || t == "-" || t == "*"
+    })
 }
 
 const TARGET_TOKENS: usize = 400;
@@ -24,7 +71,7 @@ fn approx_tokens(s: &str) -> usize {
     s.chars().count() / 4
 }
 
-fn preprocess(raw: &str) -> String {
+pub fn preprocess(raw: &str) -> String {
     lazy_static! {
         static ref FRONTMATTER: Regex = Regex::new(r"(?s)\A---\n.*?\n---\n?").unwrap();
         static ref ADV_QUERY: Regex =
@@ -116,13 +163,45 @@ mod tests {
     }
 
     #[test]
-    fn simple_logseq() {
+    fn small_bullets_pack_into_one_chunk() {
         let md = "- bullet one\n- bullet two\n- bullet three\n";
         let chunks = chunk_note("MyPage", md);
-        assert_eq!(chunks.len(), 3);
+        assert_eq!(chunks.len(), 1);
         assert!(chunks[0].text.starts_with("# MyPage\n\n- bullet one"));
-        assert!(chunks[1].text.contains("bullet two"));
-        assert_eq!(chunks[2].ord, 2);
+        assert!(chunks[0].text.contains("bullet two"));
+        assert!(chunks[0].text.contains("bullet three"));
+    }
+
+    #[test]
+    fn stub_bullets_are_dropped() {
+        let md = "- real one\n-\n-\n- real two\n-\n";
+        let chunks = chunk_note("Page", md);
+        assert_eq!(chunks.len(), 1, "stub `-` lines should not produce chunks");
+        assert!(chunks[0].text.contains("real one"));
+        assert!(chunks[0].text.contains("real two"));
+        // body should not contain a bare `-` line
+        let body = &chunks[0].text;
+        for line in body.lines() {
+            assert!(line.trim() != "-", "stub line leaked into chunk: {:?}", body);
+        }
+    }
+
+    #[test]
+    fn page_with_only_stubs_emits_no_chunks() {
+        let md = "-\n-\n-\n";
+        assert_eq!(chunk_note("Empty", md).len(), 0);
+    }
+
+    #[test]
+    fn many_small_bullets_split_at_cap() {
+        // Each bullet ~80 tokens; ~10 fits under CAP=600. Use 20 to force a split.
+        let bullet = format!("- {}\n", "word ".repeat(80));
+        let md = bullet.repeat(20);
+        let chunks = chunk_note("Big", &md);
+        assert!(chunks.len() >= 2, "should split when packed bullets exceed CAP");
+        for c in &chunks {
+            assert!(c.text.starts_with("# Big\n\n"));
+        }
     }
 
     #[test]

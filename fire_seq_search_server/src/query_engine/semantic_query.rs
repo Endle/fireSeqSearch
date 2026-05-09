@@ -14,6 +14,7 @@ pub struct PageHit {
     pub logseq_uri: String,
     pub score: f32,
     pub top_chunk: String,
+    pub chunk_id: i64,
 }
 
 pub async fn semantic_query(
@@ -100,6 +101,7 @@ pub async fn semantic_query(
             logseq_uri,
             score: *score,
             top_chunk,
+            chunk_id: *chunk_id,
         });
     }
 

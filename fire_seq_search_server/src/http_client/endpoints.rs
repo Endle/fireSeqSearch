@@ -91,7 +91,7 @@ pub async fn query(
 #[derive(serde::Deserialize)]
 pub struct HighlightRequest {
     pub query: String,
-    pub chunk: String,
+    pub chunk_id: i64,
 }
 
 #[derive(serde::Serialize)]
@@ -99,27 +99,78 @@ pub struct HighlightResponse {
     pub highlight: String,
 }
 
+const PAGE_BUDGET_CHARS: usize = 32_000; // ~8K tokens at chars/4
+
 pub async fn highlight(
     State(engine_arc): State<Arc<QueryEngine>>,
     Json(req): Json<HighlightRequest>,
 ) -> Json<HighlightResponse> {
+    let store = &engine_arc.store;
+
+    // chunk lookup
+    let chunk = match store.get_chunks_by_ids(&[req.chunk_id]) {
+        Ok(mut v) if !v.is_empty() => v.remove(0),
+        Ok(_) => {
+            error!("/highlight: chunk_id {} not found", req.chunk_id);
+            return Json(HighlightResponse { highlight: String::new() });
+        }
+        Err(e) => {
+            error!("/highlight: store error: {}", e);
+            return Json(HighlightResponse { highlight: String::new() });
+        }
+    };
+
+    // note + page-file lookup
+    let note = match store.get_notes_by_ids(&[chunk.note_id]) {
+        Ok(mut v) if !v.is_empty() => v.remove(0),
+        _ => {
+            error!("/highlight: note_id {} not found", chunk.note_id);
+            return Json(HighlightResponse { highlight: String::new() });
+        }
+    };
+
+    let notebook_path = std::path::PathBuf::from(&engine_arc.server_info.notebook_path);
+    let page_path = notebook_path.join(&note.rel_path);
+    let page_raw = match std::fs::read_to_string(&page_path) {
+        Ok(s) => s,
+        Err(e) => {
+            error!("/highlight: cannot read {}: {}", page_path.display(), e);
+            // fall back to the chunk text alone
+            chunk.text.clone()
+        }
+    };
+    let page_clean = crate::indexer::chunker::preprocess(&page_raw);
+    let page_clipped = clip_chars(&page_clean, PAGE_BUDGET_CHARS);
+
+    // strip the chunker's "# {title}\n\n" prefix from the anchor
+    let anchor = strip_title_prefix(&chunk.text, &note.page_title);
+
     info!(
-        "/highlight in: query={:?} chunk_chars={} chunk_preview={:?}",
+        "/highlight in: query={:?} chunk_id={} note={:?} page_chars={} anchor_chars={}",
         req.query,
-        req.chunk.chars().count(),
-        req.chunk.replace('\n', " ⏎ ").chars().take(200).collect::<String>(),
+        req.chunk_id,
+        note.page_title,
+        page_clipped.chars().count(),
+        anchor.chars().count(),
     );
+
     let prompt = format!(
-        "You will be given a search query and a source text. Extract 1-2 sentences \
-from the source text that are most relevant to the query.\n\n\
+        "You will be given a search query, an anchor (a specific bullet the user \
+retrieved), and the full Markdown page that contains the anchor. Extract 1-2 \
+sentences from the PAGE that best answer the query. Prefer sentences from or \
+near the anchor, but if a different sentence on the page is a clearly better \
+answer, use that.\n\n\
 Rules:\n\
-- Return ONLY text that appears verbatim in the source.\n\
+- Return ONLY text that appears verbatim in the page.\n\
 - Do NOT paraphrase, summarize, or invent content.\n\
-- If nothing in the source relates to the query, return an empty string.\n\
-- Do NOT explain your choice. Return the extracted text and nothing else.\n\n\
-Query: {}\n\nSource:\n{}",
-        req.query, req.chunk
+- Strip Markdown bullet markers (`-`, `*`), indentation, and `[[wikilinks]]` \
+brackets from the output (keep the link text).\n\
+- If nothing on the page relates to the query, return an empty string.\n\
+- Do NOT explain. Return the extracted text and nothing else.\n\n\
+<query>{}</query>\n\n<anchor>\n{}\n</anchor>\n\n<page>\n{}\n</page>",
+        req.query, anchor, page_clipped,
     );
+
     let messages = vec![Message { role: "user".to_string(), content: prompt }];
     let highlight = match engine_arc.backend.chat(messages).await {
         Ok(text) => {
@@ -128,10 +179,26 @@ Query: {}\n\nSource:\n{}",
         }
         Err(e) => {
             error!("/highlight chat call failed: {}", e);
-            req.chunk.lines().next().unwrap_or("").to_string()
+            anchor.lines().next().unwrap_or("").to_string()
         }
     };
     Json(HighlightResponse { highlight })
+}
+
+fn strip_title_prefix(chunk_text: &str, page_title: &str) -> String {
+    let prefix = format!("# {}\n\n", page_title);
+    chunk_text
+        .strip_prefix(&prefix)
+        .unwrap_or(chunk_text)
+        .to_string()
+}
+
+fn clip_chars(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_string()
+    } else {
+        s.chars().take(max).collect::<String>() + "\n…[truncated]"
+    }
 }
 
 pub async fn summarize(
