@@ -91,8 +91,9 @@ struct Cli {
     #[arg(long)]
     db_path: Option<String>,
 
-    /// Minimum cosine similarity score to include a result (default 0.55).
-    #[arg(long, default_value_t = 0.55)]
+    /// Minimum cosine similarity score to include a result.
+    /// Calibrated for bge-m3 with packed multi-bullet chunks; raise if you see noise.
+    #[arg(long, default_value_t = 0.35)]
     min_score: f32,
 }
 

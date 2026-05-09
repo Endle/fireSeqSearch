@@ -36,14 +36,26 @@ pub async fn semantic_query(
 
     // bge-m3 returns L2-normalised vectors, so dot product == cosine similarity
     let vec = indexer.vec.read().await;
-    let mut scored: Vec<(f32, i64)> = vec
+    let mut all_scored: Vec<(f32, i64)> = vec
         .iter()
         .map(|(id, emb)| (dot(emb, &query_emb), *id))
+        .collect();
+    all_scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    let top_score = all_scored.first().map(|(s, _)| *s).unwrap_or(0.0);
+    let mut scored: Vec<(f32, i64)> = all_scored
+        .into_iter()
         .filter(|(s, _)| *s >= min_score)
         .collect();
-    scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
     scored.truncate(50);
     drop(vec);
+
+    info!(
+        "scored {} chunks, top={:.3}, threshold={:.3}, kept={}",
+        indexer.vec.read().await.len(),
+        top_score,
+        min_score,
+        scored.len(),
+    );
 
     if scored.is_empty() {
         return Ok(vec![]);

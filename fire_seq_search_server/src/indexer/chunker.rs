@@ -192,6 +192,7 @@ mod tests {
         assert_eq!(chunk_note("Empty", md).len(), 0);
     }
 
+
     #[test]
     fn many_small_bullets_split_at_cap() {
         // Each bullet ~80 tokens; ~10 fits under CAP=600. Use 20 to force a split.

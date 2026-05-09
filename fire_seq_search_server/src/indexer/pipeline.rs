@@ -109,13 +109,16 @@ impl Indexer {
             }
         }
 
-        // Full re-chunk + re-embed
+        // Full re-chunk + re-embed.
+        // IMPORTANT: do not upsert the note row until embedding has succeeded.
+        // Otherwise a transient embed failure leaves a row with the new content
+        // hash but no chunks — the next scan's hash-match fast-path then skips
+        // re-embedding forever.
         let page_title = path_to_page_title(rel_path);
         let chunks = chunk_note(&page_title, &raw);
 
-        let note_id = self.store.upsert_note(rel_path, &page_title, fs_mtime, &hash_bytes)?;
-
         if chunks.is_empty() {
+            let note_id = self.store.upsert_note(rel_path, &page_title, fs_mtime, &hash_bytes)?;
             let old_ids = self.store.get_chunk_ids_for_note(note_id)?;
             self.store.replace_chunks(note_id, &[])?;
             let mut v = self.handle.vec.write().await;
@@ -145,6 +148,8 @@ impl Indexer {
             }
         }
 
+        // Embedding succeeded; safe to commit the row + chunks atomically.
+        let note_id = self.store.upsert_note(rel_path, &page_title, fs_mtime, &hash_bytes)?;
         let old_ids = self.store.get_chunk_ids_for_note(note_id)?;
 
         let chunk_data: Vec<(usize, &str, &[f32])> = chunks
