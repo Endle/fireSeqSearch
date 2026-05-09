@@ -80,6 +80,14 @@ struct Cli {
     #[arg(long, default_value = "")]
     chat_extra_args: String,
 
+    /// Number of model layers to offload to GPU (passed as -ngl).
+    /// Default 99 ≈ "all layers"; ignored on CPU-only llama-server builds.
+    #[arg(long, default_value_t = 99)]
+    embed_gpu_layers: u32,
+
+    #[arg(long, default_value_t = 99)]
+    chat_gpu_layers: u32,
+
     #[arg(long)]
     db_path: Option<String>,
 
@@ -193,7 +201,7 @@ fn build_llm_config(args: &Cli) -> LlmBackendConfig {
         None => EndpointSource::Spawn {
             model: args.embed_model.clone(),
             port: args.embed_port,
-            extra_args: split_extra_args(&args.embed_extra_args),
+            extra_args: build_spawn_args(args.embed_gpu_layers, &args.embed_extra_args),
         },
     };
     let chat = match &args.chat_endpoint {
@@ -201,7 +209,7 @@ fn build_llm_config(args: &Cli) -> LlmBackendConfig {
         None => EndpointSource::Spawn {
             model: args.chat_model.clone(),
             port: args.chat_port,
-            extra_args: split_extra_args(&args.chat_extra_args),
+            extra_args: build_spawn_args(args.chat_gpu_layers, &args.chat_extra_args),
         },
     };
     LlmBackendConfig {
@@ -215,6 +223,16 @@ fn build_llm_config(args: &Cli) -> LlmBackendConfig {
 
 fn split_extra_args(s: &str) -> Vec<String> {
     s.split_whitespace().map(|t| t.to_owned()).collect()
+}
+
+fn build_spawn_args(gpu_layers: u32, extra: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    if gpu_layers > 0 {
+        args.push("-ngl".to_string());
+        args.push(gpu_layers.to_string());
+    }
+    args.extend(split_extra_args(extra));
+    args
 }
 
 fn resolve_db_path(db_path_arg: &Option<String>, notebook_name: &str) -> PathBuf {
