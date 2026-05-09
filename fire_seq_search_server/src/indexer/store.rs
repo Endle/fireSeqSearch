@@ -58,15 +58,16 @@ impl Store {
             "PRAGMA foreign_keys = ON;
              PRAGMA journal_mode = WAL;
              CREATE TABLE IF NOT EXISTS notes (
-               id               INTEGER PRIMARY KEY,
-               rel_path         TEXT    NOT NULL UNIQUE,
-               page_title       TEXT    NOT NULL,
-               mtime            INTEGER NOT NULL,
-               content_hash     BLOB    NOT NULL,
-               chunker_version  INTEGER NOT NULL,
-               summary          TEXT,
-               summary_status   INTEGER NOT NULL DEFAULT 0,
-               summary_attempts INTEGER NOT NULL DEFAULT 0
+               id                INTEGER PRIMARY KEY,
+               rel_path          TEXT    NOT NULL UNIQUE,
+               page_title        TEXT    NOT NULL,
+               mtime             INTEGER NOT NULL,
+               content_hash      BLOB    NOT NULL,
+               chunker_version   INTEGER NOT NULL,
+               summary           TEXT,
+               summary_status    INTEGER NOT NULL DEFAULT 0,
+               summary_attempts  INTEGER NOT NULL DEFAULT 0,
+               summary_embedding BLOB
              );
              CREATE TABLE IF NOT EXISTS chunks (
                id        INTEGER PRIMARY KEY,
@@ -85,6 +86,7 @@ impl Store {
             "ALTER TABLE notes ADD COLUMN summary TEXT",
             "ALTER TABLE notes ADD COLUMN summary_status INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE notes ADD COLUMN summary_attempts INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE notes ADD COLUMN summary_embedding BLOB",
             "CREATE INDEX IF NOT EXISTS idx_notes_summary_status ON notes(summary_status)",
         ] {
             let _ = conn.execute(stmt, []);
@@ -283,12 +285,79 @@ impl Store {
         Ok(())
     }
 
-    pub fn save_summary(&self, note_id: i64, summary: &str) -> Result<(), IndexerError> {
+    pub fn save_summary_with_embedding(
+        &self,
+        note_id: i64,
+        summary: &str,
+        embedding: Option<&[f32]>,
+    ) -> Result<(), IndexerError> {
+        let emb_bytes: Option<Vec<u8>> =
+            embedding.map(|e| e.iter().flat_map(|f| f.to_le_bytes()).collect());
         self.conn.lock().unwrap().execute(
-            "UPDATE notes SET summary = ?1, summary_status = ?2 WHERE id = ?3",
-            params![summary, SUMMARY_OK, note_id],
+            "UPDATE notes
+             SET summary = ?1, summary_status = ?2, summary_embedding = ?3
+             WHERE id = ?4",
+            params![summary, SUMMARY_OK, emb_bytes, note_id],
         )?;
         Ok(())
+    }
+
+    pub fn clear_summary_embedding(&self, note_id: i64) -> Result<(), IndexerError> {
+        self.conn.lock().unwrap().execute(
+            "UPDATE notes SET summary_embedding = NULL WHERE id = ?1",
+            params![note_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn load_all_summary_embeddings(
+        &self,
+    ) -> Result<Vec<(i64, [f32; 1024])>, IndexerError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, summary_embedding FROM notes WHERE summary_embedding IS NOT NULL",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            let id: i64 = row.get(0)?;
+            let bytes: Vec<u8> = row.get(1)?;
+            Ok((id, bytes))
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            let (id, bytes) = row?;
+            if bytes.len() != 1024 * 4 {
+                return Err(IndexerError::Decode(format!(
+                    "note {} has {} summary embedding bytes, expected {}",
+                    id,
+                    bytes.len(),
+                    1024 * 4
+                )));
+            }
+            let mut emb = [0f32; 1024];
+            for (i, c) in bytes.chunks_exact(4).enumerate() {
+                emb[i] = f32::from_le_bytes(c.try_into().unwrap());
+            }
+            out.push((id, emb));
+        }
+        Ok(out)
+    }
+
+    /// (ok, pending, failed) — counts grouped by terminal vs non-terminal status.
+    pub fn count_summary_status(&self) -> Result<(i64, i64, i64), IndexerError> {
+        let conn = self.conn.lock().unwrap();
+        let total: i64 =
+            conn.query_row("SELECT COUNT(*) FROM notes", [], |r| r.get(0))?;
+        let ok: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM notes WHERE summary_status = ?1",
+            params![SUMMARY_OK],
+            |r| r.get(0),
+        )?;
+        let failed: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM notes WHERE summary_status = ?1",
+            params![SUMMARY_FAILED],
+            |r| r.get(0),
+        )?;
+        Ok((ok, total - ok - failed, failed))
     }
 
     pub fn record_summary_failure(&self, note_id: i64) -> Result<i64, IndexerError> {
@@ -317,15 +386,23 @@ impl Store {
         Ok(n)
     }
 
-    pub fn count_pending_summaries(&self) -> Result<i64, IndexerError> {
-        let conn = self.conn.lock().unwrap();
-        let n: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM notes WHERE summary_status NOT IN (?1, ?2)",
-            params![SUMMARY_OK, SUMMARY_FAILED],
-            |row| row.get(0),
+    /// Migration helper: rows from earlier versions can have summary_status=OK
+    /// but summary_embedding=NULL. Re-queue them so the new summarizer flow
+    /// generates an embedding alongside the text.
+    pub fn requeue_summaries_missing_embedding(&self) -> Result<usize, IndexerError> {
+        let n = self.conn.lock().unwrap().execute(
+            "UPDATE notes
+             SET summary = NULL,
+                 summary_status = ?1,
+                 summary_attempts = 0
+             WHERE summary_status = ?2
+               AND summary IS NOT NULL
+               AND summary_embedding IS NULL",
+            params![SUMMARY_QUEUED_LOW, SUMMARY_OK],
         )?;
         Ok(n)
     }
+
 
     pub fn load_all_embeddings(&self) -> Result<Vec<(i64, [f32; 1024])>, IndexerError> {
         let conn = self.conn.lock().unwrap();

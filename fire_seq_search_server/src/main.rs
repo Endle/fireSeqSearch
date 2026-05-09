@@ -164,7 +164,7 @@ async fn main() {
         error!("Indexer hydrate failed: {}", e);
     }
     tokio::spawn(indexer.run());
-    engine.indexer = Some(indexer_handle);
+    engine.indexer = Some(indexer_handle.clone());
 
     // Background summarizer: drains low-priority backlog (all rows with no
     // summary yet) and accepts high-priority promotions from /query.
@@ -172,6 +172,7 @@ async fn main() {
         store,
         backend.clone(),
         notebook_path,
+        indexer_handle,
     );
     engine.summarizer = Some(summarizer_handle);
 

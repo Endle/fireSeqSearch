@@ -34,7 +34,15 @@ impl Indexer {
         let count = embeddings.len();
         *self.handle.vec.write().await = embeddings;
         self.handle.status.write().await.indexed_chunks = count;
-        info!("Hydrated {} chunks from SQLite", count);
+
+        let summary_embs = self.store.load_all_summary_embeddings()?;
+        let summary_count = summary_embs.len();
+        *self.handle.summary_vec.write().await = summary_embs.into_iter().collect();
+
+        info!(
+            "Hydrated {} chunk embeddings and {} summary embeddings from SQLite",
+            count, summary_count
+        );
         Ok(())
     }
 
@@ -150,6 +158,10 @@ impl Indexer {
 
         // Embedding succeeded; safe to commit the row + chunks atomically.
         let note_id = self.store.upsert_note(rel_path, &page_title, fs_mtime, &hash_bytes)?;
+        // upsert_note cleared the SQL summary state; mirror the same change
+        // in-memory so a stale summary embedding doesn't keep matching for the
+        // few minutes it takes the summarizer to regenerate.
+        self.handle.summary_vec.write().await.remove(&note_id);
         let old_ids = self.store.get_chunk_ids_for_note(note_id)?;
 
         let chunk_data: Vec<(usize, &str, &[f32])> = chunks
@@ -185,6 +197,8 @@ impl Indexer {
             let old_ids = self.store.get_chunk_ids_for_note(row.id)?;
             let mut v = self.handle.vec.write().await;
             v.retain(|(id, _)| !old_ids.contains(id));
+            drop(v);
+            self.handle.summary_vec.write().await.remove(&row.id);
         }
         self.store.delete_note(rel_path)?;
         Ok(())

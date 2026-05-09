@@ -19,10 +19,18 @@ pub struct IndexerStatusJson {
 }
 
 #[derive(serde::Serialize)]
+pub struct SummarizerStatusJson {
+    pub ok: i64,
+    pub pending: i64,
+    pub failed: i64,
+}
+
+#[derive(serde::Serialize)]
 pub struct ServerInfoResponse {
     #[serde(flatten)]
     pub info: ServerInformation,
     pub indexer: Option<IndexerStatusJson>,
+    pub summarizer: Option<SummarizerStatusJson>,
 }
 
 pub async fn get_server_info(
@@ -40,7 +48,18 @@ pub async fn get_server_info(
     } else {
         None
     };
-    Json(ServerInfoResponse { info: engine_arc.server_info.clone(), indexer })
+    let summarizer = match engine_arc.store.count_summary_status() {
+        Ok((ok, pending, failed)) => Some(SummarizerStatusJson { ok, pending, failed }),
+        Err(e) => {
+            error!("/server_info: count_summary_status failed: {}", e);
+            None
+        }
+    };
+    Json(ServerInfoResponse {
+        info: engine_arc.server_info.clone(),
+        indexer,
+        summarizer,
+    })
 }
 
 pub async fn reindex(

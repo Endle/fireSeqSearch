@@ -7,6 +7,7 @@ use tokio::sync::mpsc;
 
 use crate::indexer::chunker::preprocess;
 use crate::indexer::store::{Store, SUMMARY_IN_PROGRESS};
+use crate::indexer::IndexerHandle;
 use crate::llm_backend::{LlmBackend, Message};
 
 const PAGE_BUDGET_CHARS: usize = 8000;
@@ -33,6 +34,7 @@ pub struct Summarizer {
     backend: Arc<LlmBackend>,
     notebook_path: PathBuf,
     rx_high: mpsc::Receiver<i64>,
+    handle: IndexerHandle,
 }
 
 impl Summarizer {
@@ -40,9 +42,10 @@ impl Summarizer {
         store: Arc<Store>,
         backend: Arc<LlmBackend>,
         notebook_path: PathBuf,
+        handle: IndexerHandle,
     ) -> SummarizerHandle {
         let (tx, rx) = mpsc::channel(QUEUE_CAPACITY);
-        let s = Self { store, backend, notebook_path, rx_high: rx };
+        let s = Self { store, backend, notebook_path, rx_high: rx, handle };
         tokio::spawn(async move { s.run().await });
         SummarizerHandle { queue_high: tx }
     }
@@ -51,6 +54,14 @@ impl Summarizer {
         if let Ok(n) = self.store.reset_in_progress() {
             if n > 0 {
                 info!("summarizer: reset {} stale IN_PROGRESS rows on startup", n);
+            }
+        }
+        if let Ok(n) = self.store.requeue_summaries_missing_embedding() {
+            if n > 0 {
+                info!(
+                    "summarizer: backfill — requeued {} summaries missing embeddings",
+                    n
+                );
             }
         }
         loop {
@@ -90,12 +101,24 @@ impl Summarizer {
             return;
         }
         match self.summarize_one(note_id).await {
-            Ok(summary) => {
-                if let Err(e) = self.store.save_summary(note_id, &summary) {
-                    error!("summarizer: save_summary {}: {}", note_id, e);
-                } else {
-                    info!("summarized note {}: {:?}", note_id, preview(&summary, 80));
+            Ok((summary, embedding)) => {
+                if let Err(e) = self.store.save_summary_with_embedding(
+                    note_id,
+                    &summary,
+                    embedding.as_ref().map(|e| e.as_slice()),
+                ) {
+                    error!("summarizer: save_summary_with_embedding {}: {}", note_id, e);
+                    return;
                 }
+                if let Some(emb) = embedding {
+                    let mut arr = [0f32; 1024];
+                    arr.copy_from_slice(&emb);
+                    self.handle.summary_vec.write().await.insert(note_id, arr);
+                } else {
+                    // Empty summary (stub-only page): make sure stale entry, if any, is gone.
+                    self.handle.summary_vec.write().await.remove(&note_id);
+                }
+                info!("summarized note {}: {:?}", note_id, preview(&summary, 80));
             }
             Err(e) => {
                 error!("summarizer: summarize {} failed: {}", note_id, e);
@@ -106,7 +129,9 @@ impl Summarizer {
         }
     }
 
-    async fn summarize_one(&self, note_id: i64) -> Result<String, String> {
+    /// Returns (summary_text, summary_embedding). Embedding is None for stub-only
+    /// pages where the summary is empty.
+    async fn summarize_one(&self, note_id: i64) -> Result<(String, Option<Vec<f32>>), String> {
         let note = self
             .store
             .get_notes_by_ids(&[note_id])
@@ -118,15 +143,42 @@ impl Summarizer {
         let path = self.notebook_path.join(&note.rel_path);
         let raw = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
         if raw.trim().is_empty() {
-            return Ok(String::new());
+            return Ok((String::new(), None));
         }
         let clean = preprocess(&raw);
         let clipped: String = clean.chars().take(PAGE_BUDGET_CHARS).collect();
 
         let prompt = build_prompt(&note.page_title, &clipped);
         let messages = vec![Message { role: "user".to_string(), content: prompt }];
-        let resp = self.backend.chat(messages).await.map_err(|e| e.to_string())?;
-        Ok(resp.trim().to_string())
+        let summary = self
+            .backend
+            .chat(messages)
+            .await
+            .map_err(|e| e.to_string())?
+            .trim()
+            .to_string();
+
+        if summary.is_empty() {
+            return Ok((summary, None));
+        }
+
+        // Embed the summary so retrieval has a page-level signal in addition
+        // to chunk-level cosine matches.
+        let mut embeddings = self
+            .backend
+            .embed(&[summary.clone()])
+            .await
+            .map_err(|e| e.to_string())?;
+        let emb = embeddings
+            .pop()
+            .ok_or_else(|| "embed returned no vectors".to_string())?;
+        if emb.len() != 1024 {
+            return Err(format!(
+                "summary embedding has {} dims, expected 1024",
+                emb.len()
+            ));
+        }
+        Ok((summary, Some(emb)))
     }
 }
 

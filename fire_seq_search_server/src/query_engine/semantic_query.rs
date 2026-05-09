@@ -37,53 +37,89 @@ pub async fn semantic_query(
         .next()
         .ok_or_else(|| "no embedding returned".to_string())?;
 
-    // bge-m3 returns L2-normalised vectors, so dot product == cosine similarity
+    // bge-m3 returns L2-normalised vectors, so dot product == cosine similarity.
+    // Score every chunk; we'll combine with the per-note summary signal below.
     let vec = indexer.vec.read().await;
-    let mut all_scored: Vec<(f32, i64)> = vec
+    let mut all_chunk_scored: Vec<(f32, i64)> = vec
         .iter()
         .map(|(id, emb)| (dot(emb, &query_emb), *id))
         .collect();
-    all_scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-    let top_score = all_scored.first().map(|(s, _)| *s).unwrap_or(0.0);
-    let mut scored: Vec<(f32, i64)> = all_scored
-        .into_iter()
-        .filter(|(s, _)| *s >= min_score)
-        .collect();
-    scored.truncate(50);
+    let chunk_total = vec.len();
     drop(vec);
+    all_chunk_scored
+        .sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    let top_chunk_score = all_chunk_scored.first().map(|(s, _)| *s).unwrap_or(0.0);
+    // Look up the top 200 chunks' note_ids; a chunk that ultimately wins on
+    // summary score still wants its best chunk as the display anchor.
+    all_chunk_scored.truncate(200);
 
-    info!(
-        "scored {} chunks, top={:.3}, threshold={:.3}, kept={}",
-        indexer.vec.read().await.len(),
-        top_score,
-        min_score,
-        scored.len(),
-    );
-
-    if scored.is_empty() {
-        return Ok(vec![]);
-    }
-
-    let top_ids: Vec<i64> = scored.iter().map(|(_, id)| *id).collect();
-    let chunk_details = store.get_chunks_by_ids(&top_ids).map_err(|e| e.to_string())?;
+    let chunk_ids: Vec<i64> = all_chunk_scored.iter().map(|(_, id)| *id).collect();
+    let chunk_details = store.get_chunks_by_ids(&chunk_ids).map_err(|e| e.to_string())?;
     let id_to_detail: HashMap<i64, &ChunkDetail> =
         chunk_details.iter().map(|c| (c.id, c)).collect();
 
-    // keep best-scoring chunk per note
-    let mut note_best: HashMap<i64, (f32, i64)> = HashMap::new();
-    for (score, chunk_id) in &scored {
+    // Per-note: best chunk score + chunk_id (for display anchor).
+    let mut note_best_chunk: HashMap<i64, (f32, i64)> = HashMap::new();
+    for (score, chunk_id) in &all_chunk_scored {
         if let Some(detail) = id_to_detail.get(chunk_id) {
-            let entry = note_best.entry(detail.note_id).or_insert((*score, *chunk_id));
+            let entry = note_best_chunk
+                .entry(detail.note_id)
+                .or_insert((*score, *chunk_id));
             if *score > entry.0 {
                 *entry = (*score, *chunk_id);
             }
         }
     }
 
-    let mut note_hits: Vec<(f32, i64, i64)> = note_best
-        .into_iter()
-        .map(|(note_id, (score, chunk_id))| (score, note_id, chunk_id))
+    // Score each note's summary (page-level signal). Provides recall on
+    // queries where the page's gist matches but no individual bullet stands
+    // out — solves the "chunk dilution" failure mode where short stub-like
+    // chunks outrank content-rich chunks.
+    let summary_vec = indexer.summary_vec.read().await;
+    let summary_total = summary_vec.len();
+    let summary_scores: HashMap<i64, f32> = summary_vec
+        .iter()
+        .map(|(nid, emb)| (*nid, dot(emb, &query_emb)))
         .collect();
+    drop(summary_vec);
+    let top_summary_score = summary_scores.values().cloned().fold(0.0f32, f32::max);
+
+    // Combined per-note score: max(best chunk, summary). Anchor stays the
+    // best chunk so the user always has a precise bullet to drill into.
+    let mut all_note_ids: std::collections::HashSet<i64> =
+        std::collections::HashSet::with_capacity(
+            note_best_chunk.len() + summary_scores.len(),
+        );
+    all_note_ids.extend(note_best_chunk.keys());
+    all_note_ids.extend(summary_scores.keys());
+
+    let mut note_hits: Vec<(f32, i64, i64)> = Vec::new();
+    for note_id in all_note_ids {
+        let (chunk_score, chunk_id) = note_best_chunk
+            .get(&note_id)
+            .copied()
+            .unwrap_or((0.0, -1));
+        let summary_score = summary_scores.get(&note_id).copied().unwrap_or(0.0);
+        let combined = chunk_score.max(summary_score);
+        if combined < min_score {
+            continue;
+        }
+        note_hits.push((combined, note_id, chunk_id));
+    }
+
+    info!(
+        "scored {} chunks (top={:.3}) + {} summaries (top={:.3}), threshold={:.3}, kept={}",
+        chunk_total,
+        top_chunk_score,
+        summary_total,
+        top_summary_score,
+        min_score,
+        note_hits.len(),
+    );
+
+    if note_hits.is_empty() {
+        return Ok(vec![]);
+    }
     note_hits.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
     note_hits.truncate(10);
 
@@ -98,11 +134,22 @@ pub async fn semantic_query(
             Some(n) => n,
             None => continue,
         };
-        let chunk = match id_to_detail.get(chunk_id) {
-            Some(c) => c,
-            None => continue,
+        // chunk_id == -1 means this note hit via the summary signal alone;
+        // there's no chunk anchor to render. Fall back to summary-derived
+        // preview text.
+        let (top_chunk, chunk_text_for_log) = match id_to_detail.get(chunk_id) {
+            Some(c) => (
+                first_content_line(&c.text, &note.page_title),
+                preview(&c.text, 200),
+            ),
+            None => (
+                note.summary
+                    .as_deref()
+                    .map(|s| s.lines().next().unwrap_or("").to_string())
+                    .unwrap_or_default(),
+                "(summary-only hit, no chunk anchor)".to_string(),
+            ),
         };
-        let top_chunk = first_content_line(&chunk.text, &note.page_title);
         let logseq_uri = generate_uri_v2(&note.page_title, server_info);
         let status_str = summary_status_str(note.summary_status);
         info!(
@@ -111,7 +158,7 @@ pub async fn semantic_query(
             score,
             chunk_id,
             status_str,
-            preview(&chunk.text, 200)
+            chunk_text_for_log,
         );
 
         // If this page doesn't have a usable summary yet, ask the summarizer
