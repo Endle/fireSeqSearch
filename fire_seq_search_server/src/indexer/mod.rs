@@ -1,6 +1,7 @@
 pub mod store;
 pub mod chunker;
 pub mod pipeline;
+pub mod summarizer;
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -8,6 +9,7 @@ use tokio::sync::RwLock;
 pub use store::Store;
 pub use chunker::{chunk_note, Chunk};
 pub use pipeline::Indexer;
+pub use summarizer::{Summarizer, SummarizerHandle};
 
 #[derive(Clone, Default)]
 pub struct IndexerStatus {

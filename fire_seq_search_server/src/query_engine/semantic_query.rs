@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use log::info;
 
-use crate::indexer::store::{ChunkDetail, NoteDetail};
-use crate::indexer::{IndexerHandle, Store};
+use crate::indexer::store::{summary_status_str, ChunkDetail, NoteDetail, SUMMARY_OK};
+use crate::indexer::{IndexerHandle, Store, SummarizerHandle};
 use crate::llm_backend::LlmBackend;
 use crate::post_query::app_uri::generate_uri_v2;
 use crate::query_engine::ServerInformation;
@@ -15,6 +15,8 @@ pub struct PageHit {
     pub score: f32,
     pub top_chunk: String,
     pub chunk_id: i64,
+    pub summary: Option<String>,
+    pub summary_status: &'static str,
 }
 
 pub async fn semantic_query(
@@ -22,6 +24,7 @@ pub async fn semantic_query(
     backend: &LlmBackend,
     indexer: &IndexerHandle,
     store: &Store,
+    summarizer: Option<&SummarizerHandle>,
     min_score: f32,
     server_info: &ServerInformation,
 ) -> Result<Vec<PageHit>, String> {
@@ -101,19 +104,35 @@ pub async fn semantic_query(
         };
         let top_chunk = first_content_line(&chunk.text, &note.page_title);
         let logseq_uri = generate_uri_v2(&note.page_title, server_info);
+        let status_str = summary_status_str(note.summary_status);
         info!(
-            "hit: page={:?} score={:.3} chunk_id={} chunk_text={:?}",
+            "hit: page={:?} score={:.3} chunk_id={} summary={} chunk_text={:?}",
             note.page_title,
             score,
             chunk_id,
+            status_str,
             preview(&chunk.text, 200)
         );
+
+        // If this page doesn't have a usable summary yet, ask the summarizer
+        // to bump it to the top of the queue. Best-effort: we don't block on
+        // it. Also persist the QUEUED_HIGH state so it stays prioritized
+        // across restarts.
+        if note.summary_status != SUMMARY_OK {
+            if let Some(s) = summarizer {
+                s.request_high_priority(note.id);
+            }
+            let _ = store.promote_to_high(note.id);
+        }
+
         result.push(PageHit {
             title: note.page_title.clone(),
             logseq_uri,
             score: *score,
             top_chunk,
             chunk_id: *chunk_id,
+            summary: note.summary.clone(),
+            summary_status: status_str,
         });
     }
 

@@ -26,7 +26,7 @@ pub struct ServerInformation {
 }
 
 use crate::llm_backend::{LlmBackend, SummaryEngine};
-use crate::indexer::{IndexerHandle, Store};
+use crate::indexer::{IndexerHandle, Store, SummarizerHandle};
 
 pub struct QueryEngine {
     pub server_info: ServerInformation,
@@ -35,6 +35,7 @@ pub struct QueryEngine {
     pub min_score: f32,
     pub llm: Option<Arc<SummaryEngine>>,
     pub indexer: Option<IndexerHandle>,
+    pub summarizer: Option<SummarizerHandle>,
 }
 
 impl QueryEngine {
@@ -51,6 +52,7 @@ impl QueryEngine {
             min_score,
             llm: None,
             indexer: None,
+            summarizer: None,
         }
     }
 

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Interactive smoke test for the fire_seq_search_server HTTP API.
 
-Hits /server_info once, then loops: read a keyword, call /query, call
-/highlight on each hit, pretty-print everything.
+Hits /server_info once, then loops: read a keyword, call /query, render
+each hit with its title, score, summary, and top_chunk. Summaries are
+generated asynchronously by the server's background summarizer; pages
+that don't have one yet show as "(pending)".
 """
 import json
 import sys
@@ -10,20 +12,11 @@ import urllib.parse
 import urllib.request
 
 BASE = "http://127.0.0.1:3030"
-TIMEOUT = 60  # /highlight goes through the chat model, give it room
+TIMEOUT = 30
 
 
 def http_get(path):
     req = urllib.request.Request(BASE + path)
-    with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-        return json.loads(resp.read())
-
-
-def http_post(path, body):
-    data = json.dumps(body).encode()
-    req = urllib.request.Request(
-        BASE + path, data=data, headers={"Content-Type": "application/json"}
-    )
     with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
         return json.loads(resp.read())
 
@@ -46,19 +39,24 @@ def run_query(term):
     encoded = urllib.parse.quote(term, safe="")
     print(f"\nGET {BASE}/query/{encoded}")
     hits = http_get(f"/query/{encoded}")
-    print(f"  {len(hits)} hit(s)\n")
+    pending = sum(1 for h in hits if h.get("summary_status") != "ok")
+    note = f" ({pending} summary pending)" if pending else ""
+    print(f"  {len(hits)} hit(s){note}\n")
     return hits
 
 
-def run_highlight(term, chunk_id):
-    return http_post("/highlight", {"query": term, "chunk_id": chunk_id})["highlight"]
-
-
-def render_hit(i, hit, highlight):
+def render_hit(i, hit):
     print(f"  [{i}] {hit['title']}   score={hit['score']:.3f}   chunk_id={hit['chunk_id']}")
     print(f"      {hit['logseq_uri']}")
+    status = hit.get("summary_status", "ok")
+    summary = hit.get("summary")
+    if summary:
+        print(f"      summary   : {summary}")
+    elif status == "failed":
+        print("      summary   : (failed to summarize)")
+    else:
+        print("      summary   : (pending — re-run query in a moment)")
     print(f"      top_chunk : {hit['top_chunk']}")
-    print(f"      highlight : {highlight}")
     print()
 
 
@@ -85,11 +83,7 @@ def main():
             continue
 
         for i, hit in enumerate(hits, 1):
-            try:
-                hl = run_highlight(term, hit["chunk_id"])
-            except Exception as e:
-                hl = f"[/highlight failed: {e}]"
-            render_hit(i, hit, hl)
+            render_hit(i, hit)
 
 
 if __name__ == "__main__":

@@ -155,9 +155,9 @@ async fn main() {
 
     let indexer_handle = IndexerHandle::default();
     let indexer = Indexer::new(
-        store,
+        store.clone(),
         backend.clone(),
-        notebook_path,
+        notebook_path.clone(),
         indexer_handle.clone(),
     );
     if let Err(e) = indexer.hydrate().await {
@@ -165,6 +165,15 @@ async fn main() {
     }
     tokio::spawn(indexer.run());
     engine.indexer = Some(indexer_handle);
+
+    // Background summarizer: drains low-priority backlog (all rows with no
+    // summary yet) and accepts high-priority promotions from /query.
+    let summarizer_handle = fire_seq_search_server::indexer::Summarizer::spawn(
+        store,
+        backend.clone(),
+        notebook_path,
+    );
+    engine.summarizer = Some(summarizer_handle);
 
     let engine_arc = Arc::new(engine);
     let backend_for_destructor = backend.clone();

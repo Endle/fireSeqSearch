@@ -8,6 +8,24 @@ use crate::indexer::IndexerError;
 
 pub const CHUNKER_VERSION: i64 = 1;
 
+// Summary lifecycle states stored in `notes.summary_status`.
+pub const SUMMARY_NONE: i64 = 0;
+pub const SUMMARY_QUEUED_LOW: i64 = 1;
+pub const SUMMARY_QUEUED_HIGH: i64 = 2;
+pub const SUMMARY_IN_PROGRESS: i64 = 3;
+pub const SUMMARY_OK: i64 = 4;
+pub const SUMMARY_FAILED: i64 = 5;
+pub const SUMMARY_MAX_ATTEMPTS: i64 = 3;
+
+/// Coarse public-facing status; keep in sync with the constants above.
+pub fn summary_status_str(s: i64) -> &'static str {
+    match s {
+        SUMMARY_OK => "ok",
+        SUMMARY_FAILED => "failed",
+        _ => "pending",
+    }
+}
+
 pub struct ChunkDetail {
     pub id: i64,
     pub note_id: i64,
@@ -18,6 +36,8 @@ pub struct NoteDetail {
     pub id: i64,
     pub page_title: String,
     pub rel_path: String,
+    pub summary: Option<String>,
+    pub summary_status: i64,
 }
 
 pub struct NoteRow {
@@ -38,12 +58,15 @@ impl Store {
             "PRAGMA foreign_keys = ON;
              PRAGMA journal_mode = WAL;
              CREATE TABLE IF NOT EXISTS notes (
-               id              INTEGER PRIMARY KEY,
-               rel_path        TEXT    NOT NULL UNIQUE,
-               page_title      TEXT    NOT NULL,
-               mtime           INTEGER NOT NULL,
-               content_hash    BLOB    NOT NULL,
-               chunker_version INTEGER NOT NULL
+               id               INTEGER PRIMARY KEY,
+               rel_path         TEXT    NOT NULL UNIQUE,
+               page_title       TEXT    NOT NULL,
+               mtime            INTEGER NOT NULL,
+               content_hash     BLOB    NOT NULL,
+               chunker_version  INTEGER NOT NULL,
+               summary          TEXT,
+               summary_status   INTEGER NOT NULL DEFAULT 0,
+               summary_attempts INTEGER NOT NULL DEFAULT 0
              );
              CREATE TABLE IF NOT EXISTS chunks (
                id        INTEGER PRIMARY KEY,
@@ -53,8 +76,19 @@ impl Store {
                embedding BLOB    NOT NULL,
                UNIQUE(note_id, ord)
              );
-             CREATE INDEX IF NOT EXISTS idx_chunks_note_id ON chunks(note_id);",
+             CREATE INDEX IF NOT EXISTS idx_chunks_note_id ON chunks(note_id);
+             CREATE INDEX IF NOT EXISTS idx_notes_summary_status ON notes(summary_status);",
         )?;
+        // Best-effort migration for DBs created before the summary columns existed.
+        // ALTER TABLE ADD COLUMN errors if the column already exists; we ignore.
+        for stmt in [
+            "ALTER TABLE notes ADD COLUMN summary TEXT",
+            "ALTER TABLE notes ADD COLUMN summary_status INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE notes ADD COLUMN summary_attempts INTEGER NOT NULL DEFAULT 0",
+            "CREATE INDEX IF NOT EXISTS idx_notes_summary_status ON notes(summary_status)",
+        ] {
+            let _ = conn.execute(stmt, []);
+        }
         Ok(Self { conn: Mutex::new(conn) })
     }
 
@@ -93,15 +127,22 @@ impl Store {
         hash: &[u8],
     ) -> Result<i64, IndexerError> {
         let conn = self.conn.lock().unwrap();
+        // We only call upsert_note when content changed (chunks were just
+        // re-embedded), so any cached summary is stale: clear it and queue
+        // for re-summarization at low priority.
         conn.execute(
-            "INSERT INTO notes (rel_path, page_title, mtime, content_hash, chunker_version)
-             VALUES (?1, ?2, ?3, ?4, ?5)
+            "INSERT INTO notes (rel_path, page_title, mtime, content_hash, chunker_version,
+                                summary, summary_status, summary_attempts)
+             VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, 0)
              ON CONFLICT(rel_path) DO UPDATE SET
-               page_title      = excluded.page_title,
-               mtime           = excluded.mtime,
-               content_hash    = excluded.content_hash,
-               chunker_version = excluded.chunker_version",
-            params![rel_path, page_title, mtime, hash, CHUNKER_VERSION],
+               page_title       = excluded.page_title,
+               mtime            = excluded.mtime,
+               content_hash     = excluded.content_hash,
+               chunker_version  = excluded.chunker_version,
+               summary          = NULL,
+               summary_status   = ?6,
+               summary_attempts = 0",
+            params![rel_path, page_title, mtime, hash, CHUNKER_VERSION, SUMMARY_QUEUED_LOW],
         )?;
         let id: i64 = conn.query_row(
             "SELECT id FROM notes WHERE rel_path = ?1",
@@ -182,17 +223,108 @@ impl Store {
             return Ok(vec![]);
         }
         let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-        let sql = format!("SELECT id, page_title, rel_path FROM notes WHERE id IN ({placeholders})");
+        let sql = format!(
+            "SELECT id, page_title, rel_path, summary, summary_status \
+             FROM notes WHERE id IN ({placeholders})"
+        );
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt.query_map(rusqlite::params_from_iter(ids.iter()), |row| {
-            Ok(NoteDetail { id: row.get(0)?, page_title: row.get(1)?, rel_path: row.get(2)? })
+            Ok(NoteDetail {
+                id: row.get(0)?,
+                page_title: row.get(1)?,
+                rel_path: row.get(2)?,
+                summary: row.get(3)?,
+                summary_status: row.get(4)?,
+            })
         })?;
         let mut out = Vec::new();
         for row in rows {
             out.push(row?);
         }
         Ok(out)
+    }
+
+    // ---- Summary lifecycle methods ----
+
+    pub fn pull_low_priority_candidate(&self) -> Result<Option<i64>, IndexerError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id FROM notes
+             WHERE summary_status IN (?1, ?2)
+               AND summary_attempts < ?3
+             ORDER BY id ASC
+             LIMIT 1",
+        )?;
+        let id: Option<i64> = stmt
+            .query_row(
+                params![SUMMARY_NONE, SUMMARY_QUEUED_LOW, SUMMARY_MAX_ATTEMPTS],
+                |row| row.get(0),
+            )
+            .ok();
+        Ok(id)
+    }
+
+    pub fn set_summary_status(&self, note_id: i64, status: i64) -> Result<(), IndexerError> {
+        self.conn.lock().unwrap().execute(
+            "UPDATE notes SET summary_status = ?1 WHERE id = ?2",
+            params![status, note_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn promote_to_high(&self, note_id: i64) -> Result<(), IndexerError> {
+        // Only promote if currently NONE or QUEUED_LOW; do not stomp on IN_PROGRESS / OK / FAILED.
+        self.conn.lock().unwrap().execute(
+            "UPDATE notes SET summary_status = ?1
+             WHERE id = ?2 AND summary_status IN (?3, ?4)",
+            params![SUMMARY_QUEUED_HIGH, note_id, SUMMARY_NONE, SUMMARY_QUEUED_LOW],
+        )?;
+        Ok(())
+    }
+
+    pub fn save_summary(&self, note_id: i64, summary: &str) -> Result<(), IndexerError> {
+        self.conn.lock().unwrap().execute(
+            "UPDATE notes SET summary = ?1, summary_status = ?2 WHERE id = ?3",
+            params![summary, SUMMARY_OK, note_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn record_summary_failure(&self, note_id: i64) -> Result<i64, IndexerError> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE notes
+             SET summary_attempts = summary_attempts + 1,
+                 summary_status   = CASE WHEN summary_attempts + 1 >= ?1 THEN ?2 ELSE ?3 END
+             WHERE id = ?4",
+            params![SUMMARY_MAX_ATTEMPTS, SUMMARY_FAILED, SUMMARY_NONE, note_id],
+        )?;
+        let attempts: i64 = conn.query_row(
+            "SELECT summary_attempts FROM notes WHERE id = ?1",
+            params![note_id],
+            |row| row.get(0),
+        )?;
+        Ok(attempts)
+    }
+
+    /// On startup, re-queue anything left as IN_PROGRESS from a prior crash.
+    pub fn reset_in_progress(&self) -> Result<usize, IndexerError> {
+        let n = self.conn.lock().unwrap().execute(
+            "UPDATE notes SET summary_status = ?1 WHERE summary_status = ?2",
+            params![SUMMARY_QUEUED_LOW, SUMMARY_IN_PROGRESS],
+        )?;
+        Ok(n)
+    }
+
+    pub fn count_pending_summaries(&self) -> Result<i64, IndexerError> {
+        let conn = self.conn.lock().unwrap();
+        let n: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM notes WHERE summary_status NOT IN (?1, ?2)",
+            params![SUMMARY_OK, SUMMARY_FAILED],
+            |row| row.get(0),
+        )?;
+        Ok(n)
     }
 
     pub fn load_all_embeddings(&self) -> Result<Vec<(i64, [f32; 1024])>, IndexerError> {

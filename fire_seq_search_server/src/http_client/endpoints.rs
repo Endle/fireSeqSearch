@@ -75,6 +75,7 @@ pub async fn query(
         &engine_arc.backend,
         indexer,
         &engine_arc.store,
+        engine_arc.summarizer.as_ref(),
         engine_arc.min_score,
         &engine_arc.server_info,
     )
