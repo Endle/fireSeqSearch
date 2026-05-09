@@ -2,7 +2,7 @@
 """Interactive smoke test for the fire_seq_search_server HTTP API.
 
 Hits /server_info once, then loops: read a keyword, call /query, render
-each hit with its title, score, summary, and top_chunk. Summaries are
+each hit with its title, score, summary, and top_snippet. Summaries are
 generated asynchronously by the server's background summarizer; pages
 that don't have one yet show as "(pending)".
 """
@@ -56,7 +56,7 @@ def render_hit(i, hit):
         print("      summary   : (failed to summarize)")
     else:
         print("      summary   : (pending — re-run query in a moment)")
-    print(f"      top_chunk : {hit['top_chunk']}")
+    print(f"      top_snippet : {hit['top_snippet']}")
     print()
 
 

@@ -2,18 +2,23 @@ use std::collections::HashMap;
 
 use log::info;
 
+use crate::indexer::chunker::{is_stub_unit, split_into_top_level_units};
 use crate::indexer::store::{summary_status_str, ChunkDetail, NoteDetail, SUMMARY_OK};
 use crate::indexer::{IndexerHandle, Store, SummarizerHandle};
 use crate::llm_backend::LlmBackend;
 use crate::post_query::app_uri::generate_uri_v2;
 use crate::query_engine::ServerInformation;
 
+/// Hard cap on displayed snippet length. Long enough for a parent bullet plus
+/// several descendants; short enough that result cards don't explode.
+const SNIPPET_MAX_CHARS: usize = 500;
+
 #[derive(serde::Serialize)]
 pub struct PageHit {
     pub title: String,
     pub logseq_uri: String,
     pub score: f32,
-    pub top_chunk: String,
+    pub top_snippet: String,
     pub chunk_id: i64,
     pub summary: Option<String>,
     pub summary_status: &'static str,
@@ -128,6 +133,14 @@ pub async fn semantic_query(
     let note_map: HashMap<i64, &NoteDetail> =
         note_details.iter().map(|n| (n.id, n)).collect();
 
+    // Per-chunk snippet selection: split each anchor chunk back into the
+    // top-level bullet units the chunker packed in, score each unit against
+    // the query, pick the best. One batched embed call covers every
+    // candidate across all hits, so cost scales with K (≤10) not corpus.
+    let snippet_map = select_snippets(&note_hits, &id_to_detail, &note_map, backend, &query_emb)
+        .await
+        .map_err(|e| e.to_string())?;
+
     let mut result = Vec::new();
     for (score, note_id, chunk_id) in &note_hits {
         let note = match note_map.get(note_id) {
@@ -137,11 +150,14 @@ pub async fn semantic_query(
         // chunk_id == -1 means this note hit via the summary signal alone;
         // there's no chunk anchor to render. Fall back to summary-derived
         // preview text.
-        let (top_chunk, chunk_text_for_log) = match id_to_detail.get(chunk_id) {
-            Some(c) => (
-                first_content_line(&c.text, &note.page_title),
-                preview(&c.text, 200),
-            ),
+        let (top_snippet, chunk_text_for_log) = match id_to_detail.get(chunk_id) {
+            Some(c) => {
+                let snippet = snippet_map
+                    .get(chunk_id)
+                    .cloned()
+                    .unwrap_or_else(|| first_content_line(&c.text, &note.page_title));
+                (truncate_chars(&snippet, SNIPPET_MAX_CHARS), preview(&c.text, 200))
+            }
             None => (
                 note.summary
                     .as_deref()
@@ -176,7 +192,7 @@ pub async fn semantic_query(
             title: note.page_title.clone(),
             logseq_uri,
             score: *score,
-            top_chunk,
+            top_snippet,
             chunk_id: *chunk_id,
             summary: note.summary.clone(),
             summary_status: status_str,
@@ -190,6 +206,10 @@ fn dot(a: &[f32; 1024], b: &[f32]) -> f32 {
     a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
 }
 
+fn dot_slice(a: &[f32], b: &[f32]) -> f32 {
+    a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
+}
+
 fn preview(s: &str, max_chars: usize) -> String {
     let cleaned = s.replace('\n', " ⏎ ");
     if cleaned.chars().count() <= max_chars {
@@ -200,8 +220,19 @@ fn preview(s: &str, max_chars: usize) -> String {
     }
 }
 
+fn truncate_chars(s: &str, max_chars: usize) -> String {
+    let count = s.chars().count();
+    if count <= max_chars {
+        s.to_string()
+    } else {
+        let truncated: String = s.chars().take(max_chars).collect();
+        format!("{}…", truncated)
+    }
+}
+
 /// Pick the first non-empty line from `text` that isn't the `# {title}` prefix
 /// the chunker prepends. Falls back to the first non-empty line, then "".
+/// Used as a last-resort when snippet selection has no candidates.
 fn first_content_line(text: &str, page_title: &str) -> String {
     let title_line = format!("# {}", page_title);
     for line in text.lines() {
@@ -212,4 +243,77 @@ fn first_content_line(text: &str, page_title: &str) -> String {
         return line.to_string();
     }
     String::new()
+}
+
+/// Strip the `# {page_title}\n\n` prefix the chunker prepends, returning the
+/// raw body. Falls back to the original string if the prefix isn't present.
+fn strip_title_prefix<'a>(chunk_text: &'a str, page_title: &str) -> &'a str {
+    let prefix = format!("# {}\n\n", page_title);
+    chunk_text.strip_prefix(&prefix).unwrap_or(chunk_text)
+}
+
+/// For each anchor chunk in `note_hits`, split its body into top-level bullet
+/// units, drop stubs, batch-embed every candidate (with `# {title}\n\n` prefix
+/// to mirror the stored chunk embeddings), and return the highest-scoring
+/// unit per chunk_id. A page-title match thus naturally wins for short
+/// bullets, which is what we want.
+async fn select_snippets(
+    note_hits: &[(f32, i64, i64)],
+    id_to_detail: &HashMap<i64, &ChunkDetail>,
+    note_map: &HashMap<i64, &NoteDetail>,
+    backend: &LlmBackend,
+    query_emb: &[f32],
+) -> Result<HashMap<i64, String>, String> {
+    // Each candidate carries (chunk_id, embed_text, display_text). We flatten
+    // across all hits so one HTTP call covers everything.
+    let mut candidates: Vec<(i64, String, String)> = Vec::new();
+    for (_, note_id, chunk_id) in note_hits {
+        let chunk = match id_to_detail.get(chunk_id) {
+            Some(c) => c,
+            None => continue,
+        };
+        let note = match note_map.get(note_id) {
+            Some(n) => n,
+            None => continue,
+        };
+        let body = strip_title_prefix(&chunk.text, &note.page_title);
+        for unit in split_into_top_level_units(body) {
+            if is_stub_unit(&unit) {
+                continue;
+            }
+            let display = unit.join("\n");
+            let embed_text = format!("# {}\n\n{}", note.page_title, display);
+            candidates.push((*chunk_id, embed_text, display));
+        }
+    }
+
+    if candidates.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let inputs: Vec<String> = candidates.iter().map(|(_, e, _)| e.clone()).collect();
+    let embs = backend
+        .embed(&inputs)
+        .await
+        .map_err(|e| e.to_string())?;
+    if embs.len() != candidates.len() {
+        return Err(format!(
+            "snippet embed count mismatch: got {}, expected {}",
+            embs.len(),
+            candidates.len()
+        ));
+    }
+
+    let mut best: HashMap<i64, (f32, String)> = HashMap::new();
+    for ((chunk_id, _, display), emb) in candidates.iter().zip(embs.iter()) {
+        let score = dot_slice(emb, query_emb);
+        best.entry(*chunk_id)
+            .and_modify(|cur| {
+                if score > cur.0 {
+                    *cur = (score, display.clone());
+                }
+            })
+            .or_insert_with(|| (score, display.clone()));
+    }
+    Ok(best.into_iter().map(|(k, (_, v))| (k, v)).collect())
 }

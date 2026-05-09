@@ -57,7 +57,7 @@ fn flush_buffer(
 
 /// A unit is "stub" if every line, after stripping bullet markers and whitespace,
 /// is empty. Logseq's editor leaves bare `-` lines as placeholders.
-fn is_stub_unit(unit: &[String]) -> bool {
+pub(crate) fn is_stub_unit(unit: &[String]) -> bool {
     unit.iter().all(|line| {
         let t = line.trim();
         t.is_empty() || t == "-" || t == "*"
@@ -88,7 +88,7 @@ fn is_depth0_bullet(line: &str) -> bool {
     line.starts_with("- ") || line.starts_with("* ") || line == "-" || line == "*"
 }
 
-fn split_into_top_level_units(text: &str) -> Vec<Vec<String>> {
+pub(crate) fn split_into_top_level_units(text: &str) -> Vec<Vec<String>> {
     let mut units: Vec<Vec<String>> = Vec::new();
     let mut current: Option<Vec<String>> = None;
 
