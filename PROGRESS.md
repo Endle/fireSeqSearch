@@ -1,294 +1,224 @@
-# LLM-first Rewrite — Progress
+# fireSeqSearch — Architecture & Status
 
-Tracking the rewrite of `fireSeqSearch` from a tantivy-keyword-search server with
-post-hoc LLM summaries into an LLM-first server with semantic dense retrieval and
-RAG-based Q&A.
+## Purpose
 
-## Phases
+A local search server + browser extension that appends hits from your
+Logseq/Obsidian notebook to Google search results. The original architecture
+was tantivy keyword search with a bolted-on LLM summarizer. The current
+architecture is **LLM-first**: dense semantic retrieval over the user's notes
+plus per-page LLM-generated summaries, with the goal of making search results
+explain themselves at a glance.
 
-| Phase | Scope | Status |
-|---|---|---|
-| 1 | Replace `local_llm/` with `llm_backend/` (OpenAI-compat embed + chat) | **Done** (commit `8b5eb34`) |
-| 2 | Indexer + SQLite persistence + markdown-aware chunker + embedding pipeline | **Done** |
-| 3 | Semantic `/query`, drop tantivy, update browser-extension contract | Not started |
-| 4 | New `/ask` endpoint with full RAG (retrieve → generate → cite), streaming | Not started |
-| 5 | Delete `summary_shim.rs`, retire `/summarize` and `/llm_done_list` | Not started |
+The end-state surface area is two HTTP endpoints:
 
----
-
-## Phase 1 — `llm_backend/` rewrite (Done)
-
-**Commit:** `8b5eb34` — *Replace local_llm with llm_backend (phase 1 of LLM-first rewrite)*
-**Diff:** 10 files changed, 613 insertions, 492 deletions.
-
-### What was built
-
-- New module `fire_seq_search_server/src/llm_backend/`:
-  - `mod.rs` — `LlmBackend` with `launch`, `embed`, `chat`, `child_pids`. OpenAI-compat
-    `/v1/embeddings` and `/v1/chat/completions` over `reqwest`. `LlmError` via `thiserror`.
-    Three round-trip serde tests for the request/response structs.
-  - `process.rs` — spawns `llama-server` (or auto-detects `.llamafile` and runs it
-    directly), polls `/health` until 200 OK or timeout, redirects child stdio to
-    `/tmp/fire_seq_search.{embed,chat}.{stdout,stderr}.log`.
-  - `summary_shim.rs` — throwaway `SummaryEngine` adapter that preserves the
-    `/summarize` + `/llm_done_list` endpoints by replicating the old `LlmEngine` API
-    (`post_summarize_job`, `quick_fetch`, `get_llm_done_list`, `call_llm_engine`)
-    on top of `LlmBackend::chat`. Marked for deletion in phase 4.
-
-- `LlmBackendConfig` accepts two `EndpointSource`s independently for embed and chat:
-  - `External(url)` — point at a pre-running server (Ollama, remote llama-server).
-  - `Spawn { model, port, extra_args }` — fork a child llama-server.
-
-- New CLI flags in `main.rs` (12 total):
-  - `--embed-endpoint URL`, `--chat-endpoint URL`
-  - `--embed-model PATH` (default `~/.cache/fire_seq_search/models/bge-m3-Q4_K_M.gguf`)
-  - `--chat-model PATH` (default `~/.llamafile/mistral-7b-instruct-v0.2.Q4_0.llamafile`,
-    kept for back-compat)
-  - `--llama-server-bin PATH` (default `llama-server`)
-  - `--embed-port` (8082), `--chat-port` (8081)
-  - `--embed-model-name`, `--chat-model-name` (default `"default"`, for Ollama)
-  - `--embed-extra-args`, `--chat-extra-args`
-
-- `Ctrl-C` handler now iterates `backend.child_pids()` and `kill_tree`s every child.
-
-### What was removed / changed
-
-- Deleted `fire_seq_search_server/src/local_llm/` (mod.rs + example_llama_response.json).
-- Removed `[features] llm = […]` from `Cargo.toml`. LLM is now mandatory; no feature gates.
-- Removed `sha256` dependency (was only used to checksum the bundled llamafile).
-- Added `thiserror = "1"`.
-- `query_engine/mod.rs`: type rename `LlmEngine` → `SummaryEngine`; deleted three
-  `cfg!(feature="llm")` guard branches.
-- `obsidian.sh`: dropped `--features llm` from `cargo build`.
-
-### Verification
-
-- `cargo build` — clean (1 pre-existing warning in `logseq_uri.rs:128`).
-- `cargo test` — 38/38 pass (35 prior + 3 new in `llm_backend::tests`).
-- `cargo clippy --bin` — clean.
-- No live LLM smoke test yet — gated on user environment (bge-m3 download +
-  llama-server install).
+- `/query/:term` — sub-second semantic search. Returns ranked pages with
+  pre-computed summaries.
+- `/ask` (planned) — deliberate Q&A over the corpus. Streamed RAG.
 
 ---
 
-## Locked architectural decisions
+## Locked tech decisions
 
-These apply to all remaining phases.
+These are settled. Don't relitigate without strong evidence.
 
 ### Retrieval
 
-- **Embedding model:** bge-m3 (1024-dim, multilingual, 8K context). Picked to
-  eliminate retrieval quality as a debug variable; downgrading is a future option.
+- **Embedding model:** `bge-m3` (1024-dim, multilingual, 8K context).
+  Chosen to take retrieval quality off the debug list. Stored as Q4_K_M GGUF
+  (~440 MB).
 - **Vector index:** flat in-memory `Vec<(ChunkId, [f32; 1024])>`, brute-force
-  cosine. No ANN, no vector DB. At ~25k chunks the math is sub-50ms.
-- **Persistence:** SQLite. Tables `notes` (path, mtime, content_hash) and
-  `chunks` (note_id, ord, text, embedding BLOB). Embedding is raw f32 bytes.
-- **Change detection:** mtime fast-filter, content_hash as truth.
-- **Chunking:** markdown-section + Logseq bullet-tree aware, ~400 tok target /
-  ~600 tok cap, no overlap.
-- **Default `min_score` for bge-m3:** 0.55 (tunable via CLI flag and query param).
+  cosine. No ANN, no vector DB. At ~10K chunks the math is well under 50ms.
+- **Page-level signal:** alongside chunk embeddings, every page's summary is
+  also embedded and stored. Retrieval combines both:
+  `note_score = max(best_chunk · query, summary · query)`. Pages whose *gist*
+  matches the query rise even when no individual bullet is dense in the term.
+- **Persistence:** SQLite. `notes` and `chunks` tables; embeddings stored as
+  raw f32 LE BLOBs. SQLite is on-disk *storage*, not a search index — on
+  startup all rows hydrate into the in-memory `Vec`.
+- **Change detection:** mtime as fast filter, `content_hash` (Blake3) as truth.
+  A note is re-embedded only when both indicate a real change.
+- **Chunking:** Logseq bullet-tree aware.
+  - Top-level bullets are the boundary unit.
+  - Stub-only units (lines that are just `-`/`*`/whitespace) are dropped at
+    chunk-creation time. Logseq's editor emits these constantly and they
+    poison retrieval if kept.
+  - Adjacent top-level bullets are greedy-packed into a single chunk up to
+    `CAP_TOKENS = 600`. This amortizes the `# {page_title}\n\n` prefix over
+    longer text and produces less noisy embeddings.
+  - Oversized single units split at descendant-bullet boundaries.
+  - YAML frontmatter, Logseq `key:: value` properties, and
+    `#+BEGIN_QUERY ... #+END_QUERY` blocks are stripped before chunking.
+  - Token-counting heuristic: `chars / 4`.
+- **Walker scope:** only `pages/` and `journals/` subdirectories. The
+  `logseq/` and `assets/` trees are skipped by construction (we don't enter
+  them).
+- **`min_score` default:** `0.35`, calibrated for packed multi-bullet chunks.
+  Adjustable via `--min-score`. Was 0.55 when chunks were short and dominated
+  by the title prefix; lowered after M1 packing reduced typical similarities.
+- **DB path:** `~/.cache/fire_seq_search/{notebook_name}.sqlite`.
 
-### Serving
+### LLM serving
 
-- **LLM transport:** OpenAI-compat HTTP. Embed at `/v1/embeddings`, chat at
+- **Transport:** OpenAI-compat HTTP. Embed at `/v1/embeddings`, chat at
   `/v1/chat/completions`.
-- **Backend:** subprocess by default (llama.cpp `llama-server`, or `.llamafile`
-  auto-detected by extension). External endpoint URL via `--{embed,chat}-endpoint`
-  for users running Ollama or a shared server.
-- **GPU:** Vulkan, not ROCm. Gfx1102 + Fedora-packaged ROCm 6.4 is rough; Vulkan
-  works out of the box on Mesa 25.3+.
-- **Cold start:** non-blocking. Indexing runs in a background task; `/server_info`
-  and `/query` responses include progress while in-flight.
-- **Refresh:** periodic rescan every 10 minutes + manual `POST /reindex`. No
-  filesystem-watch dependency.
+- **Backend:** subprocess by default — llama.cpp's `llama-server` (or a
+  `.llamafile` auto-detected by extension). Llamafiles invoked via `sh
+  <file>` to bootstrap APE under Linux without binfmt_misc.
+- **External endpoints:** `--embed-endpoint URL` / `--chat-endpoint URL`
+  point at a pre-running server (Ollama, remote llama-server). First-class
+  alternative to subprocess mode.
+- **Embed backend args:** `--embedding -ub 8192 -b 8192 -c 8192 -ngl 99` are
+  injected by default. `-ub 8192` is required: llama-server's default 512-token
+  ubatch rejects packed chunks with HTTP 500. `-ngl 99` offloads all layers to
+  the GPU; ignored on CPU-only builds.
+- **GPU:** Vulkan, not ROCm. gfx1102 + ROCm 6.4 on Fedora is rough; Vulkan
+  works on stock Mesa 25.3+. We build llama-server in a Fedora-43 podman
+  container (`Containerfile` + `build_llama_server.sh`) and copy the static
+  binary to `~/.local/bin/`.
+- **Default models** (in `~/llm/`, configurable via flags):
+  - Embed: `bge-m3-Q4_K_M.gguf`
+  - Chat: `Qwen2.5-7B-Instruct-Q4_K_M.gguf`
+
+### Summarization
+
+- **One sentence per page**, generated by the chat backend in the background.
+- **Lazy-eval prioritization:** `/query` requests bump any unsummarized page in
+  its top-10 to a high-priority queue, so the pages a user actually asks about
+  are summarized first.
+- **Status lifecycle** in `notes.summary_status`:
+  `NONE → QUEUED_LOW → QUEUED_HIGH → IN_PROGRESS → OK | FAILED`.
+- **Failure handling:** up to 3 attempts before marking permanent-failed.
+  `IN_PROGRESS` rows are reset to `QUEUED_LOW` on startup (crash recovery).
+- **Migration:** rows that have a summary text but no summary embedding (e.g.
+  from older code that didn't embed) are re-queued on startup.
+- **Summary text + embedding are saved together** so a query never sees a
+  half-applied state.
+
+### Indexing lifecycle
+
+- **Cold start non-blocking.** HTTP server is up immediately; indexer hydrates
+  the in-memory vec from SQLite, then runs `scan_once` in a background task.
+- **Refresh:** periodic rescan every 10 minutes + `POST /reindex` for manual
+  triggers. No filesystem-watch dependency.
+- **Transactional safety:** `upsert_note` only fires after embeddings have
+  succeeded for all of a note's chunks. Prior versions committed the row's
+  content_hash before chunks, so a transient embed failure left an orphan
+  row whose hash-match fast-path then skipped re-embedding forever.
 
 ### API surface
 
-- `/query` will return structured JSON grouped by page (not pre-rendered HTML).
-  Server-side highlighting is dropped — the extension renders.
-- `/ask` (phase 4) will be a separate endpoint with retrieve → generate → cite,
-  streaming over SSE.
-- `/summarize` and `/llm_done_list` are kept on life support via `summary_shim.rs`
-  until phase 5.
-
-### Hardware / corpus
-
-- Dev hardware: Ryzen 9 7950X3D, 64 GB RAM, AMD Radeon RX 7600 XT (16 GB VRAM,
-  RDNA 3 / gfx1102), Fedora 43 Silverblue, Mesa 25.3.6, Vulkan 1.4.328.
-- Corpus: ~2,500 pages, growing ~2 pages/day. Sized so a flat index is fine
-  indefinitely; SQLite footprint is well under 1 GB.
-
----
-
-## Phase 2 — Indexer + SQLite + chunker (Done)
-
-See `phase2_plan.md` for the full spec.
-
-### Locked decisions
-
-- **Chunk boundary:** Option B — top-level Logseq bullet, with all descendants
-  preserved as one chunk. Indentation kept.
-- **Chunk text format:** prefixed — `# {page_title}\n\n{bullet_subtree}`.
-- **Oversized chunks:** split at descendant-bullet boundaries; hard-slice as
-  last resort for single leaves >600 tokens.
-- **Token counting:** `chars / 4` heuristic.
-- **Hash:** Blake3.
-- **DB location:** `~/.cache/fire_seq_search/{notebook_name}.sqlite`.
-- **File walker:** recurse from notebook root, `*.md` only, skip dotdirs
-  (`.logseq/`, `.git/`, `.obsidian/`) and `assets/`.
-- **PDFs:** dropped in phase 2; old `parse_pdf_links` retired.
-- **Frontmatter / properties:** strip both YAML `---...---` blocks and Logseq
-  `key:: value` lines before chunking.
-- **Embedding batch size:** 32 chunks per `/v1/embeddings` request.
-- **`/server_info` shape:** add `{indexed_notes, total_notes, indexed_chunks, in_flight}`.
-
-### What was built
-
-- New module `fire_seq_search_server/src/indexer/`:
-  - `chunker.rs` — Logseq bullet-tree splitter with YAML/property/query stripping.
-    5 unit tests.
-  - `store.rs` — SQLite schema (`notes`, `chunks`), `Mutex<Connection>` for
-    `Send + Sync`. All CRUD helpers. 3 unit tests (roundtrip, cascade delete,
-    list_paths).
-  - `pipeline.rs` — `Indexer` with `hydrate`, `scan_once`, `run`. Handles
-    fast-path (mtime), hash-only mtime update, full re-embed, stale-note deletion,
-    and in-memory `Vec` splicing.
-  - `mod.rs` — `IndexerHandle` (status + vec + reindex_notify, all behind Arc),
-    `IndexerStatus`, `IndexerError`.
-- New deps: `rusqlite` (bundled), `blake3`, `walkdir`.
-- `main.rs`: `--db-path` flag, hydrate before server starts, `tokio::spawn`
-  background scan loop, `POST /reindex` route.
-- `query_engine/mod.rs`: `pub indexer: Option<IndexerHandle>`.
-- `endpoints.rs`: `get_server_info` now returns `ServerInfoResponse` with
-  flattened `ServerInformation` + optional `IndexerStatusJson`; new `reindex`
-  handler.
-
-### Verification
-
-- `cargo build` — clean (1 pre-existing warning in `logseq_uri.rs`).
-- `cargo test` — 46/46 pass (38 prior + 3 store + 5 chunker).
-
----
-
----
-
-## Phase 3 — Semantic `/query`, drop tantivy (planned)
-
-### What phase 3 does
-
-1. Rewrite `/query` handler: embed the query term → cosine-rank the in-memory vec
-   → group hits by page → return structured JSON.
-2. Add `POST /highlight` endpoint: given a chunk + query, return 1–2 extracted
-   sentences via the chat model. Called on-hover from the extension.
-3. Remove `tantivy`, `tantivy-jieba`, `jieba-rs` from `Cargo.toml` and delete the
-   BM25 code paths in `query_engine/`. Delete `load_notes/` entirely.
-4. Update the browser extension (`main.js`) to consume the new JSON shape and
-   call `/highlight` on hover.
-   All ship in one commit — no compatibility window.
-
-### Locked decisions
-
-| Question | Decision |
-|---|---|
-| Top-k / grouping | Per-page top-1, max 10 pages |
-| Chunk display | Show first line (top-level bullet) immediately; on-hover call `/highlight` |
-| LLM highlight | Server-side: chat model extracts 1–2 relevant sentences given query + chunk |
-| Highlight trigger | On-hover via separate `POST /highlight` endpoint — keeps `/query` embedding-only |
-| URI field | Logseq-only; server generates `logseq://` URI, extension uses it directly |
-| `min_score` | CLI flag only (`--min-score`, default 0.55), no per-request override |
-| `load_notes/` | Delete entirely when tantivy is removed |
-| Obsidian URIs | Deferred — out of scope for phase 3 |
-
-### New `/query` JSON contract
-
-Current response: `Vec<String>` where each string is itself a JSON-encoded object
-(double-encoded). The extension calls `JSON.parse(rawRecord)` on each element.
-
-New response — proper JSON array, grouped by page, one chunk per page:
-
-```json
-[
+- `/query/:term` — `Vec<PageHit>`. Each hit:
+  ```json
   {
-    "title": "My Page",
-    "logseq_uri": "logseq://graph/notebook?page=My%20Page",
-    "score": 0.73,
-    "top_chunk": "- relevant bullet text (first line only)"
+    "title": "...", "logseq_uri": "...", "score": 0.58, "chunk_id": 1234,
+    "top_chunk": "- the matched bullet text",
+    "summary": "...", "summary_status": "ok" | "pending" | "failed"
   }
-]
-```
+  ```
+- `/server_info` — server config + `indexer` (counts + in-flight) + `summarizer`
+  (ok / pending / failed counts).
+- `POST /reindex` — manual rescan trigger.
+- `POST /highlight` — full-page extractive highlight on a chunk_id. **Currently
+  dormant** in the default client flow; kept as scaffolding for a future
+  "explain this card" action and as a foundation for `/ask`.
+- `/summarize`, `/llm_done_list` — legacy shim; scheduled for removal once `/ask`
+  ships.
 
-- At most 10 records, ordered by `score` descending.
-- One record per page (best-scoring chunk only).
-- `top_chunk` is the first line of the best chunk — plain text, no HTML.
-- `logseq_uri` generated server-side.
+### Hardware / corpus baseline
 
-### New `POST /highlight` contract
-
-Request:
-```json
-{ "query": "search term", "chunk": "full chunk text" }
-```
-
-Response:
-```json
-{ "highlight": "1–2 sentences extracted from the chunk most relevant to the query." }
-```
-
-Called by the extension on hover; response replaces the `top_chunk` one-liner in
-the result card.
-
-### Server-side plan
-
-New file `src/query_engine/semantic_query.rs`:
-
-```rust
-pub struct PageHit { pub title: String, pub logseq_uri: String,
-                     pub score: f32, pub top_chunk: String }
-
-pub async fn semantic_query(
-    term: &str,
-    backend: &LlmBackend,
-    indexer: &IndexerHandle,
-    store: &Store,
-    min_score: f32,
-) -> Result<Vec<PageHit>, ...>
-```
-
-Steps:
-1. `backend.embed(&[term.to_owned()])` → 1024-dim query vector.
-2. `indexer.vec.read()` → iterate all `(chunk_id, emb)`, compute cosine similarity,
-   keep top-scoring chunk per note_id, filter by `min_score`, take top 10 by score.
-3. `store` lookup: batch fetch `(note_id, text)` + join to `notes.page_title` and
-   `notes.rel_path` for URI generation.
-4. Extract first line of each chunk as `top_chunk`. Build `Vec<PageHit>`.
-
-New `Store` methods needed:
-- `get_chunks_by_ids(ids: &[i64]) -> Vec<ChunkDetail>`
-- `get_notes_by_ids(ids: &[i64]) -> Vec<NoteDetail>`
-
-New `POST /highlight` handler:
-- Parse `{query, chunk}` from JSON body.
-- Call `backend.chat` with a focused extraction prompt.
-- Return `{highlight: String}`.
-
-### Extension changes
-
-`main.js` changes:
-- Remove `parseRawList` (`JSON.parse` on each element) — response is already
-  proper JSON after `response.json()`.
-- `buildListItems` renders `record.title` as the link, `record.top_chunk` as the
-  one-liner preview.
-- On hover of a result card: `POST /highlight` with `{query, chunk: record.top_chunk}`,
-  replace preview text with returned highlight.
-- Keep `record.score` display.
-- Remove the "Summary" / "LLM" button logic that polls `/summarize` and
-  `/llm_done_list`.
+- Dev hardware: Ryzen 9 7950X3D, 64 GB RAM, AMD Radeon RX 7600 XT (16 GB
+  VRAM, gfx1102), Fedora 43 Silverblue, Mesa 25.3.6, Vulkan 1.4.328.
+- Corpus: ~2,500 pages, +2/day. Sized so the flat-vector strategy never needs
+  to be revisited; total embedding footprint comfortably under 100 MB.
 
 ---
 
-## Open questions deferred to later phases
+## Status
 
-- **Phase 4:** SSE vs chunked transfer for `/ask` streaming. Lean: SSE.
-- **Phase 5:** is there any value in keeping a keyword fallback for very short
-  queries where dense retrieval is weak (e.g. exact-match page-title lookups)?
-  Defer until we see real-world `/query` quality.
+### Shipped on the `llm_rag` branch
+
+| Area | What's done |
+|---|---|
+| **Phase 1** | `local_llm/` replaced with `llm_backend/`. OpenAI-compat client, subprocess management, 12 CLI flags, Ctrl-C kills children. |
+| **Phase 2** | SQLite-backed indexer, Logseq-aware chunker, batched embedding pipeline, `POST /reindex`. |
+| **Phase 3** | Semantic `/query` over the in-memory vec; tantivy + jieba removed (~600 LOC); `min_score` flag. |
+| **Chunker overhaul** | Stub-bullet drop, multi-bullet greedy packing. Top-1 chunk per page in results. |
+| **Parent-child `/highlight`** | Full-page context with structured `<query>/<anchor>/<page>` prompt. (Now dormant.) |
+| **Background summarizer** | Async worker, low/high priority queues, lazy-eval bumping from `/query`, retry/failure tracking. |
+| **Dual-signal retrieval** | Per-page summary embedding combined with chunk score (`max`). |
+| **Embed batch-size fix** | `-ub/-b/-c 8192` on embed backend so packed chunks don't fail with HTTP 500. |
+| **Transactional indexer** | `upsert_note` deferred until embed succeeds; eliminates orphan rows. |
+| **Walker scope** | Restricted to `pages/` and `journals/`. |
+| **Build infra** | Podman-based llama.cpp build (`Containerfile`, `build_llama_server.sh`) with Vulkan. |
+| **Test harness** | `test_endpoints.py` (interactive smoke), `eval_retrieval.py` (regression set). |
+| **`/server_info` visibility** | Indexer + summarizer status counts surfaced. |
+
+### Next up
+
+| Order | Item | Notes |
+|---|---|---|
+| 1 | **`/ask` endpoint** | Multi-page retrieval, single chat call with summaries + best chunks, SSE streaming, page-cited synthesis. The natural successor to dual-signal retrieval. |
+| 2 | **Browser extension rewrite** | Old contract is gone (no more BM25, no more `/summarize` cards). New shape: render `summary` + `top_chunk`, drop `/highlight` from the hot path. |
+| 3 | **Retire summary shim** | Delete `llm_backend/summary_shim.rs`, drop `/summarize` and `/llm_done_list` routes once nothing in the client calls them. |
+
+---
+
+## Open concerns
+
+### Quality
+
+- **`min_score = 0.35` is provisional.** Calibrated against a handful of test
+  queries. Real validation comes from growing `eval_retrieval.py`. Move it
+  only when the eval set says move.
+- **Summarization model size.** Qwen2.5-7B summaries look good on inspection,
+  but for messy bullet-tree pages or math-heavy notes a 14B model may give
+  noticeably better summaries. Defer the swap until eval data shows weakness;
+  the architecture supports it via a separate chat backend on a different port.
+- **Pending-summary UX.** `/query` returns hits with `summary_status: pending`
+  for unsummarized pages; `test_endpoints.py` shows "(pending — re-run query
+  in a moment)". The browser extension will need either polling or SSE for a
+  smoother experience.
+
+### Correctness / robustness
+
+- **Summarizer race window.** A page edited mid-summarization can land in a
+  state where the summarizer writes a summary based on stale content. The
+  mitigation today is small write window + the next 10-min indexer rescan
+  catching it. A stricter fix would be a conditional `UPDATE … WHERE
+  summary_status = IN_PROGRESS` so the summarizer's write becomes a no-op if
+  the indexer already requeued.
+- **CHUNKER_VERSION discipline.** The constant exists but isn't bumped
+  automatically when chunker logic changes. Today we rely on the user
+  wiping `~/.cache/fire_seq_search/<notebook>.sqlite` after chunker edits.
+  Bumping the constant would force a rebuild on next start without manual
+  intervention.
+
+### Surface area
+
+- **`/highlight` is dormant.** Three options: delete it, keep as on-demand
+  "explain this card", or fold into `/ask`. Will resolve when `/ask` lands.
+- **Browser extension drift.** The shipped extension still expects the
+  old double-encoded JSON-string-array `/query` contract and the
+  `/summarize`+`/llm_done_list` flow. It does not work against the current
+  server. Rewrite is blocking real-world adoption of this branch.
+
+---
+
+## Things deliberately *not* on the roadmap
+
+- ANN indexing (HNSW, faiss). Brute-force cosine over ~10K vectors is faster
+  than maintaining an ANN structure at this scale.
+- A vector database (Qdrant, Chroma, etc.). SQLite + in-memory `Vec` is
+  enough.
+- Filesystem-watching (notify, inotify). 10-minute periodic + manual `/reindex`
+  covers the actual use case without a new dep.
+- Server-side HTML rendering of search results. The extension renders.
+- BM25 hybrid / reranker. Bringing tantivy back doubles complexity for
+  unproven gain. Revisit only if the eval set shows dense retrieval failing
+  on a class of queries.
+- LLM-generated context blurbs per chunk (Anthropic-style contextual
+  retrieval). Page summaries provide most of the same value at a fraction of
+  the indexing cost on this corpus.
+- Late chunking (Jina-style). Requires per-token hidden states that
+  llama-server's `/v1/embeddings` doesn't expose. Big infra change for
+  unclear gain.
