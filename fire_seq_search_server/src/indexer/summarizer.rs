@@ -232,22 +232,23 @@ impl Summarizer {
 
 fn build_prompt(page_title: &str, page: &str) -> String {
     // Keep it a single user message, no CoT, no role-play. The few-shot
-    // examples anchor length and style better than "be concise" rules alone.
+    // examples anchor length and style better than "be concise" rules alone,
+    // so they must be sized to the target length too.
     format!(
         "You are summarizing pages from a personal Logseq notebook so the user \
 can recognize each page at a glance during search.\n\n\
 Rules:\n\
-- ONE sentence, under 30 words.\n\
-- Concrete: name the entities, products, places, or topics actually mentioned.\n\
+- One to three sentences, roughly 30-60 words. Cover the main points, not just the first bullet.\n\
+- Concrete: name the entities, products, places, numbers, or topics actually mentioned.\n\
 - No preamble (\"This page is about...\", \"The note discusses...\"). Start with the content.\n\
-- Output the sentence and nothing else.\n\n\
+- Output the summary and nothing else.\n\n\
 Examples:\n\n\
 Page title: CoffeeMachine\n\
-Content: - (refunded) kcup\\n\\t- Keurig K-Compact Single Serve K-Cup Pod Coffee Maker\\n\\t\\t- bought on Amazon and refunded\\n\\t- 6oz = 177 mL\\n- water reservoir cleaning notes\n\
-Summary: Keurig K-Compact K-Cup pod coffee maker (bought on Amazon, refunded), with cup-size and reservoir-cleaning notes.\n\n\
+Content: - (refunded) kcup\\n\\t- Keurig K-Compact Single Serve K-Cup Pod Coffee Maker\\n\\t\\t- bought on Amazon and refunded\\n\\t- 6oz = 177 mL\\n- water reservoir cleaning notes\\n- descale every 3 months with vinegar solution\n\
+Summary: Notes on a Keurig K-Compact single-serve K-Cup pod coffee maker that was bought on Amazon and then refunded. Records the 6 oz (177 mL) cup size, water-reservoir cleaning steps, and a reminder to descale every three months with a vinegar solution.\n\n\
 Page title: 2024_03_04\n\
-Content: - went to mos mos coffee again\\n- the latte was better than last time\\n- TODO try their cold brew\n\
-Summary: Daily journal: revisited mos mos coffee, liked the latte; want to try their cold brew.\n\n\
+Content: - went to mos mos coffee again\\n- the latte was better than last time\\n- TODO try their cold brew\\n- read two chapters of Designing Data-Intensive Applications on the train\n\
+Summary: Daily journal entry: revisited mos mos coffee and found the latte better than last time, with a to-do to try their cold brew. Also read two chapters of \"Designing Data-Intensive Applications\" on the train.\n\n\
 Page title: {title}\n\
 Content:\n{page}\n\
 Summary:",
