@@ -13,7 +13,8 @@ The end-state surface area is two HTTP endpoints:
 
 - `/query/:term` — sub-second semantic search. Returns ranked pages with
   pre-computed summaries.
-- `/ask` (planned) — deliberate Q&A over the corpus. Streamed RAG.
+- `/ask` (planned) — deliberate Q&A over the corpus. `POST /ask` with a JSON
+  body; SSE-streamed answer with page citations.
 
 ---
 
@@ -75,9 +76,18 @@ These are settled. Don't relitigate without strong evidence.
   works on stock Mesa 25.3+. We build llama-server in a Fedora-43 podman
   container (`Containerfile` + `build_llama_server.sh`) and copy the static
   binary to `~/.local/bin/`.
+- **One chat backend, shared between summarization and `/ask`.** The same chat
+  endpoint serves both. We deliberately run a single model for both jobs rather
+  than a small-for-summaries / large-for-ask split: one process to warm, one
+  set of args to tune, and `/ask` volume is low enough that a model sized for
+  summarization throughput is acceptable. If `/ask` grounding/citation quality
+  ever demands more, the lever is `--chat-endpoint` pointed at a bigger
+  pre-running server — which then upgrades summaries too. We don't plan to
+  fork the chat path.
 - **Default models** (in `~/llm/`, configurable via flags):
   - Embed: `bge-m3-Q4_K_M.gguf`
-  - Chat: `Qwen2.5-7B-Instruct-Q4_K_M.gguf`
+  - Chat: `Qwen2.5-7B-Instruct-Q4_K_M.gguf` (used by both the summarizer and
+    `/ask`).
 
 ### Summarization
 
@@ -175,7 +185,7 @@ These are settled. Don't relitigate without strong evidence.
 
 | Order | Item | Notes |
 |---|---|---|
-| 1 | **`/ask` endpoint** | Multi-page retrieval, single chat call with summaries + best chunks, SSE streaming, page-cited synthesis. The natural successor to dual-signal retrieval. |
+| 1 | **`/ask` endpoint** | `POST /ask` with JSON body, SSE-streamed answer with page citations. Multi-page retrieval, single chat call with `summary + best chunk` per page, server-side validation that cited page IDs were actually retrieved. Pending-summary pages contribute their chunk and get bumped to the high-priority summarizer queue. Chat backend's `-c` raised to 8192 to fit packed context. Eval: known-answer Q&A cases added to `eval_retrieval.py`. Browser extension is *not* in scope (separate roadmap item). |
 | 2 | **Browser extension rewrite** | Old contract is gone (no more BM25, no more `/summarize` cards). New shape: render `summary` + `top_chunk`, drop `/highlight` from the hot path. |
 | 3 | **Retire summary shim** | Delete `llm_backend/summary_shim.rs`, drop `/summarize` and `/llm_done_list` routes once nothing in the client calls them. |
 
@@ -196,10 +206,14 @@ These are settled. Don't relitigate without strong evidence.
   but a separate, higher floor for the summary path — or a relative cutoff
   (must beat the corpus mean by a margin) — is probably still warranted. Hold
   until `eval_retrieval.py` has summary-dependent queries to measure against.
-- **Summarization model size.** Qwen2.5-7B summaries look good on inspection,
-  but for messy bullet-tree pages or math-heavy notes a 14B model may give
-  noticeably better summaries. Defer the swap until eval data shows weakness;
-  the architecture supports it via a separate chat backend on a different port.
+- **Chat model size (summaries + `/ask`).** Qwen2.5-7B summaries look good on
+  inspection, but for messy bullet-tree pages or math-heavy notes a 14B model
+  may give noticeably better summaries — and `/ask` grounding/citation
+  discipline is the more sensitive of the two jobs. Per the "one chat backend,
+  shared" decision, the lever is `--chat-endpoint` pointed at a bigger
+  pre-running server, which upgrades both paths at once. Defer the swap until
+  eval data (summary spot-checks and `/ask` known-answer cases in
+  `eval_retrieval.py`) shows weakness.
 - **Pending-summary UX.** `/query` returns hits with `summary_status: pending`
   for unsummarized pages; `test_endpoints.py` shows "(pending — re-run query
   in a moment)". The browser extension will need either polling or SSE for a

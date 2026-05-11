@@ -5,7 +5,7 @@ use clap::Parser;
 use kill_tree::blocking::kill_tree;
 use log::{error, info};
 
-use fire_seq_search_server::http_client::endpoints;
+use fire_seq_search_server::http_client::{ask, endpoints};
 use fire_seq_search_server::indexer::{Indexer, IndexerHandle, Store};
 use fire_seq_search_server::llm_backend::{
     EndpointSource, LlmBackend, LlmBackendConfig, SummaryEngine,
@@ -198,6 +198,7 @@ async fn main() {
         .route("/summarize/:title", axum::routing::get(endpoints::summarize))
         .route("/llm_done_list", axum::routing::get(endpoints::get_llm_done_list))
         .route("/reindex", axum::routing::post(endpoints::reindex))
+        .route("/ask", axum::routing::post(ask::ask))
         .with_state(engine_arc.clone());
 
     let listener = tokio::net::TcpListener::bind(&engine_arc.server_info.host)

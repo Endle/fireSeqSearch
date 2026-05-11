@@ -59,7 +59,7 @@ pdf-extract-temporary-mitigation-panic = "0.7.1"
 
 
 # LLM backend (always on)
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
 serde_derive = "1.0.209"
 thiserror = "1"
 

@@ -92,6 +92,31 @@ struct ChatChoice {
     message: Message,
 }
 
+#[derive(Serialize)]
+struct StreamChatRequest<'a> {
+    model: &'a str,
+    messages: Vec<Message>,
+    stream: bool,
+}
+
+#[derive(Deserialize)]
+struct StreamChunk {
+    #[serde(default)]
+    choices: Vec<StreamChoice>,
+}
+
+#[derive(Deserialize)]
+struct StreamChoice {
+    #[serde(default)]
+    delta: StreamDelta,
+}
+
+#[derive(Deserialize, Default)]
+struct StreamDelta {
+    #[serde(default)]
+    content: Option<String>,
+}
+
 impl LlmBackend {
     pub async fn launch(cfg: LlmBackendConfig) -> Result<Self, LlmError> {
         let bin = cfg.llama_server_bin;
@@ -150,6 +175,88 @@ impl LlmBackend {
             .next()
             .map(|c| c.message.content)
             .ok_or_else(|| LlmError::Decode("no choices in chat response".into()))
+    }
+
+    /// Streaming chat completion. Returns a channel receiver yielding content
+    /// deltas as they arrive from llama-server (`stream: true`). The terminal
+    /// `data: [DONE]` sentinel ends the stream; transport errors are delivered
+    /// as the final `Err` item. Used by `/ask`.
+    pub async fn chat_stream(
+        &self,
+        messages: Vec<Message>,
+    ) -> Result<futures::channel::mpsc::Receiver<Result<String, LlmError>>, LlmError> {
+        use futures::{SinkExt, StreamExt};
+
+        let url = format!("{}/v1/chat/completions", self.chat.url);
+        let req = StreamChatRequest {
+            model: &self.chat_model_name,
+            messages,
+            stream: true,
+        };
+        let resp = self
+            .client
+            .post(&url)
+            // Override the client-wide 60s timeout: a streamed answer can take
+            // longer than that to finish on CPU, and the timeout covers the
+            // whole response body.
+            .timeout(Duration::from_secs(600))
+            .json(&req)
+            .send()
+            .await?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(LlmError::Backend(format!("chat stream {}: {}", status, body)));
+        }
+
+        let (mut tx, rx) = futures::channel::mpsc::channel::<Result<String, LlmError>>(64);
+        tokio::spawn(async move {
+            let mut byte_stream = resp.bytes_stream();
+            let mut buf: Vec<u8> = Vec::new();
+            'outer: while let Some(chunk) = byte_stream.next().await {
+                let bytes = match chunk {
+                    Ok(b) => b,
+                    Err(e) => {
+                        let _ = tx.send(Err(LlmError::Http(e))).await;
+                        return;
+                    }
+                };
+                buf.extend_from_slice(&bytes);
+                while let Some(pos) = buf.iter().position(|&b| b == b'\n') {
+                    let line: Vec<u8> = buf.drain(..=pos).collect();
+                    // A complete SSE line; it's UTF-8 (JSON from the server).
+                    let line = String::from_utf8_lossy(&line);
+                    let line = line.trim();
+                    let payload = match line.strip_prefix("data:") {
+                        Some(p) => p.trim(),
+                        None => continue, // comment/keepalive/blank line
+                    };
+                    if payload.is_empty() {
+                        continue;
+                    }
+                    if payload == "[DONE]" {
+                        break 'outer;
+                    }
+                    match serde_json::from_str::<StreamChunk>(payload) {
+                        Ok(sc) => {
+                            if let Some(choice) = sc.choices.into_iter().next() {
+                                if let Some(content) = choice.delta.content {
+                                    if !content.is_empty()
+                                        && tx.send(Ok(content)).await.is_err()
+                                    {
+                                        return; // receiver dropped (client gone)
+                                    }
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            // Non-JSON data line — ignore rather than abort.
+                        }
+                    }
+                }
+            }
+        });
+        Ok(rx)
     }
 
     pub fn child_pids(&self) -> Vec<u32> {
