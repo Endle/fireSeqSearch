@@ -5,7 +5,7 @@ use std::time::Duration;
 use log::{error, info};
 use tokio::sync::mpsc;
 
-use crate::indexer::chunker::preprocess;
+use crate::indexer::chunker::{is_junk_summary, is_summarizable, preprocess};
 use crate::indexer::store::{Store, SUMMARY_IN_PROGRESS};
 use crate::indexer::IndexerHandle;
 use crate::llm_backend::{LlmBackend, Message};
@@ -64,6 +64,14 @@ impl Summarizer {
                 );
             }
         }
+        match self.scrub_stale_summaries().await {
+            Ok((p, r)) if p > 0 || r > 0 => info!(
+                "summarizer: scrubbed stale summaries — purged {} (no content), requeued {} (junk text)",
+                p, r
+            ),
+            Ok(_) => {}
+            Err(e) => error!("summarizer: scrub_stale_summaries: {}", e),
+        }
         loop {
             // 1. High-priority first, non-blocking.
             if let Ok(note_id) = self.rx_high.try_recv() {
@@ -93,6 +101,40 @@ impl Summarizer {
                 _ = tokio::time::sleep(Duration::from_secs(IDLE_POLL_SECS)) => {},
             }
         }
+    }
+
+    /// One-shot startup cleanup of summaries the current rules would not have
+    /// produced. Two cases, both legacies of the old instruction-based prompt:
+    ///   - the page has no narrative content → mark it OK with no summary;
+    ///   - the page is fine but the stored summary is junk (`Empty.`, `""`,
+    ///     `Summary:`, `空页面`, …) → re-queue so the new prompt regenerates it.
+    /// Idempotent — a no-op once the corpus is clean. Returns (purged, requeued).
+    async fn scrub_stale_summaries(&self) -> Result<(usize, usize), String> {
+        let notes = self
+            .store
+            .list_summarized_notes()
+            .map_err(|e| e.to_string())?;
+        let mut purged = 0usize;
+        let mut requeued = 0usize;
+        for (note_id, rel_path, summary) in notes {
+            let path = self.notebook_path.join(&rel_path);
+            let raw = match std::fs::read_to_string(&path) {
+                Ok(s) => s,
+                Err(_) => continue, // file gone; the indexer's delete pass handles it
+            };
+            if !is_summarizable(&raw) {
+                self.store
+                    .mark_summary_unsummarizable(note_id)
+                    .map_err(|e| e.to_string())?;
+                self.handle.summary_vec.write().await.remove(&note_id);
+                purged += 1;
+            } else if summary.as_deref().map(is_junk_summary).unwrap_or(false) {
+                self.store.requeue_summary(note_id).map_err(|e| e.to_string())?;
+                self.handle.summary_vec.write().await.remove(&note_id);
+                requeued += 1;
+            }
+        }
+        Ok((purged, requeued))
     }
 
     async fn process(&self, note_id: i64) {
@@ -142,7 +184,10 @@ impl Summarizer {
 
         let path = self.notebook_path.join(&note.rel_path);
         let raw = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        if raw.trim().is_empty() {
+        // Deterministic gate: don't ask the LLM about pages with no narrative
+        // content. Its only honest answers ("Empty.", title-echo) become noise
+        // vectors in summary_vec. This does not depend on model behaviour.
+        if !is_summarizable(&raw) {
             return Ok((String::new(), None));
         }
         let clean = preprocess(&raw);
@@ -158,8 +203,11 @@ impl Summarizer {
             .trim()
             .to_string();
 
-        if summary.is_empty() {
-            return Ok((summary, None));
+        if summary.is_empty() || is_junk_summary(&summary) {
+            // Model returned nothing usable even though the page cleared the
+            // content gate. Don't embed it (a junk vector would just compete
+            // with real summaries); the page stays findable via its chunks.
+            return Ok((String::new(), None));
         }
 
         // Embed the summary so retrieval has a page-level signal in addition
@@ -192,7 +240,6 @@ Rules:\n\
 - ONE sentence, under 30 words.\n\
 - Concrete: name the entities, products, places, or topics actually mentioned.\n\
 - No preamble (\"This page is about...\", \"The note discusses...\"). Start with the content.\n\
-- If the page is essentially empty or only contains placeholder bullets, return the empty string.\n\
 - Output the sentence and nothing else.\n\n\
 Examples:\n\n\
 Page title: CoffeeMachine\n\

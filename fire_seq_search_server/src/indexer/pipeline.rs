@@ -7,7 +7,7 @@ use log::{error, info};
 use tokio::time::Duration;
 use walkdir::WalkDir;
 
-use crate::indexer::chunker::chunk_note;
+use crate::indexer::chunker::{chunk_note, is_summarizable};
 use crate::indexer::store::{Store, CHUNKER_VERSION};
 use crate::indexer::{IndexerError, IndexerHandle};
 use crate::llm_backend::LlmBackend;
@@ -129,8 +129,13 @@ impl Indexer {
             let note_id = self.store.upsert_note(rel_path, &page_title, fs_mtime, &hash_bytes)?;
             let old_ids = self.store.get_chunk_ids_for_note(note_id)?;
             self.store.replace_chunks(note_id, &[])?;
+            // No chunks ⇒ no narrative content ⇒ nothing for the summarizer to
+            // do; don't leave the row queued for a summary the gate rejects.
+            self.store.mark_summary_unsummarizable(note_id)?;
             let mut v = self.handle.vec.write().await;
             v.retain(|(id, _)| !old_ids.contains(id));
+            drop(v);
+            self.handle.summary_vec.write().await.remove(&note_id);
             return Ok(());
         }
 
@@ -162,6 +167,12 @@ impl Indexer {
         // in-memory so a stale summary embedding doesn't keep matching for the
         // few minutes it takes the summarizer to regenerate.
         self.handle.summary_vec.write().await.remove(&note_id);
+        // If the page has chunks but no real narrative content (e.g. a single
+        // `[[wikilink]]`), short-circuit the summarizer: mark it OK with no
+        // summary now instead of queueing an LLM call the gate will reject.
+        if !is_summarizable(&raw) {
+            self.store.mark_summary_unsummarizable(note_id)?;
+        }
         let old_ids = self.store.get_chunk_ids_for_note(note_id)?;
 
         let chunk_data: Vec<(usize, &str, &[f32])> = chunks

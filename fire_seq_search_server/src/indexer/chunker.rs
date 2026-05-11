@@ -64,6 +64,88 @@ pub(crate) fn is_stub_unit(unit: &[String]) -> bool {
     })
 }
 
+/// Minimum narrative-content length (in chars) below which a page is not worth
+/// summarizing. Below this floor the page body is title-echo, a single
+/// `[[wikilink]]`, an abbreviation, or a `Stub now` placeholder — content the
+/// chunk index (which embeds `# {title}\n\n{body}`) already covers, and which
+/// an LLM can only respond to with `Empty.` or by parroting the title. Either
+/// way the resulting summary embedding is noise that competes with real
+/// summaries. Heuristic, calibrated on the dev corpus; tune as needed.
+pub const SUMMARIZABLE_MIN_CHARS: usize = 16;
+
+/// Length of a page's "narrative" content: the non-stub bullet body, after
+/// stripping `[[wikilink]]`/`[text](url)` syntax down to their text, dropping
+/// bare URLs and bullet markers, and collapsing whitespace. Properties,
+/// frontmatter and advanced-query blocks are already gone via `preprocess`.
+pub fn narrative_chars(raw: &str) -> usize {
+    let preprocessed = preprocess(raw);
+    let body: String = split_into_top_level_units(&preprocessed)
+        .into_iter()
+        .filter(|u| !is_stub_unit(u))
+        .flatten()
+        .collect::<Vec<_>>()
+        .join("\n");
+    if body.is_empty() {
+        return 0;
+    }
+    strip_markup(&body).chars().count()
+}
+
+/// Deterministic, model-independent gate for whether the summarizer should
+/// invoke the LLM on a page. See `SUMMARIZABLE_MIN_CHARS`.
+pub fn is_summarizable(raw: &str) -> bool {
+    narrative_chars(raw) >= SUMMARIZABLE_MIN_CHARS
+}
+
+/// True for summary *text* that carries no topical content: `Empty.`, `""`,
+/// `Summary:`, `空页面`, … — what older builds got from models that ignored the
+/// (now-removed) "return the empty string" instruction for stub pages. Used to
+/// scrub such rows on startup and as a last-ditch guard on fresh summaries.
+/// Intentionally tiny; this is a safety net, not a behavioural contract.
+pub fn is_junk_summary(summary: &str) -> bool {
+    let norm: String = summary
+        .trim_matches(|c: char| {
+            matches!(c, '"' | '\'' | '(' | ')' | '.' | ':' | '*' | '-') || c.is_whitespace()
+        })
+        .to_lowercase();
+    matches!(
+        norm.as_str(),
+        "" | "empty"
+            | "empty string"
+            | "empty page"
+            | "empty summary"
+            | "summary"
+            | "n/a"
+            | "na"
+            | "none"
+            | "no content"
+            | "blank"
+            | "nothing"
+            | "空"
+            | "空页面"
+            | "空字符串"
+            | "无"
+            | "无内容"
+    )
+}
+
+fn strip_markup(s: &str) -> String {
+    lazy_static! {
+        static ref MD_LINK: Regex = Regex::new(r"\[([^\]]+)\]\([^)]*\)").unwrap();
+        static ref WIKILINK: Regex = Regex::new(r"\[\[([^\]]+)\]\]").unwrap();
+        // Drop only the scheme: a URL's host + path ("uwaterloo.ca/student-
+        // success/...") carries the page's topic and should count as content.
+        static ref URL_SCHEME: Regex = Regex::new(r"https?://").unwrap();
+        static ref BULLET: Regex = Regex::new(r"(?m)^\s*[-*]\s*").unwrap();
+        static ref WS: Regex = Regex::new(r"\s+").unwrap();
+    }
+    let s = MD_LINK.replace_all(s, "$1");
+    let s = WIKILINK.replace_all(&s, "$1");
+    let s = URL_SCHEME.replace_all(&s, "");
+    let s = BULLET.replace_all(&s, "");
+    WS.replace_all(s.trim(), " ").into_owned()
+}
+
 const TARGET_TOKENS: usize = 400;
 const CAP_TOKENS: usize = 600;
 
@@ -226,6 +308,51 @@ mod tests {
         for chunk in &chunks {
             assert!(chunk.text.starts_with("# Big\n\n"));
         }
+    }
+
+    #[test]
+    fn summarizable_gate() {
+        // Empty / stub-only / properties-only → not summarizable.
+        assert!(!is_summarizable(""));
+        assert!(!is_summarizable("-\n"));
+        assert!(!is_summarizable("title:: System/161\n-\n"));
+        assert!(!is_summarizable("file:: [x.pdf](../assets/x.pdf)\nfile-path:: ../assets/x.pdf\n-\n"));
+        // Title-echo / single wikilink / placeholder → not summarizable.
+        assert!(!is_summarizable("- Bank of America\n-\n"));        // 15 chars
+        assert!(!is_summarizable("- [[I DONT KNOW]]\n"));           // 11 chars
+        assert!(!is_summarizable("- Stub now\n-\n"));               // 8 chars
+        assert!(!is_summarizable("- Met\n- M\n"));                  // 6 chars
+        assert!(!is_summarizable("- https://x.io\n-\n"));           // bare host, 4 chars
+        // Real, if brief, content → summarizable.
+        assert!(is_summarizable("- A [[NP-complete]] problem\n-\n"));       // "A NP-complete problem"
+        assert!(is_summarizable("- Journal Template - DONE 厕所纸 20元40个\n"));
+        assert!(is_summarizable("- went to mos mos coffee again\n- the latte was better\n"));
+        // A bookmark to a specific resource has a meaningful host+path.
+        assert!(is_summarizable("- https://uwaterloo.ca/student-success/ask-immigration-consultant\n"));
+    }
+
+    #[test]
+    fn junk_summary_detection() {
+        for s in ["Empty.", "empty", "Empty string.", "Empty page.", "Empty summary.",
+                  "Summary:", "\"\"", "(\"\")", "  \"\" ", "空页面", "空字符串", "  None.  ", "n/a", "*Empty*"] {
+            assert!(is_junk_summary(s), "should be junk: {s:?}");
+        }
+        for s in ["Keurig K-Compact coffee maker, bought and refunded.",
+                  "Bank of America stock entry.",
+                  "Independent Set: an NP-complete problem.",
+                  "An empty array in Rust has zero capacity.",   // mentions "empty" but is real
+                  "无人机航拍技巧总结。"] {
+            assert!(!is_junk_summary(s), "should NOT be junk: {s:?}");
+        }
+    }
+
+    #[test]
+    fn narrative_chars_strips_markup() {
+        assert_eq!(narrative_chars("- [[NP-complete]] problem\n"), "NP-complete problem".chars().count());
+        assert_eq!(narrative_chars("- see [docs](https://example.com/x)\n"), "see docs".chars().count());
+        assert_eq!(narrative_chars("- https://example.com/path\n"), "example.com/path".chars().count());
+        assert_eq!(narrative_chars("tags:: foo\n-\n"), 0);
+        assert_eq!(narrative_chars(""), 0);
     }
 
     #[test]

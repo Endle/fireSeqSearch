@@ -291,13 +291,63 @@ impl Store {
         summary: &str,
         embedding: Option<&[f32]>,
     ) -> Result<(), IndexerError> {
+        // An empty summary (page below the content floor) is stored as NULL,
+        // not "". Storing "" would make `requeue_summaries_missing_embedding`
+        // re-queue the row on every startup forever (it matches "summary
+        // present, embedding absent"); NULL means "summarized, nothing to say".
+        let summary_opt: Option<&str> = if summary.is_empty() { None } else { Some(summary) };
         let emb_bytes: Option<Vec<u8>> =
             embedding.map(|e| e.iter().flat_map(|f| f.to_le_bytes()).collect());
         self.conn.lock().unwrap().execute(
             "UPDATE notes
              SET summary = ?1, summary_status = ?2, summary_embedding = ?3
              WHERE id = ?4",
-            params![summary, SUMMARY_OK, emb_bytes, note_id],
+            params![summary_opt, SUMMARY_OK, emb_bytes, note_id],
+        )?;
+        Ok(())
+    }
+
+    /// Mark a note as "summarized, nothing to say": clears any summary text and
+    /// embedding, status OK. Used for pages that fail the deterministic
+    /// summarizability gate, both at index time and during startup cleanup.
+    pub fn mark_summary_unsummarizable(&self, note_id: i64) -> Result<(), IndexerError> {
+        self.conn.lock().unwrap().execute(
+            "UPDATE notes
+             SET summary = NULL, summary_status = ?1, summary_embedding = NULL,
+                 summary_attempts = 0
+             WHERE id = ?2",
+            params![SUMMARY_OK, note_id],
+        )?;
+        Ok(())
+    }
+
+    /// (note_id, rel_path, summary_text) for every note that currently carries a
+    /// summary or a summary embedding. Used by the startup pass that scrubs
+    /// summaries the current rules would reject (unsummarizable pages) or that
+    /// older builds botched (`Empty.`, `""`, …).
+    pub fn list_summarized_notes(&self) -> Result<Vec<(i64, String, Option<String>)>, IndexerError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, rel_path, summary FROM notes
+             WHERE summary IS NOT NULL OR summary_embedding IS NOT NULL",
+        )?;
+        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
+    }
+
+    /// Reset a single note for re-summarization at low priority: clears the
+    /// stale summary + embedding and zeroes the attempt counter.
+    pub fn requeue_summary(&self, note_id: i64) -> Result<(), IndexerError> {
+        self.conn.lock().unwrap().execute(
+            "UPDATE notes
+             SET summary = NULL, summary_status = ?1, summary_embedding = NULL,
+                 summary_attempts = 0
+             WHERE id = ?2",
+            params![SUMMARY_QUEUED_LOW, note_id],
         )?;
         Ok(())
     }
