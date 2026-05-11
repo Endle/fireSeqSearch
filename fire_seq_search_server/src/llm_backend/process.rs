@@ -69,6 +69,13 @@ async fn spawn(
                 .arg("-ub").arg("8192")
                 .arg("-b").arg("8192")
                 .arg("-c").arg("8192");
+        } else {
+            // Chat backend serves both background summarization and `/ask`.
+            // `/ask` packs K pages × (summary + best chunk); llama-server's
+            // default context is too small for that. 8192 is comfortable for
+            // a 7B and the user can override via `--chat-extra-args "-c N"`
+            // (later -c wins).
+            c.arg("-c").arg("8192");
         }
         c
     } else {
@@ -84,6 +91,9 @@ async fn spawn(
                 .arg("-ub").arg("8192")
                 .arg("-b").arg("8192")
                 .arg("-c").arg("8192");
+        } else {
+            // See note above: chat backend needs a bigger context for `/ask`.
+            c.arg("-c").arg("8192");
         }
         c
     };
