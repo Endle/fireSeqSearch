@@ -162,9 +162,11 @@ These are settled. Don't relitigate without strong evidence.
 - `POST /reindex` — manual rescan trigger.
 - `POST /highlight` — full-page extractive highlight on a chunk_id. **Currently
   dormant** in the default client flow; kept as scaffolding for a future
-  "explain this card" action and as a foundation for `/ask`.
-- `/summarize`, `/llm_done_list` — legacy shim; scheduled for removal once `/ask`
-  ships.
+  "explain this card" action. (The `/ask` implementation didn't end up needing
+  it — `/ask` packs `summary + best chunk` per page directly.)
+- `/summarize`, `/llm_done_list` — legacy shim. Removal pending: the addon's
+  "LLM" button still drives this flow, so it can't go until the extension
+  rewrite drops it (see Next up).
 
 ### Hardware / corpus baseline
 
@@ -193,7 +195,7 @@ These are settled. Don't relitigate without strong evidence.
 | **Transactional indexer** | `upsert_note` deferred until embed succeeds; eliminates orphan rows. |
 | **Walker scope** | Restricted to `pages/` and `journals/`. |
 | **Build infra** | Podman-based llama.cpp build (`Containerfile`, `build_llama_server.sh`) with Vulkan. |
-| **Test harness** | `test_endpoints.py` (interactive smoke), `eval_retrieval.py` (regression set). |
+| **Test harness** | `test_endpoints.py` (interactive smoke, `--ask` mode), `test_ask.py` (`/ask` SSE protocol/invariants), `eval_retrieval.py` (regression set). Plus `.claude/agents/{fsq,ask}-smoke.md` — boot-and-probe sub-agents for `/query` and `/ask`. |
 | **`/server_info` visibility** | Indexer + summarizer status counts surfaced; `version` + `capabilities` added so the addon can detect an older backend. |
 | **`/ask` endpoint** | `POST /ask`, SSE-streamed answer with page citations. Multi-page retrieval, single chat call with `summary + best chunk` per page, server-side validation that cited page IDs were retrieved. Pending-summary pages contribute their chunk and get bumped to the high-priority summarizer queue. Chat backend's `-c` raised to 8192. `test_ask.py` covers the SSE protocol/invariants. |
 | **Confidence-aware `/ask`** | When the top retrieval score is below `CONFIDENT_SCORE` (0.55) the prompt switches to "point at what each source mentions" instead of synthesising a confident (often wrong) answer. `meta`/`done` carry `confidence: "high"\|"low"`. |
@@ -204,7 +206,7 @@ These are settled. Don't relitigate without strong evidence.
 
 | Order | Item | Notes |
 |---|---|---|
-| 1 | **Browser extension rewrite (rest)** | Old contract is gone (no more BM25, no more `/summarize` cards). Render `summary` + `top_chunk`, drop `/highlight` from the hot path. (Capability gating + Ask UI already landed; the result-rendering rework is what's left.) |
+| 1 | **Browser extension rewrite (rest)** | Capability gating, the version floor, and the Ask UI have landed. What's left: the result-rendering path. `main.js`'s `parseRawList` still expects the pre-rewrite `/query` contract — a `Vec<String>` of JSON-encoded records — but the server now returns a plain `Vec<PageHit>`, so the hit list doesn't render against the current backend. Fix `parseRawList`/`appendResultToSearchResult` for the new shape and drop the `/summarize`+`/llm_done_list` ("LLM" button) flow. |
 | 2 | **Retire summary shim** | Delete `llm_backend/summary_shim.rs`, drop `/summarize` and `/llm_done_list` routes once nothing in the client calls them. |
 | 3 | **`--no-llm` mode** | Make `llm_enabled` / `capabilities` reflect reality instead of always-on. Lets the backend run query-only; the addon already gates on both. |
 
@@ -254,12 +256,16 @@ These are settled. Don't relitigate without strong evidence.
 
 ### Surface area
 
-- **`/highlight` is dormant.** Three options: delete it, keep as on-demand
-  "explain this card", or fold into `/ask`. Will resolve when `/ask` lands.
-- **Browser extension drift.** The shipped extension still expects the
-  old double-encoded JSON-string-array `/query` contract and the
-  `/summarize`+`/llm_done_list` flow. It does not work against the current
-  server. Rewrite is blocking real-world adoption of this branch.
+- **`/highlight` is dormant.** `/ask` shipped without folding it in. Still
+  three options: delete it, keep as an on-demand "explain this card", or
+  eventually route it through `/ask`. No forcing function yet; decision
+  deferred.
+- **Browser extension — partial.** Capability detection, the `MIN_BACKEND_VERSION`
+  floor, and the `/ask` Ask UI are in `fireSeqSearch_addon/main.js`. But its
+  result-rendering path still expects the pre-rewrite `/query` contract (a
+  `Vec<String>` of JSON-encoded records) and the `/summarize`+`/llm_done_list`
+  flow, so the hit list does not render against the current server. Finishing
+  that (Next up #1) is what blocks real-world adoption of this branch.
 
 ---
 
