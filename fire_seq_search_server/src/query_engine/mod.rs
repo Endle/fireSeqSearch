@@ -23,6 +23,13 @@ pub struct ServerInformation {
     pub host: String,
     pub llm_enabled: bool,
     pub llm_max_waiting_time: u64,
+    /// Server crate version (`CARGO_PKG_VERSION`). Lets a freshly-upgraded
+    /// addon notice it's talking to an older backend.
+    pub version: String,
+    /// Feature list the addon can gate UI on, e.g. `["query", "llm_summary",
+    /// "ask"]`. Older backends omit this field entirely — the addon must treat
+    /// "absent" as "only the original `/query` path is guaranteed".
+    pub capabilities: Vec<String>,
 }
 
 use crate::llm_backend::{LlmBackend, SummaryEngine};

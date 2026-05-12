@@ -13,8 +13,10 @@ The end-state surface area is two HTTP endpoints:
 
 - `/query/:term` — sub-second semantic search. Returns ranked pages with
   pre-computed summaries.
-- `/ask` (planned) — deliberate Q&A over the corpus. `POST /ask` with a JSON
-  body; SSE-streamed answer with page citations.
+- `/ask` — deliberate Q&A over the corpus. `POST /ask` with a JSON body;
+  SSE-streamed answer with page citations. Switches to a "low-confidence"
+  answer mode (point at what each source mentions instead of synthesising)
+  when the best retrieval score is weak.
 
 ---
 
@@ -143,7 +145,14 @@ These are settled. Don't relitigate without strong evidence.
   }
   ```
 - `/server_info` — server config + `indexer` (counts + in-flight) + `summarizer`
-  (ok / pending / failed counts).
+  (ok / pending / failed counts) + `version` (crate version) + `capabilities`
+  (feature list, e.g. `["query","llm_summary","ask"]`). The addon auto-updates
+  via AMO but the backend may not; old backends omit `version`/`capabilities`,
+  and the addon treats "absent" as "only `/query` is guaranteed".
+- `POST /ask` — see Purpose above. Body `{question, k?}`; SSE `meta`
+  (source list + `confidence`) → `delta*` → `done` (`{cited, invalid, chars,
+  answered, confidence}`) or `error`. Cited `[N]` markers validated against the
+  retrieved set; anything invented lands in `done.invalid`.
 - `POST /reindex` — manual rescan trigger.
 - `POST /highlight` — full-page extractive highlight on a chunk_id. **Currently
   dormant** in the default client flow; kept as scaffolding for a future
@@ -179,15 +188,18 @@ These are settled. Don't relitigate without strong evidence.
 | **Walker scope** | Restricted to `pages/` and `journals/`. |
 | **Build infra** | Podman-based llama.cpp build (`Containerfile`, `build_llama_server.sh`) with Vulkan. |
 | **Test harness** | `test_endpoints.py` (interactive smoke), `eval_retrieval.py` (regression set). |
-| **`/server_info` visibility** | Indexer + summarizer status counts surfaced. |
+| **`/server_info` visibility** | Indexer + summarizer status counts surfaced; `version` + `capabilities` added so the addon can detect an older backend. |
+| **`/ask` endpoint** | `POST /ask`, SSE-streamed answer with page citations. Multi-page retrieval, single chat call with `summary + best chunk` per page, server-side validation that cited page IDs were retrieved. Pending-summary pages contribute their chunk and get bumped to the high-priority summarizer queue. Chat backend's `-c` raised to 8192. `test_ask.py` covers the SSE protocol/invariants. |
+| **Confidence-aware `/ask`** | When the top retrieval score is below `CONFIDENT_SCORE` (0.55) the prompt switches to "point at what each source mentions" instead of synthesising a confident (often wrong) answer. `meta`/`done` carry `confidence: "high"\|"low"`. |
+| **Browser extension — capability gating + Ask UI** | `main.js` reads `capabilities`: gates the LLM-summary button on `llm_summary`, adds an "Ask my notes" button (streams `/ask`, linkifies `[N]` citations to `logseq://`, mutes styling on low confidence) only when `ask` is advertised. Old/LLM-disabled backends: `/query` path unchanged, new UI silently absent. All new fetches are failure-tolerant. |
 
 ### Next up
 
 | Order | Item | Notes |
 |---|---|---|
-| 1 | **`/ask` endpoint** | `POST /ask` with JSON body, SSE-streamed answer with page citations. Multi-page retrieval, single chat call with `summary + best chunk` per page, server-side validation that cited page IDs were actually retrieved. Pending-summary pages contribute their chunk and get bumped to the high-priority summarizer queue. Chat backend's `-c` raised to 8192 to fit packed context. Eval: known-answer Q&A cases added to `eval_retrieval.py`. Browser extension is *not* in scope (separate roadmap item). |
-| 2 | **Browser extension rewrite** | Old contract is gone (no more BM25, no more `/summarize` cards). New shape: render `summary` + `top_chunk`, drop `/highlight` from the hot path. |
-| 3 | **Retire summary shim** | Delete `llm_backend/summary_shim.rs`, drop `/summarize` and `/llm_done_list` routes once nothing in the client calls them. |
+| 1 | **Browser extension rewrite (rest)** | Old contract is gone (no more BM25, no more `/summarize` cards). Render `summary` + `top_chunk`, drop `/highlight` from the hot path. (Capability gating + Ask UI already landed; the result-rendering rework is what's left.) |
+| 2 | **Retire summary shim** | Delete `llm_backend/summary_shim.rs`, drop `/summarize` and `/llm_done_list` routes once nothing in the client calls them. |
+| 3 | **`--no-llm` mode** | Make `llm_enabled` / `capabilities` reflect reality instead of always-on. Lets the backend run query-only; the addon already gates on both. |
 
 ---
 

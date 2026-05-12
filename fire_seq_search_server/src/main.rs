@@ -280,7 +280,13 @@ fn build_server_info(args: &Cli) -> ServerInformation {
         software,
         convert_underline_hierarchy: true,
         host,
+        // This build always launches the LLM backend (it's a hard dependency at
+        // startup), so both of these are unconditional today. If a `--no-llm`
+        // mode is ever added, flip `llm_enabled` and drop "llm_summary"/"ask"
+        // from `capabilities` accordingly — the addon already gates on both.
         llm_enabled: true,
         llm_max_waiting_time: 180,
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        capabilities: vec!["query".to_string(), "llm_summary".to_string(), "ask".to_string()],
     }
 }

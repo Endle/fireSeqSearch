@@ -69,6 +69,31 @@ const fireSeqSearchScriptCSS = `
         background-color: gold;
         border-radius: 3px;
     }
+    .fireSeqSearchAsk {
+        margin: 0.4em 0;
+    }
+    .fireSeqSearchAskBtn {
+        font-size: 0.9em;
+    }
+    .fireSeqSearchAskAnswer {
+        margin: 0.5em 0;
+        padding: 0.6em 0.8em;
+        border-left: 3px solid #6aa3c4;
+        background-color: hsla(200, 40%, 96%, .6);
+        font-size: 0.95em;
+        line-height: 1.5em;
+        white-space: pre-wrap;
+    }
+    .fireSeqSearchAskAnswer.lowConfidence {
+        border-left-color: #c4a86a;
+        background-color: hsla(40, 40%, 96%, .6);
+    }
+    .fireSeqSearchAskNote {
+        display: block;
+        margin-bottom: 0.3em;
+        font-size: 0.85em;
+        color: gray;
+    }
     `;
 
 function consoleLogForDebug(message) {
@@ -142,6 +167,151 @@ function parseRawList(rawSearchResult) {
     return hits;
 }
 
+// The addon auto-updates via AMO, but the user may run an older backend (or
+// one with the LLM disabled). New backends advertise `version` + a
+// `capabilities` list in /server_info; older ones have neither. Treat "no
+// capabilities field" as "only the original /query path is guaranteed", so we
+// never call an endpoint the backend doesn't have.
+function detectBackendCapabilities(serverInfo) {
+    const caps = Array.isArray(serverInfo && serverInfo.capabilities)
+        ? serverInfo.capabilities : [];
+    const advertised = caps.length > 0;
+    return {
+        version: (serverInfo && serverInfo.version) || "unknown",
+        list: caps,
+        // POST /ask — only ever present on a capabilities-aware backend.
+        hasAsk: advertised && caps.includes("ask"),
+        // The LLM/Summary buttons predate `capabilities` (addon 0.2.x), so on an
+        // old backend keep the previous behaviour: show them unless `llm_enabled`
+        // is explicitly false. On a new backend, gate on the advertised feature.
+        hasLlmSummary: !(serverInfo && serverInfo.llm_enabled === false)
+            && (!advertised || caps.includes("llm_summary")),
+    };
+}
+
+function escapeHtml(s) {
+    return String(s)
+        .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+}
+
+// Turn `[N]` citation markers in the answer into links to the Nth /ask source.
+function linkifyCitations(escapedAnswer, sources, serverInfo) {
+    return escapedAnswer.replace(/\[(\d+)\]/g, function (whole, n) {
+        const src = sources[parseInt(n, 10) - 1];
+        if (!src) { return whole; }
+        const uri = src.logseq_uri
+            || `logseq://graph/${serverInfo.notebook_name}?page=${src.title}`;
+        const title = escapeHtml((src.title || "").replaceAll("%2F", "/"));
+        return `<a href="${escapeHtml(uri)}" title="${title}">[${n}]</a>`;
+    });
+}
+
+// Consume the SSE-over-POST stream from /ask. Resolves when the stream ends;
+// reports failures via onError rather than rejecting, so callers don't have to
+// double-handle. Uses fetch + a ReadableStream reader because EventSource is
+// GET-only and /ask is a POST.
+async function streamAsk(question, handlers) {
+    const { onMeta, onDelta, onDone, onError } = handlers;
+    let resp;
+    try {
+        resp = await fetch("http://127.0.0.1:3030/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question }),
+        });
+    } catch (e) { onError(e); return; }
+    if (!resp.ok || !resp.body) { onError(new Error("HTTP " + resp.status)); return; }
+
+    const dispatch = function (name, dataStr) {
+        let data;
+        try { data = JSON.parse(dataStr); } catch (e) { data = dataStr; }
+        if (name === "meta") { onMeta(data); }
+        else if (name === "delta") { onDelta(data); }
+        else if (name === "done") { onDone(data); }
+        else if (name === "error") { onError(new Error((data && data.message) || "ask error")); }
+    };
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+        let chunk;
+        try { chunk = await reader.read(); } catch (e) { onError(e); return; }
+        if (chunk.done) { break; }
+        buf += decoder.decode(chunk.value, { stream: true });
+        let sep;
+        while ((sep = buf.indexOf("\n\n")) >= 0) {
+            const rawEvent = buf.slice(0, sep);
+            buf = buf.slice(sep + 2);
+            let name = "message";
+            const dataLines = [];
+            for (const line of rawEvent.split("\n")) {
+                if (line.startsWith("event:")) { name = line.slice(6).trim(); }
+                else if (line.startsWith("data:")) { dataLines.push(line.slice(5).replace(/^ /, "")); }
+            }
+            if (dataLines.length > 0) { dispatch(name, dataLines.join("\n")); }
+        }
+    }
+}
+
+function createAskDom(serverInfo, question) {
+    const wrap = createElementWithText("div", "");
+    wrap.classList.add("fireSeqSearchAsk");
+
+    const btn = createElementWithText("button", "Ask my notes");
+    btn.classList.add("fireSeqSearchAskBtn");
+    const answerBox = createElementWithText("div", "");
+    answerBox.classList.add("fireSeqSearchAskAnswer");
+    answerBox.style.display = "none";
+
+    btn.onclick = function () {
+        if (btn.disabled || !question) { return; }
+        btn.disabled = true;
+        btn.textContent = "Asking…";
+        answerBox.style.display = "";
+        answerBox.classList.remove("lowConfidence");
+        answerBox.textContent = "";
+        let sources = [];
+        let answerText = "";
+        let lowConfidence = false;
+        streamAsk(question, {
+            onMeta: function (meta) {
+                sources = (meta && meta.sources) || [];
+                if (meta && meta.confidence === "low") {
+                    lowConfidence = true;
+                    answerBox.classList.add("lowConfidence");
+                }
+            },
+            onDelta: function (d) {
+                answerText += (d && d.text) || "";
+                answerBox.textContent = answerText;
+            },
+            onDone: function (done) {
+                if (done && done.confidence === "low") {
+                    lowConfidence = true;
+                    answerBox.classList.add("lowConfidence");
+                }
+                const note = lowConfidence
+                    ? '<span class="fireSeqSearchAskNote">Weak match — these notes may only be loosely related:</span>'
+                    : "";
+                answerBox.innerHTML = note + linkifyCitations(escapeHtml(answerText), sources, serverInfo);
+            },
+            onError: function (err) {
+                consoleLogForDebug(err);
+                answerBox.textContent = "(ask failed: " + (err && err.message) + ")";
+            },
+        }).then(function () {
+            btn.disabled = false;
+            btn.textContent = "Ask my notes";
+        });
+    };
+
+    wrap.appendChild(btn);
+    wrap.appendChild(answerBox);
+    return wrap;
+}
+
 async function processLlmSummary(serverInfo, parsedSearchResult, fireDom) {
 
     const doneListApi = "http://127.0.0.1:3030/llm_done_list";
@@ -191,7 +361,7 @@ async function processLlmSummary(serverInfo, parsedSearchResult, fireDom) {
 }
 
 
-function createFireSeqDom(serverInfo, parsedSearchResult) {
+function createFireSeqDom(serverInfo, parsedSearchResult, caps, searchParameter) {
     const count = parsedSearchResult.length;
     const div = document.createElement("div");
     div.setAttribute("id", fireSeqSearchDomId);
@@ -229,20 +399,30 @@ function createFireSeqDom(serverInfo, parsedSearchResult) {
         };
         titleBar.appendChild(btn);
 
-        btn = document.createElement("button");
-        btn.classList.add("showLlm");
-        text = document.createTextNode("LLM");
-        btn.appendChild(text);
-        btn.onclick = function () {
-            setSummaryState(".fireSeqSearchHitSummary", false);
-            setSummaryState(".fireSeqSearchLlmSummary", true);
-            processLlmSummary(serverInfo, parsedSearchResult, div);
-        };
-        titleBar.appendChild(btn);
+        // The LLM-summary button only makes sense if the backend has the LLM
+        // wired; an old or LLM-disabled backend just wouldn't answer.
+        if (caps.hasLlmSummary) {
+            btn = document.createElement("button");
+            btn.classList.add("showLlm");
+            text = document.createTextNode("LLM");
+            btn.appendChild(text);
+            btn.onclick = function () {
+                setSummaryState(".fireSeqSearchHitSummary", false);
+                setSummaryState(".fireSeqSearchLlmSummary", true);
+                processLlmSummary(serverInfo, parsedSearchResult, div);
+            };
+            titleBar.appendChild(btn);
+        }
         return titleBar;
     };
     const bar = createTitleBarDom();
     div.appendChild(bar);
+
+    // POST /ask: only offered when the backend advertises it. Older backends
+    // (no `capabilities` field) silently skip this — nothing breaks.
+    if (caps.hasAsk && searchParameter) {
+        div.appendChild(createAskDom(serverInfo, searchParameter));
+    }
     return div;
 }
 
@@ -300,15 +480,17 @@ async function appendResultToSearchResult(serverInfo, parsedSearchResult, dom) {
     insertDivToWebpage(dom);
 }
 
-async function mainProcess(fetchResultArray) {
+async function mainProcess(fetchResultArray, searchParameter) {
     consoleLogForDebug("main process");
 
     const serverInfo = fetchResultArray[0];
     const rawSearchResult = fetchResultArray[1];
     consoleLogForDebug(serverInfo);
+    const caps = detectBackendCapabilities(serverInfo);
+    consoleLogForDebug("Backend version " + caps.version + ", capabilities: " + JSON.stringify(caps.list));
     const parsedSearchResult = parseRawList(rawSearchResult);
 
-    const fireDom = createFireSeqDom(serverInfo, parsedSearchResult);
+    const fireDom = createFireSeqDom(serverInfo, parsedSearchResult, caps, searchParameter);
 
     appendResultToSearchResult(serverInfo, parsedSearchResult, fireDom);
 
@@ -355,7 +537,7 @@ function getSearchParameterFromCurrentPage() {
     ]).then(function (responses) {
         return Promise.all(responses.map(function (response) {return response.json();}));
     }).then(function (data) {
-        mainProcess(data);
+        mainProcess(data, searchParameter);
     }).then((_e) => {
         const highlightedItems = document.querySelectorAll('.fireSeqSearchHighlight');
         consoleLogForDebug(highlightedItems);
