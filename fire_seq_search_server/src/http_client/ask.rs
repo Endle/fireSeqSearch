@@ -1,11 +1,20 @@
 //! `POST /ask` — deliberate Q&A over the corpus. SSE-streamed RAG.
 //!
 //! Wire format (Server-Sent Events):
-//!   event: meta   data: {"question": "...", "sources": [{"idx":1,"title":..,
-//!                        "logseq_uri":..,"score":..,"summary_status":..}, ...]}
+//!   event: meta   data: {"question": "...", "confidence": "high"|"low",
+//!                        "sources": [{"idx":1,"title":..,"logseq_uri":..,
+//!                        "score":..,"summary_status":..}, ...]}
 //!   event: delta  data: {"text": "..."}        (repeated, token chunks)
-//!   event: done   data: {"cited":[1,3],"invalid":[],"chars":N,"answered":bool}
+//!   event: done   data: {"cited":[1,3],"invalid":[],"chars":N,"answered":bool,
+//!                        "confidence":"high"|"low"}
 //!   event: error  data: {"message": "..."}     (terminal, on failure)
+//!
+//! When the best retrieval score is below `CONFIDENT_SCORE` the sources are
+//! probably only loosely related, so we switch to a "low-confidence" prompt:
+//! instead of synthesising a confident answer (which, on an off-topic source
+//! set, reads as fluent-but-wrong), the model just points at what each source
+//! mentions — "this note [2] mentions A, B, C, which might answer you" — and
+//! lets the reader follow the links into their own notebook.
 //!
 //! Retrieval reuses `semantic_query` — which already bumps pending-summary
 //! pages onto the high-priority summarizer queue — then feeds the top-K pages
@@ -40,6 +49,13 @@ const MAX_K: usize = 8;
 /// Per-source excerpt cap (~600 tokens at chars/4) — matches the chunker's
 /// `CAP_TOKENS`, so a single packed chunk fits without truncation.
 const EXCERPT_BUDGET_CHARS: usize = 2400;
+
+/// Retrieval scores at/above this look like a genuine topical match; below it
+/// we treat the source set as "loosely related" and switch to the
+/// low-confidence answer mode (see module docs). The retrieval floor is
+/// `min_score` (~0.35), so this sits well above the noise but below the ~0.6+
+/// scores a real on-topic hit produces. Tunable.
+const CONFIDENT_SCORE: f32 = 0.55;
 
 const NO_NOTES_MSG: &str = "I don't have any notes covering that.";
 
@@ -85,6 +101,11 @@ async fn run_ask(engine: &QueryEngine, req: &AskRequest, tx: &mut EventTx) -> Re
     .await?;
     let hits: Vec<_> = hits.into_iter().take(k).collect();
 
+    // `hits` come back sorted by descending score, so the first is the best.
+    let top_score = hits.first().map(|h| h.score).unwrap_or(0.0);
+    let low_confidence = top_score < CONFIDENT_SCORE;
+    let confidence = if low_confidence { "low" } else { "high" };
+
     let sources: Vec<Value> = hits
         .iter()
         .enumerate()
@@ -98,14 +119,19 @@ async fn run_ask(engine: &QueryEngine, req: &AskRequest, tx: &mut EventTx) -> Re
             })
         })
         .collect();
-    send_event(tx, "meta", json!({ "question": question, "sources": sources })).await?;
+    send_event(
+        tx,
+        "meta",
+        json!({ "question": question, "confidence": confidence, "sources": sources }),
+    )
+    .await?;
 
     if hits.is_empty() {
         send_event(tx, "delta", json!({ "text": NO_NOTES_MSG })).await?;
         send_event(
             tx,
             "done",
-            json!({ "cited": [], "invalid": [], "chars": NO_NOTES_MSG.chars().count(), "answered": false }),
+            json!({ "cited": [], "invalid": [], "chars": NO_NOTES_MSG.chars().count(), "answered": false, "confidence": confidence }),
         )
         .await?;
         return Ok(());
@@ -146,12 +172,25 @@ async fn run_ask(engine: &QueryEngine, req: &AskRequest, tx: &mut EventTx) -> Re
         context.push('\n');
     }
 
-    let system = "You answer questions using ONLY the numbered sources the user provides; \
+    let system = if low_confidence {
+        "You are helping the user search their personal notes. The retrieval for this \
+question was weak — the numbered sources below may only be loosely related to it. \
+Do NOT attempt a confident answer. Rules:\n\
+- For each source that seems even somewhat relevant, say in one tentative sentence what \
+it touches on, so the user can decide whether to open it. \
+E.g. \"This note [2] mentions A, B and C, which might be what you're looking for.\"\n\
+- Use only information present in the sources. Never add facts from your own knowledge.\n\
+- Cite every source you refer to in square brackets, e.g. [1].\n\
+- If none of the sources look related, say so plainly in one sentence and stop.\n\
+- Be concise: at most one short sentence per source. Reply in the same language as the question."
+    } else {
+        "You answer questions using ONLY the numbered sources the user provides; \
 they are excerpts from the user's personal notes. Rules:\n\
 - Use only information present in the sources. Never add facts from your own knowledge.\n\
 - After each sentence or claim, cite the source it came from in square brackets, e.g. [1] or [2][3].\n\
 - If the sources do not contain enough information to answer, say so plainly in one sentence and stop. Do not guess.\n\
-- Be concise: a few sentences, not an essay. Reply in the same language as the question.";
+- Be concise: a few sentences, not an essay. Reply in the same language as the question."
+    };
     let user = format!("Question: {}\n\nSources:\n\n{}", question, context);
     let messages = vec![
         Message { role: "system".to_string(), content: system.to_string() },
@@ -201,6 +240,7 @@ they are excerpts from the user's personal notes. Rules:\n\
             "invalid": invalid,
             "chars": answer.chars().count(),
             "answered": !cited.is_empty(),
+            "confidence": confidence,
         }),
     )
     .await?;

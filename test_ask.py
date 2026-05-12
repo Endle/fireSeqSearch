@@ -13,6 +13,7 @@ Checked:
   - done.cited ⊆ retrieved source indices; done.answered reflects cited
   - done.invalid is empty for a well-grounded question (a non-empty value
     means the model cited a source that wasn't retrieved — a real signal)
+  - meta.confidence is "high"|"low" and done.confidence agrees with it
   - the `k` request parameter caps the number of sources
   - an empty/blank question yields a single `error` event and nothing else
   - only known event names appear
@@ -146,6 +147,10 @@ def run_grounded_checks(question):
         f"answered={done.get('answered')} cited={sorted(cited)}",
     )
     check("done.chars ≈ streamed length", done.get("chars") == len(answer), f"{done.get('chars')} vs {len(answer)}")
+    meta_conf = meta.get("confidence")
+    done_conf = done.get("confidence")
+    check("meta.confidence is high|low", meta_conf in ("high", "low"), f"{meta_conf!r}")
+    check("done.confidence matches meta", done_conf == meta_conf, f"meta={meta_conf!r} done={done_conf!r}")
     # Soft-ish: a well-grounded question should not provoke phantom citations.
     check("done.invalid is empty", invalid == [], f"invalid={invalid}")
     # For a question the corpus answers, we expect an actual answer with cites.
