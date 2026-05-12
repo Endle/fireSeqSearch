@@ -147,8 +147,14 @@ These are settled. Don't relitigate without strong evidence.
 - `/server_info` — server config + `indexer` (counts + in-flight) + `summarizer`
   (ok / pending / failed counts) + `version` (crate version) + `capabilities`
   (feature list, e.g. `["query","llm_summary","ask"]`). The addon auto-updates
-  via AMO but the backend may not; old backends omit `version`/`capabilities`,
-  and the addon treats "absent" as "only `/query` is guaranteed".
+  via AMO but the backend may not, so the addon has a two-tier check:
+  - **Hard floor** — `MIN_BACKEND_VERSION` in `main.js` (currently `0.2.2`,
+    the first backend with the current `/query` shape *and* a `version` field).
+    Older — or any pre-`version` backend, which omits the field — gets an
+    "update fire_seq_search_server" notice instead of a parse attempt. Bump the
+    floor in lockstep with any breaking `/query`|`/server_info` change.
+  - **Soft tier** — at/above the floor, gracefully degrade on `capabilities`
+    (no Ask button without `ask`, no LLM button without `llm_summary`).
 - `POST /ask` — see Purpose above. Body `{question, k?}`; SSE `meta`
   (source list + `confidence`) → `delta*` → `done` (`{cited, invalid, chars,
   answered, confidence}`) or `error`. Cited `[N]` markers validated against the
@@ -192,6 +198,7 @@ These are settled. Don't relitigate without strong evidence.
 | **`/ask` endpoint** | `POST /ask`, SSE-streamed answer with page citations. Multi-page retrieval, single chat call with `summary + best chunk` per page, server-side validation that cited page IDs were retrieved. Pending-summary pages contribute their chunk and get bumped to the high-priority summarizer queue. Chat backend's `-c` raised to 8192. `test_ask.py` covers the SSE protocol/invariants. |
 | **Confidence-aware `/ask`** | When the top retrieval score is below `CONFIDENT_SCORE` (0.55) the prompt switches to "point at what each source mentions" instead of synthesising a confident (often wrong) answer. `meta`/`done` carry `confidence: "high"\|"low"`. |
 | **Browser extension — capability gating + Ask UI** | `main.js` reads `capabilities`: gates the LLM-summary button on `llm_summary`, adds an "Ask my notes" button (streams `/ask`, linkifies `[N]` citations to `logseq://`, mutes styling on low confidence) only when `ask` is advertised. Old/LLM-disabled backends: `/query` path unchanged, new UI silently absent. All new fetches are failure-tolerant. |
+| **Backend-version floor in addon** | `MIN_BACKEND_VERSION` gate: `/server_info` is parsed before `/query`; a backend below the floor (or pre-`version`) gets an on-screen "update the backend" notice instead of a silent mis-parse. Makes version mismatch a visible, named failure rather than a renaming-`/query` hack. |
 
 ### Next up
 

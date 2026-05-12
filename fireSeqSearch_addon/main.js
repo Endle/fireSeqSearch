@@ -167,6 +167,68 @@ function parseRawList(rawSearchResult) {
     return hits;
 }
 
+// The /query response shape — and the whole LLM-first contract this addon
+// renders — is what shipped from this backend version on. A backend older than
+// this (including any pre-`version` backend, which omits the field) speaks a
+// contract we can't render, so we show an update notice instead of mis-parsing
+// its response. Bump this in lockstep with any breaking /query|/server_info
+// change.
+const MIN_BACKEND_VERSION = "0.2.2";
+
+function parseSemver(v) {
+    const m = /^(\d+)\.(\d+)\.(\d+)/.exec(String(v == null ? "" : v));
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+// a < b ? Unparseable/absent `a` counts as "older than anything".
+function semverLt(a, b) {
+    const pa = parseSemver(a), pb = parseSemver(b);
+    if (!pa) { return true; }
+    if (!pb) { return false; }
+    for (let i = 0; i < 3; i++) {
+        if (pa[i] !== pb[i]) { return pa[i] < pb[i]; }
+    }
+    return false;
+}
+
+function backendTooOld(serverInfo) {
+    return semverLt(serverInfo && serverInfo.version, MIN_BACKEND_VERSION);
+}
+
+function createOutdatedBackendDom(gotVersion) {
+    const div = document.createElement("div");
+    div.setAttribute("id", fireSeqSearchDomId);
+    const bar = createElementWithText("div", "");
+    bar.classList.add("fireSeqSearchTitleBar");
+    bar.innerHTML = "<span>fireSeqSearch: your local backend (<b>" + escapeHtml(gotVersion)
+        + "</b>) is older than this extension needs (≥ <b>" + MIN_BACKEND_VERSION
+        + "</b>). Please update <code>fire_seq_search_server</code>.</span>";
+    div.appendChild(bar);
+    return div;
+}
+
+// Where in the search-results page our DOM gets inserted. Lifted to module
+// scope so the outdated-backend notice can reuse it without going through the
+// full result-rendering path.
+function insertDivToWebpage(result) {
+    let contextId = "rcnt";
+    if (window.location.host.includes("duckduckgo.com")) { // https://github.com/Endle/fireSeqSearch/issues/103
+        contextId = "web_content_wrapper";
+    }
+    if (window.location.host.includes("searx")) {
+        contextId = "results";
+    }
+    if (window.location.host.includes("metager")) { // https://github.com/Endle/fireSeqSearch/issues/127
+        contextId = "results";
+    }
+    const anchor = document.getElementById(contextId);
+    if (anchor === null) {
+        consoleLogForDebug("fireSeqSearch: couldn't find insertion anchor #" + contextId);
+        return;
+    }
+    anchor.insertAdjacentElement("beforebegin", result);
+}
+
 // The addon auto-updates via AMO, but the user may run an older backend (or
 // one with the LLM disabled). New backends advertise `version` + a
 // `capabilities` list in /server_info; older ones have neither. Treat "no
@@ -462,21 +524,6 @@ async function appendResultToSearchResult(serverInfo, parsedSearchResult, dom) {
         dom.classList.add("experimentalLayout");
     }
 
-    function insertDivToWebpage(result) {
-        let contextId = "rcnt";
-        if (window.location.host.includes("duckduckgo.com")) {
-            contextId = "web_content_wrapper";
-        }
-        if (window.location.host.includes("searx")) { // https://github.com/Endle/fireSeqSearch/issues/103
-            contextId = "results";
-        }
-        if (window.location.host.includes("metager")) { // https://github.com/Endle/fireSeqSearch/issues/127
-            contextId = "results";
-        }
-        document.getElementById(contextId).insertAdjacentElement("beforebegin", result);
-
-    }
-
     insertDivToWebpage(dom);
 }
 
@@ -531,14 +578,22 @@ function getSearchParameterFromCurrentPage() {
     addGlobalStyle(fireSeqSearchScriptCSS);
 
     //https://gomakethings.com/waiting-for-multiple-all-api-responses-to-complete-with-the-vanilla-js-promise.all-method/
+    // Both requests fire in parallel, but we parse /server_info first: if the
+    // backend is too old we must NOT try to parse its /query body (an old
+    // backend's response shape would just throw or render garbage).
     Promise.all([
         fetch("http://127.0.0.1:3030/server_info"),
         fetch("http://127.0.0.1:3030/query/" + searchParameter)
-    ]).then(function (responses) {
-        return Promise.all(responses.map(function (response) {return response.json();}));
-    }).then(function (data) {
-        mainProcess(data, searchParameter);
-    }).then((_e) => {
+    ]).then(async function (responses) {
+        const serverInfo = await responses[0].json();
+        if (backendTooOld(serverInfo)) {
+            const got = (serverInfo && serverInfo.version) || "pre-" + MIN_BACKEND_VERSION;
+            consoleLogForDebug("fireSeqSearch: backend " + got + " is older than required " + MIN_BACKEND_VERSION + "; showing update notice");
+            insertDivToWebpage(createOutdatedBackendDom(got));
+            return;
+        }
+        const rawSearchResult = await responses[1].json();
+        await mainProcess([serverInfo, rawSearchResult], searchParameter);
         const highlightedItems = document.querySelectorAll('.fireSeqSearchHighlight');
         consoleLogForDebug(highlightedItems);
         highlightedItems.forEach((element) => {
