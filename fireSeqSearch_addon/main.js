@@ -6,7 +6,12 @@ const fireSeqSearchDomId = "fireSeqSearchDom";
 
 const fireSeqSearchScriptCSS = `
     #fireSeqSearchDom {
-        margin: 1em 1em 1em 1em;
+        margin: 1em 1.5em;
+        padding: 0.8em 1em 1em;
+        border: 1px solid #e0e3e7;
+        border-radius: 8px;
+        background-color: #fafbfc;
+        box-shadow: 0 1px 2px rgba(60, 64, 67, 0.06);
         color: var(--theme-col-txt-snippet); /* duckduck color*/
     }
     #fireSeqSearchDom.experimentalLayout {
@@ -27,8 +32,7 @@ const fireSeqSearchScriptCSS = `
     }
     #fireSeqSearchDom ul {
         margin: 0;
-        padding: 0.6em;
-        border: 1px dotted  gray;
+        padding: 0.2em 0 0;
         list-style: none;
         line-height: 1.5em;
     }
@@ -161,7 +165,7 @@ function checkUserOptions() {
 function parseRawList(rawSearchResult) {
     const hits = [];
     for (const rawRecord of rawSearchResult) {
-        const record = JSON.parse(rawRecord);
+        const record = (typeof rawRecord === "string") ? JSON.parse(rawRecord) : rawRecord;
         hits.push(record);
     }
     return hits;
