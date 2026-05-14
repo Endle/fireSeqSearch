@@ -25,10 +25,45 @@ const fireSeqSearchScriptCSS = `
         z-index: 99999;
     }
     .fireSeqSearchTitleBar {
-        margin: 0.5em 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75em;
+        flex-wrap: wrap;
+        margin: 0 0 0.6em 0;
     }
-    .hideSummary {
-        margin: 0 1em;
+    .fireSeqSearchHitCount {
+        font-size: 0.9em;
+        color: #5f6368;
+    }
+    .fireSeqSearchHitCount b {
+        color: #202124;
+        font-weight: 600;
+    }
+    .fireSeqSearchViewToggle {
+        display: inline-flex;
+        border: 1px solid #d0d7de;
+        border-radius: 999px;
+        overflow: hidden;
+        background: #fff;
+    }
+    .fireSeqSearchViewToggle button {
+        border: 0;
+        background: transparent;
+        padding: 4px 12px;
+        font-size: 0.85em;
+        color: #5f6368;
+        cursor: pointer;
+        line-height: 1.4;
+    }
+    .fireSeqSearchViewToggle button + button {
+        border-left: 1px solid #d0d7de;
+    }
+    .fireSeqSearchViewToggle button.active {
+        background: #1a73e8;
+        color: #fff;
+    }
+    .fireSeqSearchTitleBarSpacer {
+        flex: 1;
     }
     #fireSeqSearchDom ul {
         margin: 0;
@@ -73,11 +108,21 @@ const fireSeqSearchScriptCSS = `
         background-color: gold;
         border-radius: 3px;
     }
-    .fireSeqSearchAsk {
-        margin: 0.4em 0;
-    }
     .fireSeqSearchAskBtn {
+        border: 0;
+        background: #1a73e8;
+        color: #fff;
+        padding: 5px 14px;
+        border-radius: 999px;
         font-size: 0.9em;
+        cursor: pointer;
+    }
+    .fireSeqSearchAskBtn:hover:not(:disabled) {
+        background: #1765cc;
+    }
+    .fireSeqSearchAskBtn:disabled {
+        background: #9aa0a6;
+        cursor: default;
     }
     .fireSeqSearchAskAnswer {
         margin: 0.5em 0;
@@ -321,10 +366,7 @@ async function streamAsk(question, handlers) {
     }
 }
 
-function createAskDom(serverInfo, question) {
-    const wrap = createElementWithText("div", "");
-    wrap.classList.add("fireSeqSearchAsk");
-
+function createAskControls(serverInfo, question) {
     const btn = createElementWithText("button", "Ask my notes");
     btn.classList.add("fireSeqSearchAskBtn");
     const answerBox = createElementWithText("div", "");
@@ -373,9 +415,7 @@ function createAskDom(serverInfo, question) {
         });
     };
 
-    wrap.appendChild(btn);
-    wrap.appendChild(answerBox);
-    return wrap;
+    return { btn, answerBox };
 }
 
 async function processLlmSummary(serverInfo, parsedSearchResult, fireDom) {
@@ -432,63 +472,69 @@ function createFireSeqDom(serverInfo, parsedSearchResult, caps, searchParameter)
     const div = document.createElement("div");
     div.setAttribute("id", fireSeqSearchDomId);
 
-    const createTitleBarDom = function () {
-        const titleBar = createElementWithText("div");
-        titleBar.classList.add('fireSeqSearchTitleBar');
-        const hitCount = `<span>We found <b>${count.toString()}</b> results in your logseq notebook</span>`;
-        titleBar.insertAdjacentHTML("afterbegin",hitCount);
-
-        function setSummaryState(cl, state) {
-            let prop = 'none';
-            if (state) { prop = ''; }
-            for (const el of document.querySelectorAll(cl)) {
-                el.style.display=prop;
-            }
-        }
-        let btn = document.createElement("button");
-        btn.classList.add("hideSummary");
-        let text = document.createTextNode("Hide Summary");
-        btn.appendChild(text);
-        btn.onclick = function () {
-            setSummaryState(".fireSeqSearchHitSummary", false);
-            setSummaryState(".fireSeqSearchLlmSummary", false);
-        };
-        titleBar.appendChild(btn);
-
-        btn = document.createElement("button");
-        btn.classList.add("showSummary");
-        text = document.createTextNode("Summary");
-        btn.appendChild(text);
-        btn.onclick = function () {
-            setSummaryState(".fireSeqSearchHitSummary", true);
-            setSummaryState(".fireSeqSearchLlmSummary", false);
-        };
-        titleBar.appendChild(btn);
-
-        // The LLM-summary button only makes sense if the backend has the LLM
-        // wired; an old or LLM-disabled backend just wouldn't answer.
-        if (caps.hasLlmSummary) {
-            btn = document.createElement("button");
-            btn.classList.add("showLlm");
-            text = document.createTextNode("LLM");
-            btn.appendChild(text);
-            btn.onclick = function () {
-                setSummaryState(".fireSeqSearchHitSummary", false);
-                setSummaryState(".fireSeqSearchLlmSummary", true);
-                processLlmSummary(serverInfo, parsedSearchResult, div);
-            };
-            titleBar.appendChild(btn);
-        }
-        return titleBar;
-    };
-    const bar = createTitleBarDom();
-    div.appendChild(bar);
-
     // POST /ask: only offered when the backend advertises it. Older backends
     // (no `capabilities` field) silently skip this — nothing breaks.
-    if (caps.hasAsk && searchParameter) {
-        div.appendChild(createAskDom(serverInfo, searchParameter));
+    const ask = (caps.hasAsk && searchParameter)
+        ? createAskControls(serverInfo, searchParameter)
+        : null;
+
+    const titleBar = document.createElement("div");
+    titleBar.classList.add('fireSeqSearchTitleBar');
+
+    const hitCount = document.createElement("span");
+    hitCount.classList.add("fireSeqSearchHitCount");
+    hitCount.innerHTML = `<b>${count.toString()}</b> notes`;
+    hitCount.title = `from ${serverInfo.notebook_name}`;
+    titleBar.appendChild(hitCount);
+
+    const toggle = document.createElement("div");
+    toggle.classList.add("fireSeqSearchViewToggle");
+
+    function setSummaryState(cl, state) {
+        const prop = state ? '' : 'none';
+        for (const el of document.querySelectorAll(cl)) {
+            el.style.display = prop;
+        }
     }
+    function makeSegment(label, onActivate) {
+        const seg = document.createElement("button");
+        seg.textContent = label;
+        seg.onclick = function () {
+            for (const sib of toggle.children) { sib.classList.remove("active"); }
+            seg.classList.add("active");
+            onActivate();
+        };
+        return seg;
+    }
+    const segHide = makeSegment("Hide", function () {
+        setSummaryState(".fireSeqSearchHitSummary", false);
+        setSummaryState(".fireSeqSearchLlmSummary", false);
+    });
+    const segSnippet = makeSegment("Snippet", function () {
+        setSummaryState(".fireSeqSearchHitSummary", true);
+        setSummaryState(".fireSeqSearchLlmSummary", false);
+    });
+    segSnippet.classList.add("active"); // default render shows snippets
+    toggle.appendChild(segHide);
+    toggle.appendChild(segSnippet);
+    if (caps.hasLlmSummary) {
+        const segLlm = makeSegment("LLM", function () {
+            setSummaryState(".fireSeqSearchHitSummary", false);
+            setSummaryState(".fireSeqSearchLlmSummary", true);
+            processLlmSummary(serverInfo, parsedSearchResult, div);
+        });
+        toggle.appendChild(segLlm);
+    }
+    titleBar.appendChild(toggle);
+
+    const spacer = document.createElement("div");
+    spacer.classList.add("fireSeqSearchTitleBarSpacer");
+    titleBar.appendChild(spacer);
+
+    if (ask) { titleBar.appendChild(ask.btn); }
+
+    div.appendChild(titleBar);
+    if (ask) { div.appendChild(ask.answerBox); }
     return div;
 }
 
