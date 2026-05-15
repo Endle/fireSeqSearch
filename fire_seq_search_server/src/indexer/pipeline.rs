@@ -7,7 +7,7 @@ use log::{error, info};
 use tokio::time::Duration;
 use walkdir::WalkDir;
 
-use crate::indexer::chunker::{chunk_note, is_summarizable};
+use crate::indexer::chunker::{chunk_note, is_summarizable, preprocess};
 use crate::indexer::store::{Store, CHUNKER_VERSION};
 use crate::indexer::{IndexerError, IndexerHandle};
 use crate::llm_backend::LlmBackend;
@@ -17,6 +17,11 @@ pub struct Indexer {
     backend: Arc<LlmBackend>,
     notebook_path: PathBuf,
     handle: IndexerHandle,
+    /// If `Some`, mirror the notebook into this directory with each note's
+    /// post-preprocess markdown and its final chunks, so noise vs information
+    /// loss in the stripper can be spot-checked. Set via the
+    /// `FIRE_SEQ_DUMP_PROCESSED_DIR` env var. Diagnostic-only.
+    dump_processed_dir: Option<PathBuf>,
 }
 
 impl Indexer {
@@ -26,7 +31,12 @@ impl Indexer {
         notebook_path: PathBuf,
         handle: IndexerHandle,
     ) -> Self {
-        Self { store, backend, notebook_path, handle }
+        let dump_processed_dir = std::env::var_os("FIRE_SEQ_DUMP_PROCESSED_DIR")
+            .map(PathBuf::from);
+        if let Some(ref d) = dump_processed_dir {
+            info!("FIRE_SEQ_DUMP_PROCESSED_DIR={} — will dump stripped notes + chunks per indexed file", d.display());
+        }
+        Self { store, backend, notebook_path, handle, dump_processed_dir }
     }
 
     pub async fn hydrate(&self) -> Result<(), IndexerError> {
@@ -124,6 +134,12 @@ impl Indexer {
         // re-embedding forever.
         let page_title = path_to_page_title(rel_path);
         let chunks = chunk_note(&page_title, &raw);
+
+        if let Some(ref dump_dir) = self.dump_processed_dir {
+            if let Err(e) = dump_processed_note(dump_dir, rel_path, &raw, &chunks) {
+                error!("dump_processed_note failed for {}: {}", rel_path, e);
+            }
+        }
 
         if chunks.is_empty() {
             let note_id = self.store.upsert_note(rel_path, &page_title, fs_mtime, &hash_bytes)?;
@@ -281,6 +297,37 @@ async fn embed_chunks(backend: &LlmBackend, texts: &[String]) -> Result<Vec<Vec<
         out.extend(embeddings);
     }
     Ok(out)
+}
+
+/// Write a side-by-side inspection file for one indexed note: the raw input,
+/// the post-preprocess markdown (what the stripper hands the chunker), and
+/// each final chunk (what the embedder/LLM see). Only invoked when
+/// `FIRE_SEQ_DUMP_PROCESSED_DIR` is set; never affects indexing behaviour.
+fn dump_processed_note(
+    dump_dir: &Path,
+    rel_path: &str,
+    raw: &str,
+    chunks: &[crate::indexer::chunker::Chunk],
+) -> std::io::Result<()> {
+    let out_path = dump_dir.join(rel_path);
+    if let Some(parent) = out_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let preprocessed = preprocess(raw);
+    let mut body = String::with_capacity(raw.len() + preprocessed.len() + 256);
+    body.push_str("=== RAW ===\n");
+    body.push_str(raw);
+    if !raw.ends_with('\n') { body.push('\n'); }
+    body.push_str("\n=== PREPROCESSED (post-strip, pre-chunk) ===\n");
+    body.push_str(&preprocessed);
+    if !preprocessed.ends_with('\n') { body.push('\n'); }
+    body.push_str(&format!("\n=== CHUNKS ({}) ===\n", chunks.len()));
+    for c in chunks {
+        body.push_str(&format!("\n--- chunk {} ---\n", c.ord));
+        body.push_str(&c.text);
+        if !c.text.ends_with('\n') { body.push('\n'); }
+    }
+    std::fs::write(&out_path, body)
 }
 
 fn path_to_page_title(rel_path: &str) -> String {
