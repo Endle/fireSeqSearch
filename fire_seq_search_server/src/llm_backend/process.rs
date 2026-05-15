@@ -70,12 +70,15 @@ async fn spawn(
                 .arg("-b").arg("8192")
                 .arg("-c").arg("8192");
         } else {
-            // Chat backend serves both background summarization and `/ask`.
-            // `/ask` packs K pages × (summary + best chunk); llama-server's
-            // default context is too small for that. 8192 is comfortable for
-            // a 7B and the user can override via `--chat-extra-args "-c N"`
-            // (later -c wins).
-            c.arg("-c").arg("8192");
+            // Chat backend serves background summarization AND `/ask`
+            // concurrently. Each /ask packs K=8 pages × (summary + best chunk),
+            // routinely hitting 3000+ prompt tokens; a summarization in the
+            // sibling slot can be similarly large. 8192 was fine for the old
+            // 7B but the 9B default has a larger per-token KV footprint, and
+            // two concurrent prompts overflowed the shared cache. 16384 gives
+            // both slots room; users on tight VRAM can override via
+            // `--chat-extra-args "-c N"` (later -c wins).
+            c.arg("-c").arg("16384");
         }
         c
     } else {
@@ -92,8 +95,9 @@ async fn spawn(
                 .arg("-b").arg("8192")
                 .arg("-c").arg("8192");
         } else {
-            // See note above: chat backend needs a bigger context for `/ask`.
-            c.arg("-c").arg("8192");
+            // See note above: chat backend needs a bigger context for `/ask`
+            // plus concurrent summarization on the 9B default.
+            c.arg("-c").arg("16384");
         }
         c
     };
