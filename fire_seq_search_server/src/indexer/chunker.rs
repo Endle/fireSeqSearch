@@ -166,7 +166,13 @@ pub fn preprocess(raw: &str) -> String {
         // the BEGIN_QUERY line survives and the trailing newline gets eaten.
         static ref ADV_QUERY: Regex =
             Regex::new(r"(?msi)^[ \t]*(?:[-*]\s*)?#\+BEGIN_QUERY.*?#\+END_QUERY[ \t]*\n?").unwrap();
-        static ref PROP_LINE: Regex = Regex::new(r"(?m)^\s*[A-Za-z][\w-]*::\s*.*$").unwrap();
+        // Match Logseq property lines including when they're attached to a
+        // bullet, e.g. `- query-table:: false` or `\t- id:: abc-123`. The
+        // optional `[-*]\s+` after leading whitespace is the only difference
+        // from the original; without it any property prefixed with `- ` slips
+        // through and leaks into the chunk excerpt.
+        static ref PROP_LINE: Regex =
+            Regex::new(r"(?m)^\s*(?:[-*]\s+)?[A-Za-z][\w-]*::\s*.*$").unwrap();
         // Logseq emits SCHEDULED/DEADLINE/CLOSED as continuation lines under
         // a task-state bullet (DONE/TODO/DOING/NOW/LATER/CANCELED/WAITING).
         // Strip only the timestamp continuation; keep the task line intact so
@@ -513,6 +519,22 @@ mod tests {
         assert!(out.contains("- TODO ship it"));
         assert!(!out.contains("SCHEDULED"));
         assert!(!out.contains("DEADLINE"));
+    }
+
+    #[test]
+    fn bullet_prefixed_property_lines_are_stripped() {
+        // Logseq emits properties attached to a bullet, e.g.
+        //     - query-table:: false
+        //         - query-table:: false (deeper indent)
+        //         - id:: 64e8ba26-...
+        // The original PROP_LINE only matched lines that started with the
+        // property name (after optional whitespace); the bullet prefix made
+        // the regex skip, so noise survived.
+        let md = "- query-table:: false\n\t- query-table:: false\n  - id:: 64e8ba26-1234\n- real bullet\n";
+        let out = preprocess(md);
+        assert!(!out.contains("query-table::"), "bullet-prefixed property survived: {out:?}");
+        assert!(!out.contains("id::"), "id:: property survived: {out:?}");
+        assert!(out.contains("- real bullet"));
     }
 
     #[test]
