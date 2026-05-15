@@ -163,7 +163,52 @@ pub fn preprocess(raw: &str) -> String {
     let s = FRONTMATTER.replace(raw, "");
     let s = ADV_QUERY.replace_all(&s, "");
     let s = PROP_LINE.replace_all(&s, "");
-    s.into_owned()
+    unwrap_template_bullets(&s)
+}
+
+/// Logseq template parent bullets ("- Journal Template") are boilerplate
+/// headers the template engine inserts; they're not content, but the
+/// content the user wrote *under* them is. Drop the parent line and dedent
+/// its descendants by the first descendant's indent so real notes are
+/// promoted to depth-0 bullets and reach the LLM unprefixed.
+///
+/// Match is exact (case-insensitive, trimmed) on the bullet body — a real
+/// content bullet like `- Journal Template - DONE 厕所纸 20元40个` is left
+/// alone because its body isn't *just* the template name.
+fn unwrap_template_bullets(s: &str) -> String {
+    const TEMPLATE_NAMES: &[&str] = &["journal template"];
+    let lines: Vec<&str> = s.lines().collect();
+    let mut out = String::with_capacity(s.len());
+    let mut i = 0;
+    while i < lines.len() {
+        let line = lines[i];
+        if is_depth0_bullet(line) && is_template_header(line, TEMPLATE_NAMES) {
+            i += 1;
+            let mut indent: Option<usize> = None;
+            while i < lines.len() && !is_depth0_bullet(lines[i]) {
+                let l = lines[i];
+                let leading = l.bytes().take_while(|b| *b == b' ' || *b == b'\t').count();
+                if indent.is_none() && !l.trim().is_empty() {
+                    indent = Some(leading);
+                }
+                let strip = indent.unwrap_or(0).min(leading);
+                out.push_str(&l[strip..]);
+                out.push('\n');
+                i += 1;
+            }
+        } else {
+            out.push_str(line);
+            out.push('\n');
+            i += 1;
+        }
+    }
+    out
+}
+
+fn is_template_header(line: &str, names: &[&str]) -> bool {
+    let body = line.trim_start_matches(|c: char| c == '-' || c == '*' || c.is_whitespace());
+    let normalized = body.trim().to_lowercase();
+    names.iter().any(|n| *n == normalized)
 }
 
 fn is_depth0_bullet(line: &str) -> bool {
@@ -363,5 +408,56 @@ mod tests {
         assert!(chunks[0].text.contains("real bullet"));
         assert!(!chunks[0].text.contains("tags::"));
         assert!(!chunks[0].text.contains("BEGIN_QUERY"));
+    }
+
+    #[test]
+    fn journal_template_header_is_stripped_and_children_promoted() {
+        let md = "- Journal Template\n    - real daily record\n- other top bullet\n";
+        let out = preprocess(md);
+        assert!(!out.contains("Journal Template"));
+        assert!(out.contains("- real daily record"));
+        assert!(out.contains("- other top bullet"));
+        // The child should be promoted to depth-0 (no leading whitespace).
+        let mut saw_promoted = false;
+        for line in out.lines() {
+            if line == "- real daily record" {
+                saw_promoted = true;
+            }
+        }
+        assert!(saw_promoted, "child should be dedented to depth-0: {out:?}");
+    }
+
+    #[test]
+    fn journal_template_is_case_insensitive() {
+        let out = preprocess("- journal template\n    - kept\n");
+        assert!(!out.to_lowercase().contains("journal template"));
+        assert!(out.contains("- kept"));
+    }
+
+    #[test]
+    fn journal_template_with_inline_content_is_not_touched() {
+        // Content bullet that happens to start with "Journal Template" — leave alone.
+        let md = "- Journal Template - DONE 厕所纸 20元40个\n";
+        let out = preprocess(md);
+        assert!(out.contains("Journal Template - DONE"));
+    }
+
+    #[test]
+    fn journal_template_with_no_children_just_drops() {
+        let md = "- Journal Template\n- real bullet\n";
+        let out = preprocess(md);
+        assert!(!out.contains("Journal Template"));
+        assert!(out.contains("- real bullet"));
+    }
+
+    #[test]
+    fn journal_template_preserves_nested_structure_after_dedent() {
+        // First child at 4 spaces, grandchild at 8 spaces → after stripping
+        // the 4-space first-child indent, grandchild keeps its remaining
+        // 4-space indent and stays a child of the promoted bullet.
+        let md = "- Journal Template\n    - parent kept\n        - grand kept\n";
+        let out = preprocess(md);
+        assert!(out.contains("- parent kept"));
+        assert!(out.contains("    - grand kept"));
     }
 }

@@ -192,6 +192,10 @@ they are excerpts from the user's personal notes. Rules:\n\
 - Be concise: a few sentences, not an essay. Reply in the same language as the question."
     };
     let user = format!("Question: {}\n\nSources:\n\n{}", question, context);
+    info!(
+        "/ask prompt (k={}, confidence={}, top_score={:.3}):\n--- system ---\n{}\n--- user ---\n{}\n--- end ---",
+        hits.len(), confidence, top_score, system, user,
+    );
     let messages = vec![
         Message { role: "system".to_string(), content: system.to_string() },
         Message { role: "user".to_string(), content: user },
@@ -232,6 +236,10 @@ they are excerpts from the user's personal notes. Rules:\n\
     if !invalid.is_empty() {
         info!("/ask: model cited non-retrieved sources {:?} (answer kept)", invalid);
     }
+    info!(
+        "/ask answer (chars={}, cited={:?}):\n{}",
+        answer.chars().count(), cited, answer,
+    );
     send_event(
         tx,
         "done",
