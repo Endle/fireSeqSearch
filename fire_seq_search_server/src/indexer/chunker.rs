@@ -156,13 +156,32 @@ fn approx_tokens(s: &str) -> usize {
 pub fn preprocess(raw: &str) -> String {
     lazy_static! {
         static ref FRONTMATTER: Regex = Regex::new(r"(?s)\A---\n.*?\n---\n?").unwrap();
+        // Eat any leading bullet/whitespace in front of `#+BEGIN_QUERY` so the
+        // block strip doesn't leave an orphan `\t- ` that merges with the next
+        // line. Without this, a Logseq template like
+        //     - Journal Template
+        //         - #+BEGIN_QUERY ... #+END_QUERY
+        //         - https://...
+        // produces a corrupted `- \t- https://...` line because the prefix on
+        // the BEGIN_QUERY line survives and the trailing newline gets eaten.
         static ref ADV_QUERY: Regex =
-            Regex::new(r"(?si)#\+BEGIN_QUERY.*?#\+END_QUERY\n?").unwrap();
+            Regex::new(r"(?msi)^[ \t]*(?:[-*]\s*)?#\+BEGIN_QUERY.*?#\+END_QUERY[ \t]*\n?").unwrap();
         static ref PROP_LINE: Regex = Regex::new(r"(?m)^\s*[A-Za-z][\w-]*::\s*.*$").unwrap();
+        // Logseq emits SCHEDULED/DEADLINE/CLOSED as continuation lines under
+        // a task-state bullet (DONE/TODO/DOING/NOW/LATER/CANCELED/WAITING).
+        // Strip only the timestamp continuation; keep the task line intact so
+        // task state still reaches retrieval. Matching the task line as
+        // context (rather than stripping bare `SCHEDULED:` lines) avoids
+        // accidentally eating user prose that happens to type the same word.
+        static ref TASK_TIMESTAMP: Regex = Regex::new(
+            r"(?m)^(?P<task>\s*[-*]\s+(?:DONE|TODO|DOING|NOW|LATER|CANCELED|WAITING)\b[^\n]*)\n(?:\s*(?:SCHEDULED|DEADLINE|CLOSED):\s*<[^>]+>\s*\n?)+",
+        )
+        .unwrap();
     }
     let s = FRONTMATTER.replace(raw, "");
     let s = ADV_QUERY.replace_all(&s, "");
     let s = PROP_LINE.replace_all(&s, "");
+    let s = TASK_TIMESTAMP.replace_all(&s, "$task\n");
     unwrap_template_bullets(&s)
 }
 
@@ -448,6 +467,61 @@ mod tests {
         let out = preprocess(md);
         assert!(!out.contains("Journal Template"));
         assert!(out.contains("- real bullet"));
+    }
+
+    #[test]
+    fn adv_query_with_bullet_prefix_does_not_leave_orphan() {
+        // The real-world Logseq pattern: a `- Journal Template` parent whose
+        // first child is `\t- #+BEGIN_QUERY ... #+END_QUERY` and second child
+        // is a content URL bullet. Before the ADV_QUERY anchor fix, the
+        // orphan `\t- ` prefix on the BEGIN_QUERY line merged with the next
+        // line producing `- \t- https://...` after the template unwrap.
+        let md = "- Journal Template\n\
+                  \t- #+BEGIN_QUERY\n\
+                  \t  {:title \"q\"}\n\
+                  \t  #+END_QUERY\n\
+                  \t- https://example.com/x\n\
+                  - real top bullet\n";
+        let out = preprocess(md);
+        // The query block is gone.
+        assert!(!out.contains("BEGIN_QUERY"));
+        // No double-bullet artifact on the URL line.
+        assert!(!out.contains("- - https://"), "double bullet leaked: {out:?}");
+        assert!(!out.contains("-\t- https"), "tab-merged bullet leaked: {out:?}");
+        // The URL bullet survives, dedented to depth-0.
+        assert!(out.contains("- https://example.com/x"));
+        assert!(out.contains("- real top bullet"));
+    }
+
+    #[test]
+    fn task_state_kept_scheduled_line_stripped() {
+        // Logseq emits `SCHEDULED: <date>` as a continuation line under a
+        // task-state bullet. Keep the task (it conveys state to the LLM);
+        // drop the timestamp continuation.
+        let md = "- DONE 确定旅游计划\n  SCHEDULED: <2023-10-16 Mon>\n- next bullet\n";
+        let out = preprocess(md);
+        assert!(out.contains("- DONE 确定旅游计划"), "task line stripped: {out:?}");
+        assert!(!out.contains("SCHEDULED"), "schedule line kept: {out:?}");
+        assert!(out.contains("- next bullet"));
+    }
+
+    #[test]
+    fn task_state_with_multiple_timestamp_lines() {
+        // A task bullet may have several continuation timestamps. All should go.
+        let md = "- TODO ship it\n  SCHEDULED: <2023-10-16 Mon>\n  DEADLINE: <2023-10-30 Mon>\n";
+        let out = preprocess(md);
+        assert!(out.contains("- TODO ship it"));
+        assert!(!out.contains("SCHEDULED"));
+        assert!(!out.contains("DEADLINE"));
+    }
+
+    #[test]
+    fn bare_scheduled_line_without_task_context_is_preserved() {
+        // User prose that happens to type "SCHEDULED: <something>" with no
+        // preceding task bullet must NOT be stripped — it's content.
+        let md = "- some note about org-mode\n- SCHEDULED: <2023-01-01> is the keyword\n";
+        let out = preprocess(md);
+        assert!(out.contains("SCHEDULED:"), "user prose got eaten: {out:?}");
     }
 
     #[test]
