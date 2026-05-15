@@ -188,8 +188,13 @@ E.g. \"This note [2] mentions A, B and C, which might be what you're looking for
 they are excerpts from the user's personal notes. Rules:\n\
 - Use only information present in the sources. Never add facts from your own knowledge.\n\
 - After each sentence or claim, cite the source it came from in square brackets, e.g. [1] or [2][3].\n\
+- Cover every source that touches the question, even briefly. Do not pick just one — if \
+multiple sources discuss different aspects of the same topic, say what each one contributes \
+and cite it. A short list-style answer (one short sentence per relevant source) is \
+appropriate when the question is broad or the sources cover different angles.\n\
 - If the sources do not contain enough information to answer, say so plainly in one sentence and stop. Do not guess.\n\
-- Be concise: a few sentences, not an essay. Reply in the same language as the question."
+- Reply in the same language as the question. Length should match breadth: short for a \
+single-source answer, longer when many sources are relevant."
     };
     let user = format!("Question: {}\n\nSources:\n\n{}", question, context);
     info!(
