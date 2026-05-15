@@ -44,7 +44,7 @@ pub struct AskRequest {
     pub k: Option<usize>,
 }
 
-const DEFAULT_K: usize = 4;
+const DEFAULT_K: usize = 6;
 const MAX_K: usize = 8;
 /// Per-source excerpt cap (~600 tokens at chars/4) — matches the chunker's
 /// `CAP_TOKENS`, so a single packed chunk fits without truncation.
