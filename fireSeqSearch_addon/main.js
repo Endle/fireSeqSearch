@@ -104,12 +104,29 @@ const fireSeqSearchScriptCSS = `
         background-color: gold;
         border-radius: 3px;
     }
+    .fireSeqSearchAskBox {
+        display: inline-flex;
+        align-items: stretch;
+        border: 1px solid #dadce0;
+        border-radius: 999px;
+        overflow: hidden;
+        background: #fff;
+    }
+    .fireSeqSearchAskInput {
+        border: 0;
+        outline: 0;
+        padding: 4px 12px;
+        font-size: 13px;
+        font-family: arial, sans-serif;
+        color: #1f1f1f;
+        background: transparent;
+        min-width: 220px;
+    }
     .fireSeqSearchAskBtn {
         border: 0;
         background: #0b57d0;
         color: #fff;
         padding: 5px 14px;
-        border-radius: 999px;
         font-size: 13px;
         font-family: arial, sans-serif;
         cursor: pointer;
@@ -139,6 +156,25 @@ const fireSeqSearchScriptCSS = `
         margin-bottom: 0.3em;
         font-size: 0.85em;
         color: gray;
+    }
+    .fireSeqSearchCiteBadge {
+        margin-left: 0.3em;
+        font-size: 0.8em;
+        color: #0b57d0;
+        font-weight: 500;
+    }
+    .fireSeqSearchAskExtras {
+        margin: 0.3em 0 0.6em 0;
+        font-size: 0.85em;
+        color: #4d5156;
+    }
+    .fireSeqSearchAskExtras a {
+        color: #0b57d0;
+        text-decoration: none;
+        margin-right: 0.6em;
+    }
+    .fireSeqSearchAskExtras a:hover {
+        text-decoration: underline;
     }
     `;
 
@@ -303,6 +339,63 @@ function escapeHtml(s) {
         .replaceAll('"', "&quot;");
 }
 
+// Find a hit-list row whose link title (raw note title) matches `title`.
+// Source titles from /ask and row titles from /query can differ in %2F
+// encoding, so normalize before comparing.
+function findRowByTitle(root, title) {
+    const list = root && root.querySelector(".fireSeqSearchHitList");
+    if (!list) { return null; }
+    const norm = String(title || "").replaceAll("%2F", "/");
+    for (const li of list.children) {
+        const a = li.querySelector("a");
+        if (!a) { continue; }
+        if (a.textContent === norm || a.getAttribute("title") === norm) { return li; }
+    }
+    return null;
+}
+
+function clearCitationDecorations(root) {
+    if (!root) { return; }
+    for (const el of root.querySelectorAll(".fireSeqSearchCiteBadge")) { el.remove(); }
+    for (const el of root.querySelectorAll(".fireSeqSearchAskExtras")) { el.remove(); }
+}
+
+// Tag matching rows in the snippet list with a `[N]` badge for each cited
+// source. Sources not present in the list are listed under `answerBox` as
+// "Other cited: [N] Title …" links so the user can still reach them.
+function decorateRowsWithCitations(root, sources, serverInfo, answerBox) {
+    clearCitationDecorations(root);
+    if (!sources || sources.length === 0) { return; }
+    const missing = [];
+    sources.forEach(function (src, i) {
+        const n = i + 1;
+        const row = findRowByTitle(root, src.title);
+        if (row) {
+            const badge = document.createElement("span");
+            badge.classList.add("fireSeqSearchCiteBadge");
+            badge.textContent = "[" + n + "]";
+            const link = row.querySelector("a");
+            if (link) { link.insertAdjacentElement("afterend", badge); }
+        } else {
+            missing.push({ n: n, src: src });
+        }
+    });
+    if (missing.length > 0) {
+        const extras = document.createElement("div");
+        extras.classList.add("fireSeqSearchAskExtras");
+        extras.appendChild(document.createTextNode("Other cited: "));
+        missing.forEach(function (item) {
+            const a = document.createElement("a");
+            const uri = item.src.logseq_uri
+                || ("logseq://graph/" + serverInfo.notebook_name + "?page=" + item.src.title);
+            a.href = uri;
+            a.textContent = "[" + item.n + "] " + String(item.src.title || "").replaceAll("%2F", "/");
+            extras.appendChild(a);
+        });
+        answerBox.insertAdjacentElement("afterend", extras);
+    }
+}
+
 // Turn `[N]` citation markers in the answer into links to the Nth /ask source.
 function linkifyCitations(escapedAnswer, sources, serverInfo) {
     return escapedAnswer.replace(/\[(\d+)\]/g, function (whole, n) {
@@ -363,20 +456,32 @@ async function streamAsk(question, handlers) {
     }
 }
 
-function createAskControls(serverInfo, question) {
-    const btn = createElementWithText("button", "Ask my notes");
+function createAskControls(serverInfo, defaultQuestion) {
+    const box = document.createElement("div");
+    box.classList.add("fireSeqSearchAskBox");
+    const input = document.createElement("input");
+    input.type = "text";
+    input.classList.add("fireSeqSearchAskInput");
+    input.placeholder = "Ask your notes…";
+    input.value = defaultQuestion || "";
+    const btn = createElementWithText("button", "Ask");
     btn.classList.add("fireSeqSearchAskBtn");
+    box.appendChild(input);
+    box.appendChild(btn);
+
     const answerBox = createElementWithText("div", "");
     answerBox.classList.add("fireSeqSearchAskAnswer");
     answerBox.style.display = "none";
 
-    btn.onclick = function () {
+    function submit() {
+        const question = input.value.trim();
         if (btn.disabled || !question) { return; }
         btn.disabled = true;
         btn.textContent = "Asking…";
         answerBox.style.display = "";
         answerBox.classList.remove("lowConfidence");
         answerBox.textContent = "";
+        clearCitationDecorations(document.getElementById(fireSeqSearchDomId));
         let sources = [];
         let answerText = "";
         let lowConfidence = false;
@@ -401,6 +506,12 @@ function createAskControls(serverInfo, question) {
                     ? '<span class="fireSeqSearchAskNote">Weak match — these notes may only be loosely related:</span>'
                     : "";
                 answerBox.innerHTML = note + linkifyCitations(escapeHtml(answerText), sources, serverInfo);
+                decorateRowsWithCitations(
+                    document.getElementById(fireSeqSearchDomId),
+                    sources,
+                    serverInfo,
+                    answerBox,
+                );
             },
             onError: function (err) {
                 consoleLogForDebug(err);
@@ -408,11 +519,16 @@ function createAskControls(serverInfo, question) {
             },
         }).then(function () {
             btn.disabled = false;
-            btn.textContent = "Ask my notes";
+            btn.textContent = "Ask";
         });
-    };
+    }
 
-    return { btn, answerBox };
+    btn.onclick = submit;
+    input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); submit(); }
+    });
+
+    return { box, answerBox };
 }
 
 async function processLlmSummary(serverInfo, parsedSearchResult, fireDom) {
@@ -528,7 +644,7 @@ function createFireSeqDom(serverInfo, parsedSearchResult, caps, searchParameter)
     spacer.classList.add("fireSeqSearchTitleBarSpacer");
     titleBar.appendChild(spacer);
 
-    if (ask) { titleBar.appendChild(ask.btn); }
+    if (ask) { titleBar.appendChild(ask.box); }
 
     div.appendChild(titleBar);
     if (ask) { div.appendChild(ask.answerBox); }
