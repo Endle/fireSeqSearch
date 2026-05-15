@@ -363,12 +363,20 @@ function clearCitationDecorations(root) {
 // Tag matching rows in the snippet list with a `[N]` badge for each cited
 // source. Sources not present in the list are listed under `answerBox` as
 // "Other cited: [N] Title …" links so the user can still reach them.
-function decorateRowsWithCitations(root, sources, serverInfo, answerBox) {
+// `answerText` is the final answer prose; sources whose `[N]` marker does
+// not appear in it were retrieved but ignored by the LLM, and are skipped
+// so the badge always means "the answer used this".
+function decorateRowsWithCitations(root, sources, serverInfo, answerBox, answerText) {
     clearCitationDecorations(root);
     if (!sources || sources.length === 0) { return; }
+    const cited = new Set();
+    const re = /\[(\d+)\]/g;
+    let m;
+    while ((m = re.exec(answerText || "")) !== null) { cited.add(parseInt(m[1], 10)); }
     const missing = [];
     sources.forEach(function (src, i) {
         const n = i + 1;
+        if (!cited.has(n)) { return; }
         const row = findRowByTitle(root, src.title);
         if (row) {
             const badge = document.createElement("span");
@@ -511,6 +519,7 @@ function createAskControls(serverInfo, defaultQuestion) {
                     sources,
                     serverInfo,
                     answerBox,
+                    answerText,
                 );
             },
             onError: function (err) {
