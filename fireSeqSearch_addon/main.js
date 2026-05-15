@@ -6,13 +6,15 @@ const fireSeqSearchDomId = "fireSeqSearchDom";
 
 const fireSeqSearchScriptCSS = `
     #fireSeqSearchDom {
-        margin: 1em 1.5em;
+        margin: 1em 0.5em;
         padding: 0.8em 1em 1em;
-        border: 1px solid #e0e3e7;
+        border: 1px solid #dadce0;
         border-radius: 8px;
-        background-color: #fafbfc;
+        background-color: #f8f9fa;
         box-shadow: 0 1px 2px rgba(60, 64, 67, 0.06);
-        color: var(--theme-col-txt-snippet); /* duckduck color*/
+        color: #1f1f1f;
+        font-family: arial, sans-serif;
+        font-size: 14px;
     }
     #fireSeqSearchDom.experimentalLayout {
         position: fixed;
@@ -32,16 +34,16 @@ const fireSeqSearchScriptCSS = `
         margin: 0 0 0.6em 0;
     }
     .fireSeqSearchHitCount {
-        font-size: 0.9em;
-        color: #5f6368;
+        font-size: 13px;
+        color: #70757a;
     }
     .fireSeqSearchHitCount b {
-        color: #202124;
-        font-weight: 600;
+        color: #1f1f1f;
+        font-weight: 500;
     }
     .fireSeqSearchViewToggle {
         display: inline-flex;
-        border: 1px solid #d0d7de;
+        border: 1px solid #dadce0;
         border-radius: 999px;
         overflow: hidden;
         background: #fff;
@@ -50,16 +52,17 @@ const fireSeqSearchScriptCSS = `
         border: 0;
         background: transparent;
         padding: 4px 12px;
-        font-size: 0.85em;
-        color: #5f6368;
+        font-size: 13px;
+        font-family: arial, sans-serif;
+        color: #4d5156;
         cursor: pointer;
         line-height: 1.4;
     }
     .fireSeqSearchViewToggle button + button {
-        border-left: 1px solid #d0d7de;
+        border-left: 1px solid #dadce0;
     }
     .fireSeqSearchViewToggle button.active {
-        background: #1a73e8;
+        background: #0b57d0;
         color: #fff;
     }
     .fireSeqSearchTitleBarSpacer {
@@ -69,38 +72,31 @@ const fireSeqSearchScriptCSS = `
         margin: 0;
         padding: 0.2em 0 0;
         list-style: none;
-        line-height: 1.5em;
+        line-height: 1.58;
     }
     #fireSeqSearchDom ul li {
-        font-size: 15px;
+        font-size: 14px;
     }
     #fireSeqSearchDom ul li + li {
         margin-top: 0.4em;
     }
     #fireSeqSearchDom ul li a {
+        color: #1f1f1f;
+        text-decoration: none;
+    }
+    #fireSeqSearchDom ul li a:hover {
         text-decoration: underline;
-        text-decoration-style: dotted;
         text-decoration-thickness: 1px;
         text-underline-offset: 2px;
     }
-    #fireSeqSearchDom ul li::before {
-        content: ' ';
-        display: inline-block;
-        margin-right: 0.4em;
-        line-height: 1em;
-        width: 1em;
-        height: 1em;
-        transform: translateY(3px);
-        border-radius: 3px;
-        background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAe1BMVEUAKzaFyMiKz88AJjIAKjaHy8sAHiuM0tIAGSgAGykAIC0AESIAFyYAIzAAHCoAFCQAEiBvq6wtVlw0XmQIMDtooqRAbnNdk5VPgYU4Y2lyr7B4trdHc3Z/wcEAHSctUFVimZoaP0hShIcoRksTLjQADBkAABNdjo8AAAzWDdSWAAABBklEQVQ4jc1S7XKDIBCEQ0DEL2oJVqOmiUl8/yfs6XTaePgA2T8w7N5xu3OMvSOESI5ejSnWM1Hqo/lUEa8a708WLyYAgG4zWv+lpQRXsdIDR2hLBGkn8RnazK4nB2+IIO9XQvZ5dsYf4FlHI4StcqiYGqeppvU4u+CogIvaXB56n53WrmBJYSprq5S6wB71ONZM5Cc/AAyuFXEUGF/aDLANg55b6hRRnjX/A6ZCExfTC4+KkBJB6uSrgOtv0iKHHc/hSr3ovUCGcs9bSQS0g7mQGSaSaTLvBNJFSRQ3+JfIfow3L5s7XJyVBR3uR5uZPG7PnsPQXedoJX4hzGNZlnt5VP7G+AHcFwwZX2F8QwAAAABJRU5ErkJggg==);
-        background-repeat: no-repeat;
-        background-size: 16px;
-    }
     .fireSeqSearchHitSummary {
-        font-size: 0.9em
+        color: #4d5156;
+        margin-left: 0.4em;
     }
     .fireSeqSearchHitSummary::before {
-        content: "\\00A0::\\00A0";
+        content: "\\2014\\00A0";
+        color: #bdc1c6;
+        margin-right: 0.2em;
     }
     .fireSeqSearchHighlight {
         padding: 0 4px;
@@ -110,15 +106,16 @@ const fireSeqSearchScriptCSS = `
     }
     .fireSeqSearchAskBtn {
         border: 0;
-        background: #1a73e8;
+        background: #0b57d0;
         color: #fff;
         padding: 5px 14px;
         border-radius: 999px;
-        font-size: 0.9em;
+        font-size: 13px;
+        font-family: arial, sans-serif;
         cursor: pointer;
     }
     .fireSeqSearchAskBtn:hover:not(:disabled) {
-        background: #1765cc;
+        background: #0842a0;
     }
     .fireSeqSearchAskBtn:disabled {
         background: #9aa0a6;
