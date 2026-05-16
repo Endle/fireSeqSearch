@@ -91,8 +91,14 @@ struct Cli {
     #[arg(long)]
     db_path: Option<String>,
 
-    /// Minimum cosine similarity score to include a result.
-    /// Calibrated for bge-m3 with packed multi-bullet chunks; raise if you see noise.
+    /// Minimum cosine similarity for the dense pass to contribute a chunk
+    /// or summary to the fused ranking. Acts as a noise gate on the dense
+    /// side only; the lexical (substring) pass has its own implicit floor
+    /// (tf > 0) and is unaffected. Final results are top-K by RRF over
+    /// the surviving dense ranks, the lexical ranks, and the summary
+    /// ranks — so a chunk below this threshold can still surface if the
+    /// lexical pass ranks it highly. Calibrated for bge-m3 with packed
+    /// multi-bullet chunks; raise if you see dense-side noise.
     #[arg(long, default_value_t = 0.35)]
     min_score: f32,
 }
