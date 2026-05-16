@@ -52,10 +52,13 @@ const EXCERPT_BUDGET_CHARS: usize = 2400;
 
 /// Retrieval scores at/above this look like a genuine topical match; below it
 /// we treat the source set as "loosely related" and switch to the
-/// low-confidence answer mode (see module docs). The retrieval floor is
-/// `min_score` (~0.35), so this sits well above the noise but below the ~0.6+
-/// scores a real on-topic hit produces. Tunable.
-const CONFIDENT_SCORE: f32 = 0.55;
+/// low-confidence answer mode (see module docs). Scale is the RRF-fused score
+/// from `semantic_query`: `1/(60+rank_dense) + 1/(60+rank_lex) + 1/(60+rank_summary)`,
+/// so a chunk ranked #1 in all three passes tops out at ~0.050 and a single
+/// top-1 pass alone contributes ~0.017. Calibration target: real on-topic
+/// proper-noun queries (e.g. "dota") land around 0.025-0.032 on this corpus
+/// and should be answered confidently, so the gate sits just below that.
+const CONFIDENT_SCORE: f32 = 0.020;
 
 const NO_NOTES_MSG: &str = "I don't have any notes covering that.";
 
@@ -173,25 +176,29 @@ async fn run_ask(engine: &QueryEngine, req: &AskRequest, tx: &mut EventTx) -> Re
     }
 
     let system = if low_confidence {
-        "You are helping the user search their personal notes. The retrieval for this \
-question was weak — the numbered sources below may only be loosely related to it. \
-Do NOT attempt a confident answer. Rules:\n\
-- For each source that seems even somewhat relevant, say in one tentative sentence what \
-it touches on, so the user can decide whether to open it. \
-E.g. \"This note [2] mentions A, B and C, which might be what you're looking for.\"\n\
+        "You are helping the user search their personal notes. Retrieval for this \
+question was weak — the numbered sources below may only be loosely related. Hedge \
+accordingly: do not synthesise a confident answer. Rules:\n\
+- Write a short paragraph (one to three sentences) describing what these sources \
+seem to touch on, so the user can decide whether to open any of them. Do NOT \
+template one sentence per source on separate lines.\n\
 - Use only information present in the sources. Never add facts from your own knowledge.\n\
-- Cite every source you refer to in square brackets, e.g. [1].\n\
+- Cite sources inline in square brackets, e.g. [1] or [2][3], grouping citations \
+when a single sentence draws from multiple sources.\n\
 - If none of the sources look related, say so plainly in one sentence and stop.\n\
-- Be concise: at most one short sentence per source. Reply in the same language as the question."
+- Reply in the same language as the question."
     } else {
         "You answer questions using ONLY the numbered sources the user provides; \
 they are excerpts from the user's personal notes. Rules:\n\
+- Write a fluent paragraph (or two, if the material is broad) that directly \
+answers the question. Do NOT template one sentence per source on separate \
+lines; weave the material together as prose.\n\
 - Use only information present in the sources. Never add facts from your own knowledge.\n\
-- After each sentence or claim, cite the source it came from in square brackets, e.g. [1] or [2][3].\n\
-- Cover every source that touches the question, even briefly. Do not pick just one — if \
-multiple sources discuss different aspects of the same topic, say what each one contributes \
-and cite it. A short list-style answer (one short sentence per relevant source) is \
-appropriate when the question is broad or the sources cover different angles.\n\
+- Cite sources inline in square brackets after the relevant claim, e.g. [1] or [2][3], \
+grouping citations when a single sentence draws from multiple sources.\n\
+- Cover every source that genuinely touches the question. If multiple sources discuss \
+different aspects of the same topic, integrate what each contributes into the prose \
+rather than listing them.\n\
 - If the sources do not contain enough information to answer, say so plainly in one sentence and stop. Do not guess.\n\
 - Reply in the same language as the question. Length should match breadth: short for a \
 single-source answer, longer when many sources are relevant."
