@@ -202,6 +202,23 @@ impl Store {
         Ok(())
     }
 
+    /// Full table scan returning every chunk's (id, note_id, text). Used by
+    /// the lexical retrieval pass; at the project's scale (~2.5k chunks /
+    /// ~5MB text) this is cheaper than maintaining a parallel in-memory
+    /// mirror. Revisit if the corpus grows an order of magnitude.
+    pub fn get_all_chunks(&self) -> Result<Vec<ChunkDetail>, IndexerError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT id, note_id, text FROM chunks")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(ChunkDetail { id: row.get(0)?, note_id: row.get(1)?, text: row.get(2)? })
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
+    }
+
     pub fn get_chunks_by_ids(&self, ids: &[i64]) -> Result<Vec<ChunkDetail>, IndexerError> {
         if ids.is_empty() {
             return Ok(vec![]);
