@@ -185,7 +185,7 @@ async fn main() {
     let engine_arc = Arc::new(engine);
     let backend_for_destructor = backend.clone();
     ctrlc::set_handler(move || {
-        info!("Ctrl-C received. Exiting...");
+        info!("Termination signal received (SIGINT/SIGTERM/SIGHUP). Exiting...");
         for pid in backend_for_destructor.child_pids() {
             info!("Kill child pid {}", pid);
             if let Err(e) = kill_tree(pid) {
