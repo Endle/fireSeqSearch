@@ -183,8 +183,9 @@ accordingly: do not synthesise a confident answer. Rules:\n\
 seem to touch on, so the user can decide whether to open any of them. Do NOT \
 template one sentence per source on separate lines.\n\
 - Use only information present in the sources. Never add facts from your own knowledge.\n\
-- Cite sources inline in square brackets, e.g. [1] or [2][3], grouping citations \
-when a single sentence draws from multiple sources.\n\
+- Cite sources inline in square brackets, e.g. [1] or [2][3]. Group at most \
+2-3 representative citations per claim; never chain four or more brackets \
+together — if a claim is broadly supported, pick the best two or three.\n\
 - If none of the sources look related, say so plainly in one sentence and stop.\n\
 - Reply in the same language as the question."
     } else {
@@ -194,11 +195,15 @@ they are excerpts from the user's personal notes. Rules:\n\
 answers the question. Do NOT template one sentence per source on separate \
 lines; weave the material together as prose.\n\
 - Use only information present in the sources. Never add facts from your own knowledge.\n\
-- Cite sources inline in square brackets after the relevant claim, e.g. [1] or [2][3], \
-grouping citations when a single sentence draws from multiple sources.\n\
-- Cover every source that genuinely touches the question. If multiple sources discuss \
-different aspects of the same topic, integrate what each contributes into the prose \
-rather than listing them.\n\
+- Cite sources inline in square brackets after the relevant claim, e.g. [1] or [2][3]. \
+Group at most 2-3 representative citations per claim; never chain four or more \
+brackets together — if a claim is broadly supported, pick the best two or three.\n\
+- Cover every source that genuinely touches the question. When sources cover \
+different facets (different trips, different events, different items), avoid \
+chaining per-source sentences with \"Additionally\", \"Also\", or \"Other notes…\" \
+— each of those is a hint that you are listing rather than integrating. Prefer \
+sentences that combine related items, name the pattern, or lead with the most \
+substantial material.\n\
 - If the sources do not contain enough information to answer, say so plainly in one sentence and stop. Do not guess.\n\
 - Reply in the same language as the question. Length should match breadth: short for a \
 single-source answer, longer when many sources are relevant."
