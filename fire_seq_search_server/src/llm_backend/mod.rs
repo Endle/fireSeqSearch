@@ -198,7 +198,7 @@ impl LlmBackend {
         body.choices
             .into_iter()
             .next()
-            .map(|c| c.message.content)
+            .map(|c| strip_think_artifact(&c.message.content))
             .ok_or_else(|| LlmError::Decode("no choices in chat response".into()))
     }
 
@@ -297,6 +297,27 @@ impl LlmBackend {
     }
 }
 
+/// With `enable_thinking=false`, Qwen3-family Jinja templates still seed the
+/// assistant turn with an empty `<think>\n\n</think>` block. The opener is
+/// usually consumed by the template before the model emits anything, but the
+/// closer can leak into `message.content` as a bare `</think>` prefix; in rare
+/// cases the model emits both tags around empty/whitespace content. Strip
+/// either shape so callers see only the real answer.
+fn strip_think_artifact(s: &str) -> String {
+    let trimmed = s.trim_start();
+    let rest = if let Some(after_open) = trimmed.strip_prefix("<think>") {
+        match after_open.find("</think>") {
+            Some(i) => &after_open[i + "</think>".len()..],
+            None => trimmed, // unterminated — leave it alone
+        }
+    } else if let Some(after_close) = trimmed.strip_prefix("</think>") {
+        after_close
+    } else {
+        trimmed
+    };
+    rest.trim_start().to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -314,6 +335,35 @@ mod tests {
         let json = r#"{"choices":[{"message":{"role":"assistant","content":"hello"}}]}"#;
         let parsed: ChatResponse = serde_json::from_str(json).unwrap();
         assert_eq!(parsed.choices[0].message.content, "hello");
+    }
+
+    #[test]
+    fn strip_think_artifact_handles_bare_close() {
+        // The most common shape: opener consumed by the template, closer leaks.
+        let out = strip_think_artifact("</think>  American Express stock note.");
+        assert_eq!(out, "American Express stock note.");
+    }
+
+    #[test]
+    fn strip_think_artifact_handles_empty_block() {
+        // Less common: both tags around an empty/whitespace body.
+        let out = strip_think_artifact("<think>\n\n</think>\n\nThe answer.");
+        assert_eq!(out, "The answer.");
+    }
+
+    #[test]
+    fn strip_think_artifact_preserves_clean_response() {
+        // Steady-state with enable_thinking=false and a model that obeys.
+        let out = strip_think_artifact("Just the summary.");
+        assert_eq!(out, "Just the summary.");
+    }
+
+    #[test]
+    fn strip_think_artifact_leaves_unterminated_block_alone() {
+        // Don't pretend to understand truncated/malformed content.
+        let input = "<think>still thinking when stream cut";
+        let out = strip_think_artifact(input);
+        assert_eq!(out, input);
     }
 
     #[test]
