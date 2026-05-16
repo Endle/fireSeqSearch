@@ -80,6 +80,7 @@ struct EmbedDatum {
 struct ChatRequest<'a> {
     model: &'a str,
     messages: Vec<Message>,
+    chat_template_kwargs: ChatTemplateKwargs,
 }
 
 #[derive(Deserialize)]
@@ -97,7 +98,21 @@ struct StreamChatRequest<'a> {
     model: &'a str,
     messages: Vec<Message>,
     stream: bool,
+    chat_template_kwargs: ChatTemplateKwargs,
 }
+
+// Disables the Qwen3-family thinking trace via the jinja chat template.
+// Without this, every chat call generates thousands of reasoning tokens
+// before the actual answer — summarizing one note then takes ~100s and the
+// summary backlog drains at roughly 1/min. The `/no_think` magic string in
+// the prompt is a Qwen3-original convention that the Qwen3.5 build ignores;
+// this flag is the supported control.
+#[derive(Serialize, Clone, Copy)]
+struct ChatTemplateKwargs {
+    enable_thinking: bool,
+}
+
+const NO_THINK: ChatTemplateKwargs = ChatTemplateKwargs { enable_thinking: false };
 
 #[derive(Deserialize)]
 struct StreamChunk {
@@ -159,8 +174,18 @@ impl LlmBackend {
         let req = ChatRequest {
             model: &self.chat_model_name,
             messages,
+            chat_template_kwargs: NO_THINK,
         };
-        let resp = self.client.post(&url).json(&req).send().await?;
+        let resp = self
+            .client
+            .post(&url)
+            // Override the client-wide 60s timeout: summarizing a long page on
+            // CPU/limited-GPU can take longer than that. Same rationale as
+            // chat_stream below.
+            .timeout(Duration::from_secs(600))
+            .json(&req)
+            .send()
+            .await?;
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
@@ -192,6 +217,7 @@ impl LlmBackend {
             model: &self.chat_model_name,
             messages,
             stream: true,
+            chat_template_kwargs: NO_THINK,
         };
         let resp = self
             .client

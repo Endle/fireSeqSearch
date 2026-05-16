@@ -78,7 +78,12 @@ async fn spawn(
             // two concurrent prompts overflowed the shared cache. 16384 gives
             // both slots room; users on tight VRAM can override via
             // `--chat-extra-args "-c N"` (later -c wins).
-            c.arg("-c").arg("16384");
+            c.arg("-c").arg("16384")
+                // Activate the model's Jinja chat template so the request body's
+                // `chat_template_kwargs.enable_thinking=false` is actually read.
+                // Without --jinja, Qwen3-family models default to thinking and
+                // generate ~3000 tokens of reasoning per summary call.
+                .arg("--jinja");
         }
         c
     } else {
@@ -97,7 +102,9 @@ async fn spawn(
         } else {
             // See note above: chat backend needs a bigger context for `/ask`
             // plus concurrent summarization on the 9B default.
-            c.arg("-c").arg("16384");
+            c.arg("-c").arg("16384")
+                // See --jinja note in the llamafile branch above.
+                .arg("--jinja");
         }
         c
     };
