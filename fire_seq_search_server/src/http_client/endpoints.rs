@@ -221,19 +221,6 @@ fn clip_chars(s: &str, max: usize) -> String {
     }
 }
 
-pub async fn summarize(
-    Path(title): Path<String>,
-    State(engine_arc): State<Arc<QueryEngine>>,
-) -> Html<String> {
-    Html(engine_arc.summarize(title).await)
-}
-
-pub async fn get_llm_done_list(
-    State(engine_arc): State<Arc<QueryEngine>>,
-) -> Html<String> {
-    Html(engine_arc.get_llm_done_list().await)
-}
-
 pub async fn generate_word_cloud(
     State(engine_arc): State<Arc<QueryEngine>>,
 ) -> Html<String> {

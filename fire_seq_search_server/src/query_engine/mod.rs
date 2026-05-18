@@ -1,7 +1,6 @@
 pub mod semantic_query;
 
 use std::sync::Arc;
-use log::info;
 
 #[derive(Debug, Clone, serde::Serialize, PartialEq)]
 pub enum NotebookSoftware {
@@ -21,18 +20,16 @@ pub struct ServerInformation {
     pub software: NotebookSoftware,
     pub convert_underline_hierarchy: bool,
     pub host: String,
-    pub llm_enabled: bool,
-    pub llm_max_waiting_time: u64,
     /// Server crate version (`CARGO_PKG_VERSION`). Lets a freshly-upgraded
     /// addon notice it's talking to an older backend.
     pub version: String,
-    /// Feature list the addon can gate UI on, e.g. `["query", "llm_summary",
-    /// "ask"]`. Older backends omit this field entirely — the addon must treat
-    /// "absent" as "only the original `/query` path is guaranteed".
+    /// Feature list the addon can gate UI on, e.g. `["query", "ask"]`. Older
+    /// backends omit this field entirely — the addon must treat "absent" as
+    /// "only the original `/query` path is guaranteed".
     pub capabilities: Vec<String>,
 }
 
-use crate::llm_backend::{LlmBackend, SummaryEngine};
+use crate::llm_backend::LlmBackend;
 use crate::indexer::{IndexerHandle, Store, SummarizerHandle};
 
 pub struct QueryEngine {
@@ -40,7 +37,6 @@ pub struct QueryEngine {
     pub backend: Arc<LlmBackend>,
     pub store: Arc<Store>,
     pub min_score: f32,
-    pub llm: Option<Arc<SummaryEngine>>,
     pub indexer: Option<IndexerHandle>,
     pub summarizer: Option<SummarizerHandle>,
 }
@@ -57,7 +53,6 @@ impl QueryEngine {
             backend,
             store,
             min_score,
-            llm: None,
             indexer: None,
             summarizer: None,
         }
@@ -65,27 +60,6 @@ impl QueryEngine {
 
     pub fn generate_wordcloud(&self) -> String {
         String::from("TODO: wordcloud is turned off")
-    }
-
-    pub async fn summarize(&self, title: String) -> String {
-        info!("Called summarize on {}", &title);
-        self.wait_for_summarize(title).await
-    }
-
-    async fn wait_for_summarize(&self, title: String) -> String {
-        let llm = self.llm.as_ref().unwrap();
-        let wait_llm = tokio::time::Duration::from_millis(50);
-        loop {
-            if let Some(s) = llm.quick_fetch(&title).await {
-                return s;
-            }
-            tokio::time::sleep(wait_llm).await;
-        }
-    }
-
-    pub async fn get_llm_done_list(&self) -> String {
-        let llm = self.llm.as_ref().unwrap();
-        serde_json::to_string(&llm.get_llm_done_list().await).unwrap()
     }
 }
 

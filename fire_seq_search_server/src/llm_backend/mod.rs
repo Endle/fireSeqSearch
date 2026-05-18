@@ -1,12 +1,9 @@
 pub mod process;
-pub mod summary_shim;
 
 use std::path::PathBuf;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-
-pub use summary_shim::SummaryEngine;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Message {

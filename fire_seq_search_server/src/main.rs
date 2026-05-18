@@ -8,7 +8,7 @@ use log::{error, info};
 use fire_seq_search_server::http_client::{ask, endpoints};
 use fire_seq_search_server::indexer::{Indexer, IndexerHandle, Store};
 use fire_seq_search_server::llm_backend::{
-    EndpointSource, LlmBackend, LlmBackendConfig, SummaryEngine,
+    EndpointSource, LlmBackend, LlmBackendConfig,
 };
 use fire_seq_search_server::query_engine::NotebookSoftware::*;
 use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
@@ -145,20 +145,6 @@ async fn main() {
     let mut engine = QueryEngine::new(server_info, backend.clone(), store.clone(), matches.min_score);
     info!("Query engine ready");
 
-    let summary = Arc::new(SummaryEngine::new(
-        backend.clone(),
-        engine.server_info.llm_max_waiting_time,
-    ));
-    engine.llm = Some(summary.clone());
-
-    let summary_poll = summary.clone();
-    let _poll_handle = tokio::spawn(async move {
-        loop {
-            summary_poll.call_llm_engine().await;
-            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-        }
-    });
-
     let indexer_handle = IndexerHandle::default();
     let indexer = Indexer::new(
         store.clone(),
@@ -201,8 +187,6 @@ async fn main() {
         .route("/highlight", axum::routing::post(endpoints::highlight))
         .route("/server_info", axum::routing::get(endpoints::get_server_info))
         .route("/wordcloud", axum::routing::get(endpoints::generate_word_cloud))
-        .route("/summarize/:title", axum::routing::get(endpoints::summarize))
-        .route("/llm_done_list", axum::routing::get(endpoints::get_llm_done_list))
         .route("/reindex", axum::routing::post(endpoints::reindex))
         .route("/ask", axum::routing::post(ask::ask))
         .with_state(engine_arc.clone());
@@ -286,13 +270,11 @@ fn build_server_info(args: &Cli) -> ServerInformation {
         software,
         convert_underline_hierarchy: true,
         host,
-        // This build always launches the LLM backend (it's a hard dependency at
-        // startup), so both of these are unconditional today. If a `--no-llm`
-        // mode is ever added, flip `llm_enabled` and drop "llm_summary"/"ask"
-        // from `capabilities` accordingly — the addon already gates on both.
-        llm_enabled: true,
-        llm_max_waiting_time: 180,
+        // This build always launches the LLM backend (it's a hard dependency
+        // at startup), so "ask" is always advertised. If a `--no-llm` mode is
+        // ever added, drop "ask" from `capabilities` accordingly — the addon
+        // already gates on it.
         version: env!("CARGO_PKG_VERSION").to_string(),
-        capabilities: vec!["query".to_string(), "llm_summary".to_string(), "ask".to_string()],
+        capabilities: vec!["query".to_string(), "ask".to_string()],
     }
 }

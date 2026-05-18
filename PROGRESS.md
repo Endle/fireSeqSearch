@@ -146,15 +146,15 @@ These are settled. Don't relitigate without strong evidence.
   ```
 - `/server_info` — server config + `indexer` (counts + in-flight) + `summarizer`
   (ok / pending / failed counts) + `version` (crate version) + `capabilities`
-  (feature list, e.g. `["query","llm_summary","ask"]`). The addon auto-updates
-  via AMO but the backend may not, so the addon has a two-tier check:
+  (feature list, e.g. `["query","ask"]`). The addon auto-updates via AMO but
+  the backend may not, so the addon has a two-tier check:
   - **Hard floor** — `MIN_BACKEND_VERSION` in `main.js` (currently `0.2.2`,
     the first backend with the current `/query` shape *and* a `version` field).
     Older — or any pre-`version` backend, which omits the field — gets an
     "update fire_seq_search_server" notice instead of a parse attempt. Bump the
     floor in lockstep with any breaking `/query`|`/server_info` change.
   - **Soft tier** — at/above the floor, gracefully degrade on `capabilities`
-    (no Ask button without `ask`, no LLM button without `llm_summary`).
+    (no Ask button without `ask`).
 - `POST /ask` — see Purpose above. Body `{question, k?}`; SSE `meta`
   (source list + `confidence`) → `delta*` → `done` (`{cited, invalid, chars,
   answered, confidence}`) or `error`. Cited `[N]` markers validated against the
@@ -164,9 +164,6 @@ These are settled. Don't relitigate without strong evidence.
   dormant** in the default client flow; kept as scaffolding for a future
   "explain this card" action. (The `/ask` implementation didn't end up needing
   it — `/ask` packs `summary + best chunk` per page directly.)
-- `/summarize`, `/llm_done_list` — legacy shim. Removal pending: the addon's
-  "LLM" button still drives this flow, so it can't go until the extension
-  rewrite drops it (see Next up).
 
 ### Hardware / corpus baseline
 
@@ -199,16 +196,16 @@ These are settled. Don't relitigate without strong evidence.
 | **`/server_info` visibility** | Indexer + summarizer status counts surfaced; `version` + `capabilities` added so the addon can detect an older backend. |
 | **`/ask` endpoint** | `POST /ask`, SSE-streamed answer with page citations. Multi-page retrieval, single chat call with `summary + best chunk` per page, server-side validation that cited page IDs were retrieved. Pending-summary pages contribute their chunk and get bumped to the high-priority summarizer queue. Chat backend's `-c` raised to 8192. `test_ask.py` covers the SSE protocol/invariants. |
 | **Confidence-aware `/ask`** | When the top retrieval score is below `CONFIDENT_SCORE` (0.55) the prompt switches to "point at what each source mentions" instead of synthesising a confident (often wrong) answer. `meta`/`done` carry `confidence: "high"\|"low"`. |
-| **Browser extension — capability gating + Ask UI** | `main.js` reads `capabilities`: gates the LLM-summary button on `llm_summary`, adds an "Ask my notes" button (streams `/ask`, linkifies `[N]` citations to `logseq://`, mutes styling on low confidence) only when `ask` is advertised. Old/LLM-disabled backends: `/query` path unchanged, new UI silently absent. All new fetches are failure-tolerant. |
+| **Browser extension — capability gating + Ask UI** | `main.js` reads `capabilities` and adds an "Ask my notes" button (streams `/ask`, linkifies `[N]` citations to `logseq://`, mutes styling on low confidence) only when `ask` is advertised. Old backends: `/query` path unchanged, new UI silently absent. All new fetches are failure-tolerant. |
+| **Retire summary shim** | `summary_shim.rs`, `/summarize`, `/llm_done_list`, the addon's LLM button, and the `llm_enabled` / `llm_max_waiting_time` `/server_info` fields all deleted. Per-row LLM summary is already on the wire as `PageHit.summary`; the renamed "Summary" toggle shows it. |
 | **Backend-version floor in addon** | `MIN_BACKEND_VERSION` gate: `/server_info` is parsed before `/query`; a backend below the floor (or pre-`version`) gets an on-screen "update the backend" notice instead of a silent mis-parse. Makes version mismatch a visible, named failure rather than a renaming-`/query` hack. |
 
 ### Next up
 
 | Order | Item | Notes |
 |---|---|---|
-| 1 | **Browser extension rewrite (rest)** | Capability gating, the version floor, and the Ask UI have landed. What's left: the result-rendering path. `main.js`'s `parseRawList` still expects the pre-rewrite `/query` contract — a `Vec<String>` of JSON-encoded records — but the server now returns a plain `Vec<PageHit>`, so the hit list doesn't render against the current backend. Fix `parseRawList`/`appendResultToSearchResult` for the new shape and drop the `/summarize`+`/llm_done_list` ("LLM" button) flow. |
-| 2 | **Retire summary shim** | Delete `llm_backend/summary_shim.rs`, drop `/summarize` and `/llm_done_list` routes once nothing in the client calls them. |
-| 3 | **`--no-llm` mode** | Make `llm_enabled` / `capabilities` reflect reality instead of always-on. Lets the backend run query-only; the addon already gates on both. |
+| 1 | **Browser extension rewrite (rest)** | Capability gating, the version floor, the Ask UI, and the summary-shim cleanup have landed. What's left: the result-rendering path. `main.js`'s `parseRawList` still expects the pre-rewrite `/query` contract — a `Vec<String>` of JSON-encoded records — but the server now returns a plain `Vec<PageHit>`, so the hit list doesn't render against the current backend. Fix `parseRawList`/`appendResultToSearchResult` for the new shape. |
+| 2 | **`--no-llm` mode** | Make `capabilities` reflect reality instead of always advertising `"ask"`. Lets the backend run query-only; the addon already gates on it. |
 
 ---
 
@@ -261,11 +258,11 @@ These are settled. Don't relitigate without strong evidence.
   eventually route it through `/ask`. No forcing function yet; decision
   deferred.
 - **Browser extension — partial.** Capability detection, the `MIN_BACKEND_VERSION`
-  floor, and the `/ask` Ask UI are in `fireSeqSearch_addon/main.js`. But its
-  result-rendering path still expects the pre-rewrite `/query` contract (a
-  `Vec<String>` of JSON-encoded records) and the `/summarize`+`/llm_done_list`
-  flow, so the hit list does not render against the current server. Finishing
-  that (Next up #1) is what blocks real-world adoption of this branch.
+  floor, the `/ask` Ask UI, and the summary-shim cleanup are in
+  `fireSeqSearch_addon/main.js`. But its result-rendering path still expects
+  the pre-rewrite `/query` contract (a `Vec<String>` of JSON-encoded records),
+  so the hit list does not render against the current server. Finishing that
+  (Next up #1) is what blocks real-world adoption of this branch.
 
 ---
 

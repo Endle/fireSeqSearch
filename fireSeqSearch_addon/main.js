@@ -311,11 +311,11 @@ function insertDivToWebpage(result) {
     anchor.insertAdjacentElement("beforebegin", result);
 }
 
-// The addon auto-updates via AMO, but the user may run an older backend (or
-// one with the LLM disabled). New backends advertise `version` + a
-// `capabilities` list in /server_info; older ones have neither. Treat "no
-// capabilities field" as "only the original /query path is guaranteed", so we
-// never call an endpoint the backend doesn't have.
+// The addon auto-updates via AMO, but the user may run an older backend.
+// New backends advertise `version` + a `capabilities` list in /server_info;
+// older ones have neither. Treat "no capabilities field" as "only the original
+// /query path is guaranteed", so we never call an endpoint the backend doesn't
+// have.
 function detectBackendCapabilities(serverInfo) {
     const caps = Array.isArray(serverInfo && serverInfo.capabilities)
         ? serverInfo.capabilities : [];
@@ -325,11 +325,6 @@ function detectBackendCapabilities(serverInfo) {
         list: caps,
         // POST /ask — only ever present on a capabilities-aware backend.
         hasAsk: advertised && caps.includes("ask"),
-        // The LLM/Summary buttons predate `capabilities` (addon 0.2.x), so on an
-        // old backend keep the previous behaviour: show them unless `llm_enabled`
-        // is explicitly false. On a new backend, gate on the advertised feature.
-        hasLlmSummary: !(serverInfo && serverInfo.llm_enabled === false)
-            && (!advertised || caps.includes("llm_summary")),
     };
 }
 
@@ -540,55 +535,6 @@ function createAskControls(serverInfo, defaultQuestion) {
     return { box, answerBox };
 }
 
-async function processLlmSummary(serverInfo, parsedSearchResult, fireDom) {
-
-    const doneListApi = "http://127.0.0.1:3030/llm_done_list";
-    let list = await fetch(doneListApi);
-    list = await list.text();
-    list = JSON.parse(list);
-
-    const findByTitle = function(title) {
-        const ul = fireDom.querySelector( ".fireSeqSearchHitList" );
-        if (ul === null)    return null;
-        for (const child of ul.children) {
-            const liTitle = child.firstChild.text;
-            if (title === liTitle) {
-                return child;
-            }
-        }
-        return null;
-    };
-    const setLlmResult = function (title, llmSummary) {
-        const targetRow = findByTitle(title);
-        if (targetRow === null) {
-            consoleLogForDebug("Error! Can't find dom for ", title);
-            return;
-        }
-        if (targetRow.querySelector( ".fireSeqSearchLlmSummary" ) != null) {
-            consoleLogForDebug("Skip. We have the summary for ", title);
-            return;
-        }
-
-        const summary = createElementWithText("span", "");
-        summary.innerHTML = llmSummary;
-        summary.classList.add('fireSeqSearchLlmSummary');
-        targetRow.appendChild(summary);
-    };
-    for (const record of parsedSearchResult) {
-        const title = record.title;
-        if (!list.includes(title)) {
-            consoleLogForDebug("Not ready, skip" + title);
-            continue;
-        }
-        // TODO remove hard code port
-        const llm_api = "http://127.0.0.1:3030/summarize/" + title;
-        let sum = await fetch(llm_api);
-        sum = await sum.text();
-        setLlmResult(title, sum);
-    }
-}
-
-
 function createFireSeqDom(serverInfo, parsedSearchResult, caps, searchParameter) {
     const count = parsedSearchResult.length;
     const div = document.createElement("div");
@@ -630,23 +576,13 @@ function createFireSeqDom(serverInfo, parsedSearchResult, caps, searchParameter)
     }
     const segHide = makeSegment("Hide", function () {
         setSummaryState(".fireSeqSearchHitSummary", false);
-        setSummaryState(".fireSeqSearchLlmSummary", false);
     });
-    const segSnippet = makeSegment("Snippet", function () {
+    const segSummary = makeSegment("Summary", function () {
         setSummaryState(".fireSeqSearchHitSummary", true);
-        setSummaryState(".fireSeqSearchLlmSummary", false);
     });
-    segSnippet.classList.add("active"); // default render shows snippets
+    segSummary.classList.add("active"); // default render shows summaries
     toggle.appendChild(segHide);
-    toggle.appendChild(segSnippet);
-    if (caps.hasLlmSummary) {
-        const segLlm = makeSegment("LLM", function () {
-            setSummaryState(".fireSeqSearchHitSummary", false);
-            setSummaryState(".fireSeqSearchLlmSummary", true);
-            processLlmSummary(serverInfo, parsedSearchResult, div);
-        });
-        toggle.appendChild(segLlm);
-    }
+    toggle.appendChild(segSummary);
     titleBar.appendChild(toggle);
 
     const spacer = document.createElement("div");

@@ -57,8 +57,6 @@ pub fn generate_server_info_for_test() -> ServerInformation {
         software: Logseq,
         convert_underline_hierarchy: true,
         host: "127.0.0.1:22024".to_string(),
-        llm_enabled: false,
-        llm_max_waiting_time: 60,
         version: env!("CARGO_PKG_VERSION").to_string(),
         capabilities: vec!["query".to_string()],
     }
