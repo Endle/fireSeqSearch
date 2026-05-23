@@ -8,6 +8,6 @@ export RUST_BACKTRACE=1
 # slash on --notebook_path would leave it empty, which then breaks the
 # obsidian://open?vault=… URIs the addon produces.
 ./fire_seq_search_server/target/debug/fire_seq_search_server \
-    --obsidian_md \
+    --obsidian-md \
     --notebook_path ~/Documents/AstroWiki_2.0-main \
     --notebook_name AstroWiki_2.0-main
