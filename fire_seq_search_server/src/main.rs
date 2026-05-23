@@ -4,11 +4,11 @@ use std::sync::Arc;
 use clap::Parser;
 use kill_tree::blocking::kill_tree;
 use log::{error, info};
-use tokio::task;
 
-use fire_seq_search_server::http_client::endpoints;
+use fire_seq_search_server::http_client::{ask, endpoints};
+use fire_seq_search_server::indexer::{Indexer, IndexerHandle, Store};
 use fire_seq_search_server::llm_backend::{
-    EndpointSource, LlmBackend, LlmBackendConfig, SummaryEngine,
+    EndpointSource, LlmBackend, LlmBackendConfig,
 };
 use fire_seq_search_server::query_engine::NotebookSoftware::*;
 use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
@@ -46,24 +46,19 @@ struct Cli {
     #[arg(long = "host")]
     host: Option<String>,
 
-    // ----- LLM backend (phase 1) -----
-    /// External embeddings endpoint URL (e.g. http://127.0.0.1:11434). When set, no embedding subprocess is spawned.
+    // ----- LLM backend -----
     #[arg(long)]
     embed_endpoint: Option<String>,
 
-    /// External chat endpoint URL. When set, no chat subprocess is spawned.
     #[arg(long)]
     chat_endpoint: Option<String>,
 
-    /// Path to embedding model (gguf). Used only when --embed-endpoint is unset.
-    #[arg(long, default_value = "~/.cache/fire_seq_search/models/bge-m3-Q4_K_M.gguf")]
+    #[arg(long, default_value = "~/llm/bge-m3-Q4_K_M.gguf")]
     embed_model: PathBuf,
 
-    /// Path to chat model. Defaults to the legacy mistral llamafile location for back-compat.
-    #[arg(long, default_value = "~/.llamafile/mistral-7b-instruct-v0.2.Q4_0.llamafile")]
+    #[arg(long, default_value = "~/llm/Qwen3.5-9B-UD-Q4_K_XL.gguf")]
     chat_model: PathBuf,
 
-    /// Path to llama-server binary. Ignored when the model is a `.llamafile`.
     #[arg(long, default_value = "llama-server")]
     llama_server_bin: PathBuf,
 
@@ -73,19 +68,39 @@ struct Cli {
     #[arg(long, default_value_t = 8081)]
     chat_port: u16,
 
-    /// Model name sent in OpenAI-compat request `model` field. Required by Ollama.
     #[arg(long, default_value = "default")]
     embed_model_name: String,
 
     #[arg(long, default_value = "default")]
     chat_model_name: String,
 
-    /// Extra args passed verbatim to the spawned embed llama-server.
     #[arg(long, default_value = "")]
     embed_extra_args: String,
 
     #[arg(long, default_value = "")]
     chat_extra_args: String,
+
+    /// Number of model layers to offload to GPU (passed as -ngl).
+    /// Default 99 ≈ "all layers"; ignored on CPU-only llama-server builds.
+    #[arg(long, default_value_t = 99)]
+    embed_gpu_layers: u32,
+
+    #[arg(long, default_value_t = 99)]
+    chat_gpu_layers: u32,
+
+    #[arg(long)]
+    db_path: Option<String>,
+
+    /// Minimum cosine similarity for the dense pass to contribute a chunk
+    /// or summary to the fused ranking. Acts as a noise gate on the dense
+    /// side only; the lexical (substring) pass has its own implicit floor
+    /// (tf > 0) and is unaffected. Final results are top-K by RRF over
+    /// the surviving dense ranks, the lexical ranks, and the summary
+    /// ranks — so a chunk below this threshold can still surface if the
+    /// lexical pass ranks it highly. Calibrated for bge-m3 with packed
+    /// multi-bullet chunks; raise if you see dense-side noise.
+    #[arg(long, default_value_t = 0.35)]
+    min_score: f32,
 }
 
 #[tokio::main]
@@ -100,12 +115,10 @@ async fn main() {
     let llm_cfg = build_llm_config(&matches);
     let server_info: ServerInformation = build_server_info(&matches);
 
-    let llm_loader = task::spawn(async move { LlmBackend::launch(llm_cfg).await });
+    let notebook_name = server_info.notebook_name.clone();
+    let notebook_path = PathBuf::from(&server_info.notebook_path);
 
-    let mut engine = QueryEngine::construct(server_info).await;
-    info!("query engine build finished");
-
-    let backend = match llm_loader.await.unwrap() {
+    let backend = match LlmBackend::launch(llm_cfg).await {
         Ok(b) => Arc::new(b),
         Err(e) => {
             error!("LLM backend failed to start: {}", e);
@@ -113,24 +126,52 @@ async fn main() {
         }
     };
 
-    let summary = Arc::new(SummaryEngine::new(
-        backend.clone(),
-        engine.server_info.llm_max_waiting_time,
-    ));
-    engine.llm = Some(summary.clone());
-
-    let summary_poll = summary.clone();
-    let _poll_handle = tokio::spawn(async move {
-        loop {
-            summary_poll.call_llm_engine().await;
-            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    // ---- Store + Indexer ----
+    let db_path = resolve_db_path(&matches.db_path, &notebook_name);
+    if let Some(parent) = db_path.parent() {
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            error!("Failed to create DB directory {:?}: {}", parent, e);
+            std::process::exit(1);
         }
-    });
+    }
+    let store = match Store::open(&db_path) {
+        Ok(s) => Arc::new(s),
+        Err(e) => {
+            error!("Failed to open SQLite DB {:?}: {}", db_path, e);
+            std::process::exit(1);
+        }
+    };
+
+    let mut engine = QueryEngine::new(server_info, backend.clone(), store.clone(), matches.min_score);
+    info!("Query engine ready");
+
+    let indexer_handle = IndexerHandle::default();
+    let indexer = Indexer::new(
+        store.clone(),
+        backend.clone(),
+        notebook_path.clone(),
+        indexer_handle.clone(),
+    );
+    if let Err(e) = indexer.hydrate().await {
+        error!("Indexer hydrate failed: {}", e);
+    }
+    tokio::spawn(indexer.run());
+    engine.indexer = Some(indexer_handle.clone());
+
+    // Background summarizer: drains low-priority backlog (all rows with no
+    // summary yet) and accepts high-priority promotions from /query.
+    let summarizer_handle = fire_seq_search_server::indexer::Summarizer::spawn(
+        store,
+        backend.clone(),
+        notebook_path,
+        indexer_handle,
+    );
+    engine.summarizer = Some(summarizer_handle);
 
     let engine_arc = Arc::new(engine);
     let backend_for_destructor = backend.clone();
     ctrlc::set_handler(move || {
-        info!("Ctrl-C received. Exiting...");
+        info!("Termination signal received (SIGINT/SIGTERM/SIGHUP). Exiting...");
         for pid in backend_for_destructor.child_pids() {
             info!("Kill child pid {}", pid);
             if let Err(e) = kill_tree(pid) {
@@ -143,10 +184,11 @@ async fn main() {
 
     let app = axum::Router::new()
         .route("/query/:term", axum::routing::get(endpoints::query))
+        .route("/highlight", axum::routing::post(endpoints::highlight))
         .route("/server_info", axum::routing::get(endpoints::get_server_info))
         .route("/wordcloud", axum::routing::get(endpoints::generate_word_cloud))
-        .route("/summarize/:title", axum::routing::get(endpoints::summarize))
-        .route("/llm_done_list", axum::routing::get(endpoints::get_llm_done_list))
+        .route("/reindex", axum::routing::post(endpoints::reindex))
+        .route("/ask", axum::routing::post(ask::ask))
         .with_state(engine_arc.clone());
 
     let listener = tokio::net::TcpListener::bind(&engine_arc.server_info.host)
@@ -161,7 +203,7 @@ fn build_llm_config(args: &Cli) -> LlmBackendConfig {
         None => EndpointSource::Spawn {
             model: args.embed_model.clone(),
             port: args.embed_port,
-            extra_args: split_extra_args(&args.embed_extra_args),
+            extra_args: build_spawn_args(args.embed_gpu_layers, &args.embed_extra_args),
         },
     };
     let chat = match &args.chat_endpoint {
@@ -169,7 +211,7 @@ fn build_llm_config(args: &Cli) -> LlmBackendConfig {
         None => EndpointSource::Spawn {
             model: args.chat_model.clone(),
             port: args.chat_port,
-            extra_args: split_extra_args(&args.chat_extra_args),
+            extra_args: build_spawn_args(args.chat_gpu_layers, &args.chat_extra_args),
         },
     };
     LlmBackendConfig {
@@ -183,6 +225,26 @@ fn build_llm_config(args: &Cli) -> LlmBackendConfig {
 
 fn split_extra_args(s: &str) -> Vec<String> {
     s.split_whitespace().map(|t| t.to_owned()).collect()
+}
+
+fn build_spawn_args(gpu_layers: u32, extra: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    if gpu_layers > 0 {
+        args.push("-ngl".to_string());
+        args.push(gpu_layers.to_string());
+    }
+    args.extend(split_extra_args(extra));
+    args
+}
+
+fn resolve_db_path(db_path_arg: &Option<String>, notebook_name: &str) -> PathBuf {
+    match db_path_arg {
+        Some(p) => PathBuf::from(shellexpand::tilde(p).as_ref()),
+        None => {
+            let expanded = shellexpand::tilde("~/.cache/fire_seq_search").into_owned();
+            PathBuf::from(format!("{}/{}.sqlite", expanded, notebook_name))
+        }
+    }
 }
 
 fn build_server_info(args: &Cli) -> ServerInformation {
@@ -208,7 +270,11 @@ fn build_server_info(args: &Cli) -> ServerInformation {
         software,
         convert_underline_hierarchy: true,
         host,
-        llm_enabled: true,
-        llm_max_waiting_time: 180,
+        // This build always launches the LLM backend (it's a hard dependency
+        // at startup), so "ask" is always advertised. If a `--no-llm` mode is
+        // ever added, drop "ask" from `capabilities` accordingly — the addon
+        // already gates on it.
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        capabilities: vec!["query".to_string(), "ask".to_string()],
     }
 }

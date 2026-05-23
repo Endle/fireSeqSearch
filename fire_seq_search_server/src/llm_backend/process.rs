@@ -51,11 +51,39 @@ async fn spawn(
         .unwrap_or(false);
 
     let mut cmd = if is_llamafile {
-        // .llamafile is a self-executing binary; ignore --llama-server-bin.
-        let mut c = Command::new(&model_path);
-        c.arg("--server").arg("--port").arg(port.to_string()).arg("--nobrowser");
+        // .llamafile is a polyglot APE binary. On Linux the kernel often refuses
+        // to exec it directly ("Exec format error") unless binfmt_misc is set up,
+        // so we hand it to /bin/sh — the file's shell prelude bootstraps APE.
+        let mut c = Command::new("sh");
+        c.arg(&model_path)
+            .arg("--server")
+            .arg("--port")
+            .arg(port.to_string())
+            .arg("--nobrowser");
         if is_embedding {
-            c.arg("--embedding");
+            // bge-m3 supports up to 8K-token inputs; raise the physical and
+            // logical batch sizes so a single chunk can be embedded in one
+            // shot. llama-server's default ubatch=512 rejects larger inputs
+            // with HTTP 500 ("input too large to process").
+            c.arg("--embedding")
+                .arg("-ub").arg("8192")
+                .arg("-b").arg("8192")
+                .arg("-c").arg("8192");
+        } else {
+            // Chat backend serves background summarization AND `/ask`
+            // concurrently. Each /ask packs K=8 pages × (summary + best chunk),
+            // routinely hitting 3000+ prompt tokens; a summarization in the
+            // sibling slot can be similarly large. 8192 was fine for the old
+            // 7B but the 9B default has a larger per-token KV footprint, and
+            // two concurrent prompts overflowed the shared cache. 16384 gives
+            // both slots room; users on tight VRAM can override via
+            // `--chat-extra-args "-c N"` (later -c wins).
+            c.arg("-c").arg("16384")
+                // Activate the model's Jinja chat template so the request body's
+                // `chat_template_kwargs.enable_thinking=false` is actually read.
+                // Without --jinja, Qwen3-family models default to thinking and
+                // generate ~3000 tokens of reasoning per summary call.
+                .arg("--jinja");
         }
         c
     } else {
@@ -66,7 +94,17 @@ async fn spawn(
             .arg("--model")
             .arg(&model_path);
         if is_embedding {
-            c.arg("--embedding");
+            // See note above re: -ub / -b sizing for embedding backends.
+            c.arg("--embedding")
+                .arg("-ub").arg("8192")
+                .arg("-b").arg("8192")
+                .arg("-c").arg("8192");
+        } else {
+            // See note above: chat backend needs a bigger context for `/ask`
+            // plus concurrent summarization on the 9B default.
+            c.arg("-c").arg("16384")
+                // See --jinja note in the llamafile branch above.
+                .arg("--jinja");
         }
         c
     };

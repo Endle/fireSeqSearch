@@ -125,8 +125,6 @@ fn generate_logseq_journal_uri(title: &str, server_info: &ServerInformation) -> 
         Some(x) => x
     };
     let journal_name = dt.to_str(server_info);
-    format!("logseq://graph/{}?page={}",
-            server_info.notebook_name, journal_name);
     uri.query_pairs_mut()
         .append_pair("page", &journal_name);
     uri.to_string()
