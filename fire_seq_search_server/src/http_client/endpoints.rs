@@ -77,15 +77,17 @@ pub async fn reindex(
 pub async fn query(
     Path(term): Path<String>,
     State(engine_arc): State<Arc<QueryEngine>>,
-) -> Json<Vec<PageHit>> {
+) -> Result<Json<Vec<PageHit>>, StatusCode> {
     let term = term_preprocess(term);
     info!("Semantic search: {}", &term);
 
     let indexer = match &engine_arc.indexer {
         Some(h) => h,
         None => {
-            debug!("Indexer not ready, returning empty results");
-            return Json(vec![]);
+            // Distinguish "indexer still warming" from "no hits" so the addon
+            // can surface a real status to the user instead of an empty list.
+            debug!("Indexer not ready, returning 503");
+            return Err(StatusCode::SERVICE_UNAVAILABLE);
         }
     };
 
@@ -100,10 +102,10 @@ pub async fn query(
     )
     .await
     {
-        Ok(hits) => Json(hits),
+        Ok(hits) => Ok(Json(hits)),
         Err(e) => {
             error!("Semantic query failed: {}", e);
-            Json(vec![])
+            Ok(Json(vec![]))
         }
     }
 }
@@ -120,11 +122,22 @@ pub struct HighlightResponse {
 }
 
 const PAGE_BUDGET_CHARS: usize = 32_000; // ~8K tokens at chars/4
+/// Same rationale as ask::MAX_QUESTION_CHARS: bound the user-controlled string
+/// that ends up concatenated into the LLM prompt.
+const MAX_QUERY_CHARS: usize = 4000;
 
 pub async fn highlight(
     State(engine_arc): State<Arc<QueryEngine>>,
     Json(req): Json<HighlightRequest>,
 ) -> Json<HighlightResponse> {
+    if req.query.chars().count() > MAX_QUERY_CHARS {
+        error!(
+            "/highlight: query too long ({} chars, max {})",
+            req.query.chars().count(),
+            MAX_QUERY_CHARS
+        );
+        return Json(HighlightResponse { highlight: String::new() });
+    }
     let store = &engine_arc.store;
 
     // chunk lookup

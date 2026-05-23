@@ -224,7 +224,18 @@ fn build_llm_config(args: &Cli) -> LlmBackendConfig {
 }
 
 fn split_extra_args(s: &str) -> Vec<String> {
-    s.split_whitespace().map(|t| t.to_owned()).collect()
+    // shell-words preserves quoted arguments, so users can pass things like
+    // `--chat-extra-args '-c "16 384" --rope-freq-base 1000000'` without the
+    // value getting split on the embedded space. Falls back to whitespace
+    // splitting on parse errors (unbalanced quotes etc.) so a typo is at
+    // worst no worse than the prior behaviour.
+    match shell_words::split(s) {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("extra-args split failed ({}); falling back to whitespace split", e);
+            s.split_whitespace().map(|t| t.to_owned()).collect()
+        }
+    }
 }
 
 fn build_spawn_args(gpu_layers: u32, extra: &str) -> Vec<String> {

@@ -41,8 +41,21 @@ async fn spawn(
     }
 
     let role = if is_embedding { "embed" } else { "chat" };
-    let stdout_path = format!("/tmp/fire_seq_search.{}.stdout.log", role);
-    let stderr_path = format!("/tmp/fire_seq_search.{}.stderr.log", role);
+    // Prefer XDG_RUNTIME_DIR (per-user, auto-cleaned by systemd) over /tmp so
+    // two users on the same host don't clobber each other's logs. macOS sets
+    // TMPDIR per-user; fall back to /tmp last.
+    let log_dir = std::env::var_os("XDG_RUNTIME_DIR")
+        .or_else(|| std::env::var_os("TMPDIR"))
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/tmp"));
+    let stdout_path = log_dir
+        .join(format!("fire_seq_search.{}.stdout.log", role))
+        .to_string_lossy()
+        .into_owned();
+    let stderr_path = log_dir
+        .join(format!("fire_seq_search.{}.stderr.log", role))
+        .to_string_lossy()
+        .into_owned();
 
     let is_llamafile = model_path
         .extension()

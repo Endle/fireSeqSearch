@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Mutex;
 
+use log::warn;
 use rusqlite::{params, Connection};
 
 use crate::indexer::IndexerError;
@@ -80,8 +81,12 @@ impl Store {
              CREATE INDEX IF NOT EXISTS idx_chunks_note_id ON chunks(note_id);
              CREATE INDEX IF NOT EXISTS idx_notes_summary_status ON notes(summary_status);",
         )?;
-        // Best-effort migration for DBs created before the summary columns existed.
-        // ALTER TABLE ADD COLUMN errors if the column already exists; we ignore.
+        // Best-effort migration for DBs created before the summary columns
+        // existed. ADD COLUMN on an existing column errors with SQLITE_ERROR
+        // and message starting with "duplicate column name"; only that case
+        // is ignored. Any other failure (disk full, locking, schema drift)
+        // propagates so the operator sees it instead of running on a
+        // half-migrated DB.
         for stmt in [
             "ALTER TABLE notes ADD COLUMN summary TEXT",
             "ALTER TABLE notes ADD COLUMN summary_status INTEGER NOT NULL DEFAULT 0",
@@ -89,7 +94,12 @@ impl Store {
             "ALTER TABLE notes ADD COLUMN summary_embedding BLOB",
             "CREATE INDEX IF NOT EXISTS idx_notes_summary_status ON notes(summary_status)",
         ] {
-            let _ = conn.execute(stmt, []);
+            match conn.execute(stmt, []) {
+                Ok(_) => {}
+                Err(rusqlite::Error::SqliteFailure(_, Some(ref msg)))
+                    if msg.starts_with("duplicate column name") => {}
+                Err(e) => return Err(e.into()),
+            }
         }
         Ok(Self { conn: Mutex::new(conn) })
     }
@@ -275,13 +285,17 @@ impl Store {
              ORDER BY id ASC
              LIMIT 1",
         )?;
-        let id: Option<i64> = stmt
-            .query_row(
-                params![SUMMARY_NONE, SUMMARY_QUEUED_LOW, SUMMARY_MAX_ATTEMPTS],
-                |row| row.get(0),
-            )
-            .ok();
-        Ok(id)
+        // Distinguish "no candidate" (normal) from real DB errors. The old
+        // code .ok()'d both, which made the summarizer look idle and silently
+        // loop on a broken DB.
+        match stmt.query_row(
+            params![SUMMARY_NONE, SUMMARY_QUEUED_LOW, SUMMARY_MAX_ATTEMPTS],
+            |row| row.get::<_, i64>(0),
+        ) {
+            Ok(id) => Ok(Some(id)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 
     pub fn set_summary_status(&self, note_id: i64, status: i64) -> Result<(), IndexerError> {
@@ -390,21 +404,30 @@ impl Store {
             Ok((id, bytes))
         })?;
         let mut out = Vec::new();
+        let mut skipped = 0usize;
         for row in rows {
             let (id, bytes) = row?;
             if bytes.len() != 1024 * 4 {
-                return Err(IndexerError::Decode(format!(
-                    "note {} has {} summary embedding bytes, expected {}",
+                // A single corrupted row shouldn't take down all retrieval.
+                // Skip it; the next summarizer pass will regenerate the
+                // embedding (or operator can manually requeue).
+                warn!(
+                    "note {} has {} summary embedding bytes, expected {} — skipping",
                     id,
                     bytes.len(),
                     1024 * 4
-                )));
+                );
+                skipped += 1;
+                continue;
             }
             let mut emb = [0f32; 1024];
             for (i, c) in bytes.chunks_exact(4).enumerate() {
                 emb[i] = f32::from_le_bytes(c.try_into().unwrap());
             }
             out.push((id, emb));
+        }
+        if skipped > 0 {
+            warn!("load_all_summary_embeddings: skipped {} corrupted rows", skipped);
         }
         Ok(out)
     }
@@ -480,21 +503,31 @@ impl Store {
             Ok((id, bytes))
         })?;
         let mut out = Vec::new();
+        let mut skipped = 0usize;
         for row in rows {
             let (id, bytes) = row?;
             if bytes.len() != 1024 * 4 {
-                return Err(IndexerError::Decode(format!(
-                    "chunk {} has {} embedding bytes, expected {}",
+                // Skip corrupted rows rather than failing all retrieval. The
+                // next indexer scan will re-embed the parent note on a
+                // hash/version mismatch; until then the page is missing from
+                // dense retrieval but still findable via lexical.
+                warn!(
+                    "chunk {} has {} embedding bytes, expected {} — skipping",
                     id,
                     bytes.len(),
                     1024 * 4
-                )));
+                );
+                skipped += 1;
+                continue;
             }
             let mut emb = [0f32; 1024];
             for (i, chunk) in bytes.chunks_exact(4).enumerate() {
                 emb[i] = f32::from_le_bytes(chunk.try_into().unwrap());
             }
             out.push((id, emb));
+        }
+        if skipped > 0 {
+            warn!("load_all_embeddings: skipped {} corrupted rows", skipped);
         }
         Ok(out)
     }

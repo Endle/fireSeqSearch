@@ -298,7 +298,7 @@ pub async fn semantic_query(
     Ok(result)
 }
 
-fn dot(a: &[f32; 1024], b: &[f32]) -> f32 {
+fn dot(a: &[f32], b: &[f32]) -> f32 {
     a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
 }
 
@@ -351,10 +351,6 @@ fn is_cjk_meaningful_char(c: char) -> bool {
         | 0x30A0..=0x30FF     // Katakana
         | 0xAC00..=0xD7AF     // Hangul Syllables
     )
-}
-
-fn dot_slice(a: &[f32], b: &[f32]) -> f32 {
-    a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
 }
 
 fn preview(s: &str, max_chars: usize) -> String {
@@ -453,7 +449,7 @@ async fn select_snippets(
 
     let mut best: HashMap<i64, (f32, String)> = HashMap::new();
     for ((chunk_id, _, display), emb) in candidates.iter().zip(embs.iter()) {
-        let score = dot_slice(emb, query_emb);
+        let score = dot(emb, query_emb);
         best.entry(*chunk_id)
             .and_modify(|cur| {
                 if score > cur.0 {
