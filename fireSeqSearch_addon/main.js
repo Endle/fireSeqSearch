@@ -6,8 +6,15 @@ const fireSeqSearchDomId = "fireSeqSearchDom";
 
 const fireSeqSearchScriptCSS = `
     #fireSeqSearchDom {
-        margin: 1em 1em 1em 1em;
-        color: var(--theme-col-txt-snippet); /* duckduck color*/
+        margin: 1em 0.5em;
+        padding: 0.8em 1em 1em;
+        border: 1px solid #dadce0;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+        box-shadow: 0 1px 2px rgba(60, 64, 67, 0.06);
+        color: #1f1f1f;
+        font-family: arial, sans-serif;
+        font-size: 14px;
     }
     #fireSeqSearchDom.experimentalLayout {
         position: fixed;
@@ -20,54 +27,154 @@ const fireSeqSearchScriptCSS = `
         z-index: 99999;
     }
     .fireSeqSearchTitleBar {
-        margin: 0.5em 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75em;
+        flex-wrap: wrap;
+        margin: 0 0 0.6em 0;
     }
-    .hideSummary {
-        margin: 0 1em;
+    .fireSeqSearchHitCount {
+        font-size: 13px;
+        color: #70757a;
+    }
+    .fireSeqSearchHitCount b {
+        color: #1f1f1f;
+        font-weight: 500;
+    }
+    .fireSeqSearchViewToggle {
+        display: inline-flex;
+        border: 1px solid #dadce0;
+        border-radius: 999px;
+        overflow: hidden;
+        background: #fff;
+    }
+    .fireSeqSearchViewToggle button {
+        border: 0;
+        background: transparent;
+        padding: 4px 12px;
+        font-size: 13px;
+        font-family: arial, sans-serif;
+        color: #4d5156;
+        cursor: pointer;
+        line-height: 1.4;
+    }
+    .fireSeqSearchViewToggle button + button {
+        border-left: 1px solid #dadce0;
+    }
+    .fireSeqSearchViewToggle button.active {
+        background: #0b57d0;
+        color: #fff;
+    }
+    .fireSeqSearchTitleBarSpacer {
+        flex: 1;
     }
     #fireSeqSearchDom ul {
         margin: 0;
-        padding: 0.6em;
-        border: 1px dotted  gray;
+        padding: 0.2em 0 0;
         list-style: none;
-        line-height: 1.5em;
+        line-height: 1.58;
     }
     #fireSeqSearchDom ul li {
-        font-size: 15px;
+        font-size: 14px;
     }
     #fireSeqSearchDom ul li + li {
         margin-top: 0.4em;
     }
     #fireSeqSearchDom ul li a {
+        color: #1f1f1f;
+        text-decoration: none;
+    }
+    #fireSeqSearchDom ul li a:hover {
         text-decoration: underline;
-        text-decoration-style: dotted;
         text-decoration-thickness: 1px;
         text-underline-offset: 2px;
     }
-    #fireSeqSearchDom ul li::before {
-        content: ' ';
-        display: inline-block;
-        margin-right: 0.4em;
-        line-height: 1em;
-        width: 1em;
-        height: 1em;
-        transform: translateY(3px);
-        border-radius: 3px;
-        background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAe1BMVEUAKzaFyMiKz88AJjIAKjaHy8sAHiuM0tIAGSgAGykAIC0AESIAFyYAIzAAHCoAFCQAEiBvq6wtVlw0XmQIMDtooqRAbnNdk5VPgYU4Y2lyr7B4trdHc3Z/wcEAHSctUFVimZoaP0hShIcoRksTLjQADBkAABNdjo8AAAzWDdSWAAABBklEQVQ4jc1S7XKDIBCEQ0DEL2oJVqOmiUl8/yfs6XTaePgA2T8w7N5xu3OMvSOESI5ejSnWM1Hqo/lUEa8a708WLyYAgG4zWv+lpQRXsdIDR2hLBGkn8RnazK4nB2+IIO9XQvZ5dsYf4FlHI4StcqiYGqeppvU4u+CogIvaXB56n53WrmBJYSprq5S6wB71ONZM5Cc/AAyuFXEUGF/aDLANg55b6hRRnjX/A6ZCExfTC4+KkBJB6uSrgOtv0iKHHc/hSr3ovUCGcs9bSQS0g7mQGSaSaTLvBNJFSRQ3+JfIfow3L5s7XJyVBR3uR5uZPG7PnsPQXedoJX4hzGNZlnt5VP7G+AHcFwwZX2F8QwAAAABJRU5ErkJggg==);
-        background-repeat: no-repeat;
-        background-size: 16px;
-    }
     .fireSeqSearchHitSummary {
-        font-size: 0.9em
+        color: #4d5156;
+        margin-left: 0.4em;
     }
     .fireSeqSearchHitSummary::before {
-        content: "\\00A0::\\00A0";
+        content: "\\2014\\00A0";
+        color: #bdc1c6;
+        margin-right: 0.2em;
     }
     .fireSeqSearchHighlight {
         padding: 0 4px;
         color: black !important;
         background-color: gold;
         border-radius: 3px;
+    }
+    .fireSeqSearchAskBox {
+        display: inline-flex;
+        align-items: stretch;
+        border: 1px solid #dadce0;
+        border-radius: 999px;
+        overflow: hidden;
+        background: #fff;
+    }
+    .fireSeqSearchAskInput {
+        border: 0;
+        outline: 0;
+        padding: 4px 12px;
+        font-size: 13px;
+        font-family: arial, sans-serif;
+        color: #1f1f1f;
+        background: transparent;
+        min-width: 220px;
+    }
+    .fireSeqSearchAskBtn {
+        border: 0;
+        background: #0b57d0;
+        color: #fff;
+        padding: 5px 14px;
+        font-size: 13px;
+        font-family: arial, sans-serif;
+        cursor: pointer;
+    }
+    .fireSeqSearchAskBtn:hover:not(:disabled) {
+        background: #0842a0;
+    }
+    .fireSeqSearchAskBtn:disabled {
+        background: #9aa0a6;
+        cursor: default;
+    }
+    .fireSeqSearchAskAnswer {
+        margin: 0.5em 0;
+        padding: 0.6em 0.8em;
+        border-left: 3px solid #6aa3c4;
+        background-color: hsla(200, 40%, 96%, .6);
+        font-size: 0.95em;
+        line-height: 1.5em;
+        white-space: pre-wrap;
+    }
+    .fireSeqSearchAskAnswer.lowConfidence {
+        border-left-color: #c4a86a;
+        background-color: hsla(40, 40%, 96%, .6);
+    }
+    .fireSeqSearchAskNote {
+        display: block;
+        margin-bottom: 0.3em;
+        font-size: 0.85em;
+        color: gray;
+    }
+    .fireSeqSearchCiteBadge {
+        margin-left: 0.3em;
+        font-size: 0.8em;
+        color: #0b57d0;
+        font-weight: 500;
+    }
+    .fireSeqSearchAskExtras {
+        margin: 0.3em 0 0.6em 0;
+        font-size: 0.85em;
+        color: #4d5156;
+    }
+    .fireSeqSearchAskExtras a {
+        color: #0b57d0;
+        text-decoration: none;
+        margin-right: 0.6em;
+    }
+    .fireSeqSearchAskExtras a:hover {
+        text-decoration: underline;
     }
     `;
 
@@ -136,113 +243,313 @@ function checkUserOptions() {
 function parseRawList(rawSearchResult) {
     const hits = [];
     for (const rawRecord of rawSearchResult) {
-        const record = JSON.parse(rawRecord);
+        const record = (typeof rawRecord === "string") ? JSON.parse(rawRecord) : rawRecord;
         hits.push(record);
     }
     return hits;
 }
 
-async function processLlmSummary(serverInfo, parsedSearchResult, fireDom) {
+function insertDivToWebpage(result) {
+    let contextId = "rcnt";
+    if (window.location.host.includes("duckduckgo.com")) { // https://github.com/Endle/fireSeqSearch/issues/103
+        contextId = "web_content_wrapper";
+    }
+    if (window.location.host.includes("searx")) {
+        contextId = "results";
+    }
+    if (window.location.host.includes("metager")) { // https://github.com/Endle/fireSeqSearch/issues/127
+        contextId = "results";
+    }
+    const anchor = document.getElementById(contextId);
+    if (anchor === null) {
+        consoleLogForDebug("fireSeqSearch: couldn't find insertion anchor #" + contextId);
+        return;
+    }
+    anchor.insertAdjacentElement("beforebegin", result);
+}
 
-    const doneListApi = "http://127.0.0.1:3030/llm_done_list";
-    let list = await fetch(doneListApi);
-    list = await list.text();
-    list = JSON.parse(list);
-
-    const findByTitle = function(title) {
-        const ul = fireDom.querySelector( ".fireSeqSearchHitList" );
-        if (ul === null)    return null;
-        for (const child of ul.children) {
-            const liTitle = child.firstChild.text;
-            if (title === liTitle) {
-                return child;
-            }
-        }
-        return null;
+// The addon auto-updates via AMO, but the user may run an older backend.
+// New backends advertise `version` + a `capabilities` list in /server_info;
+// older ones have neither. Treat "no capabilities field" as "only the original
+// /query path is guaranteed", so we never call an endpoint the backend doesn't
+// have.
+function detectBackendCapabilities(serverInfo) {
+    const caps = Array.isArray(serverInfo && serverInfo.capabilities)
+        ? serverInfo.capabilities : [];
+    const advertised = caps.length > 0;
+    return {
+        version: (serverInfo && serverInfo.version) || "unknown",
+        list: caps,
+        // POST /ask — only ever present on a capabilities-aware backend.
+        hasAsk: advertised && caps.includes("ask"),
     };
-    const setLlmResult = function (title, llmSummary) {
-        const targetRow = findByTitle(title);
-        if (targetRow === null) {
-            consoleLogForDebug("Error! Can't find dom for ", title);
-            return;
-        }
-        if (targetRow.querySelector( ".fireSeqSearchLlmSummary" ) != null) {
-            consoleLogForDebug("Skip. We have the summary for ", title);
-            return;
-        }
+}
 
-        const summary = createElementWithText("span", "");
-        summary.innerHTML = llmSummary;
-        summary.classList.add('fireSeqSearchLlmSummary');
-        targetRow.appendChild(summary);
-    };
-    for (const record of parsedSearchResult) {
-        const title = record.title;
-        if (!list.includes(title)) {
-            consoleLogForDebug("Not ready, skip" + title);
-            continue;
+function escapeHtml(s) {
+    return String(s)
+        .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+}
+
+// Find a hit-list row whose link title (raw note title) matches `title`.
+// Source titles from /ask and row titles from /query can differ in %2F
+// encoding, so normalize before comparing.
+function findRowByTitle(root, title) {
+    const list = root && root.querySelector(".fireSeqSearchHitList");
+    if (!list) { return null; }
+    const norm = String(title || "").replaceAll("%2F", "/");
+    for (const li of list.children) {
+        const a = li.querySelector("a");
+        if (!a) { continue; }
+        if (a.textContent === norm || a.getAttribute("title") === norm) { return li; }
+    }
+    return null;
+}
+
+function clearCitationDecorations(root) {
+    if (!root) { return; }
+    for (const el of root.querySelectorAll(".fireSeqSearchCiteBadge")) { el.remove(); }
+    for (const el of root.querySelectorAll(".fireSeqSearchAskExtras")) { el.remove(); }
+}
+
+// Tag matching rows in the snippet list with a `[N]` badge for each cited
+// source. Sources not present in the list are listed under `answerBox` as
+// "Other cited: [N] Title …" links so the user can still reach them.
+// `answerText` is the final answer prose; sources whose `[N]` marker does
+// not appear in it were retrieved but ignored by the LLM, and are skipped
+// so the badge always means "the answer used this".
+function decorateRowsWithCitations(root, sources, serverInfo, answerBox, answerText) {
+    clearCitationDecorations(root);
+    if (!sources || sources.length === 0) { return; }
+    const cited = new Set();
+    const re = /\[(\d+)\]/g;
+    let m;
+    while ((m = re.exec(answerText || "")) !== null) { cited.add(parseInt(m[1], 10)); }
+    const missing = [];
+    sources.forEach(function (src, i) {
+        const n = i + 1;
+        if (!cited.has(n)) { return; }
+        const row = findRowByTitle(root, src.title);
+        if (row) {
+            const badge = document.createElement("span");
+            badge.classList.add("fireSeqSearchCiteBadge");
+            badge.textContent = "[" + n + "]";
+            const link = row.querySelector("a");
+            if (link) { link.insertAdjacentElement("afterend", badge); }
+        } else {
+            missing.push({ n: n, src: src });
         }
-        // TODO remove hard code port
-        const llm_api = "http://127.0.0.1:3030/summarize/" + title;
-        let sum = await fetch(llm_api);
-        sum = await sum.text();
-        setLlmResult(title, sum);
+    });
+    if (missing.length > 0) {
+        const extras = document.createElement("div");
+        extras.classList.add("fireSeqSearchAskExtras");
+        extras.appendChild(document.createTextNode("Other cited: "));
+        missing.forEach(function (item) {
+            const a = document.createElement("a");
+            const uri = item.src.logseq_uri
+                || ("logseq://graph/" + serverInfo.notebook_name + "?page=" + item.src.title);
+            a.href = uri;
+            a.textContent = "[" + item.n + "] " + String(item.src.title || "").replaceAll("%2F", "/");
+            extras.appendChild(a);
+        });
+        answerBox.insertAdjacentElement("afterend", extras);
     }
 }
 
+// Turn `[N]` citation markers in the answer into links to the Nth /ask source.
+function linkifyCitations(escapedAnswer, sources, serverInfo) {
+    return escapedAnswer.replace(/\[(\d+)\]/g, function (whole, n) {
+        const src = sources[parseInt(n, 10) - 1];
+        if (!src) { return whole; }
+        const uri = src.logseq_uri
+            || `logseq://graph/${serverInfo.notebook_name}?page=${src.title}`;
+        const title = escapeHtml((src.title || "").replaceAll("%2F", "/"));
+        return `<a href="${escapeHtml(uri)}" title="${title}">[${n}]</a>`;
+    });
+}
 
-function createFireSeqDom(serverInfo, parsedSearchResult) {
+// Consume the SSE-over-POST stream from /ask. Resolves when the stream ends;
+// reports failures via onError rather than rejecting, so callers don't have to
+// double-handle. Uses fetch + a ReadableStream reader because EventSource is
+// GET-only and /ask is a POST.
+async function streamAsk(question, handlers) {
+    const { onMeta, onDelta, onDone, onError } = handlers;
+    let resp;
+    try {
+        resp = await fetch("http://127.0.0.1:3030/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question }),
+        });
+    } catch (e) { onError(e); return; }
+    if (!resp.ok || !resp.body) { onError(new Error("HTTP " + resp.status)); return; }
+
+    const dispatch = function (name, dataStr) {
+        let data;
+        try { data = JSON.parse(dataStr); } catch (e) { data = dataStr; }
+        if (name === "meta") { onMeta(data); }
+        else if (name === "delta") { onDelta(data); }
+        else if (name === "done") { onDone(data); }
+        else if (name === "error") { onError(new Error((data && data.message) || "ask error")); }
+    };
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+        let chunk;
+        try { chunk = await reader.read(); } catch (e) { onError(e); return; }
+        if (chunk.done) { break; }
+        buf += decoder.decode(chunk.value, { stream: true });
+        let sep;
+        while ((sep = buf.indexOf("\n\n")) >= 0) {
+            const rawEvent = buf.slice(0, sep);
+            buf = buf.slice(sep + 2);
+            let name = "message";
+            const dataLines = [];
+            for (const line of rawEvent.split("\n")) {
+                if (line.startsWith("event:")) { name = line.slice(6).trim(); }
+                else if (line.startsWith("data:")) { dataLines.push(line.slice(5).replace(/^ /, "")); }
+            }
+            if (dataLines.length > 0) { dispatch(name, dataLines.join("\n")); }
+        }
+    }
+}
+
+function createAskControls(serverInfo, defaultQuestion) {
+    const box = document.createElement("div");
+    box.classList.add("fireSeqSearchAskBox");
+    const input = document.createElement("input");
+    input.type = "text";
+    input.classList.add("fireSeqSearchAskInput");
+    input.placeholder = "Ask your notes…";
+    input.value = defaultQuestion || "";
+    const btn = createElementWithText("button", "Ask");
+    btn.classList.add("fireSeqSearchAskBtn");
+    box.appendChild(input);
+    box.appendChild(btn);
+
+    const answerBox = createElementWithText("div", "");
+    answerBox.classList.add("fireSeqSearchAskAnswer");
+    answerBox.style.display = "none";
+
+    function submit() {
+        const question = input.value.trim();
+        if (btn.disabled || !question) { return; }
+        btn.disabled = true;
+        btn.textContent = "Asking…";
+        answerBox.style.display = "";
+        answerBox.classList.remove("lowConfidence");
+        answerBox.textContent = "";
+        clearCitationDecorations(document.getElementById(fireSeqSearchDomId));
+        let sources = [];
+        let answerText = "";
+        let lowConfidence = false;
+        streamAsk(question, {
+            onMeta: function (meta) {
+                sources = (meta && meta.sources) || [];
+                if (meta && meta.confidence === "low") {
+                    lowConfidence = true;
+                    answerBox.classList.add("lowConfidence");
+                }
+            },
+            onDelta: function (d) {
+                answerText += (d && d.text) || "";
+                answerBox.textContent = answerText;
+            },
+            onDone: function (done) {
+                if (done && done.confidence === "low") {
+                    lowConfidence = true;
+                    answerBox.classList.add("lowConfidence");
+                }
+                const note = lowConfidence
+                    ? '<span class="fireSeqSearchAskNote">Weak match — these notes may only be loosely related:</span>'
+                    : "";
+                answerBox.innerHTML = note + linkifyCitations(escapeHtml(answerText), sources, serverInfo);
+                decorateRowsWithCitations(
+                    document.getElementById(fireSeqSearchDomId),
+                    sources,
+                    serverInfo,
+                    answerBox,
+                    answerText,
+                );
+            },
+            onError: function (err) {
+                consoleLogForDebug(err);
+                answerBox.textContent = "(ask failed: " + (err && err.message) + ")";
+            },
+        }).then(function () {
+            btn.disabled = false;
+            btn.textContent = "Ask";
+        });
+    }
+
+    btn.onclick = submit;
+    input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); submit(); }
+    });
+
+    return { box, answerBox };
+}
+
+function createFireSeqDom(serverInfo, parsedSearchResult, caps, searchParameter) {
     const count = parsedSearchResult.length;
     const div = document.createElement("div");
     div.setAttribute("id", fireSeqSearchDomId);
 
-    const createTitleBarDom = function () {
-        const titleBar = createElementWithText("div");
-        titleBar.classList.add('fireSeqSearchTitleBar');
-        const hitCount = `<span>We found <b>${count.toString()}</b> results in your logseq notebook</span>`;
-        titleBar.insertAdjacentHTML("afterbegin",hitCount);
+    // POST /ask: only offered when the backend advertises it. Older backends
+    // (no `capabilities` field) silently skip this — nothing breaks.
+    const ask = (caps.hasAsk && searchParameter)
+        ? createAskControls(serverInfo, searchParameter)
+        : null;
 
-        function setSummaryState(cl, state) {
-            let prop = 'none';
-            if (state) { prop = ''; }
-            for (const el of document.querySelectorAll(cl)) {
-                el.style.display=prop;
-            }
+    const titleBar = document.createElement("div");
+    titleBar.classList.add('fireSeqSearchTitleBar');
+
+    const hitCount = document.createElement("span");
+    hitCount.classList.add("fireSeqSearchHitCount");
+    hitCount.innerHTML = `<b>${count.toString()}</b> notes`;
+    hitCount.title = `from ${serverInfo.notebook_name}`;
+    titleBar.appendChild(hitCount);
+
+    const toggle = document.createElement("div");
+    toggle.classList.add("fireSeqSearchViewToggle");
+
+    function setSummaryState(cl, state) {
+        const prop = state ? '' : 'none';
+        for (const el of document.querySelectorAll(cl)) {
+            el.style.display = prop;
         }
-        let btn = document.createElement("button");
-        btn.classList.add("hideSummary");
-        let text = document.createTextNode("Hide Summary");
-        btn.appendChild(text);
-        btn.onclick = function () {
-            setSummaryState(".fireSeqSearchHitSummary", false);
-            setSummaryState(".fireSeqSearchLlmSummary", false);
+    }
+    function makeSegment(label, onActivate) {
+        const seg = document.createElement("button");
+        seg.textContent = label;
+        seg.onclick = function () {
+            for (const sib of toggle.children) { sib.classList.remove("active"); }
+            seg.classList.add("active");
+            onActivate();
         };
-        titleBar.appendChild(btn);
+        return seg;
+    }
+    const segHide = makeSegment("Hide", function () {
+        setSummaryState(".fireSeqSearchHitSummary", false);
+    });
+    const segSummary = makeSegment("Summary", function () {
+        setSummaryState(".fireSeqSearchHitSummary", true);
+    });
+    segSummary.classList.add("active"); // default render shows summaries
+    toggle.appendChild(segHide);
+    toggle.appendChild(segSummary);
+    titleBar.appendChild(toggle);
 
-        btn = document.createElement("button");
-        btn.classList.add("showSummary");
-        text = document.createTextNode("Summary");
-        btn.appendChild(text);
-        btn.onclick = function () {
-            setSummaryState(".fireSeqSearchHitSummary", true);
-            setSummaryState(".fireSeqSearchLlmSummary", false);
-        };
-        titleBar.appendChild(btn);
+    const spacer = document.createElement("div");
+    spacer.classList.add("fireSeqSearchTitleBarSpacer");
+    titleBar.appendChild(spacer);
 
-        btn = document.createElement("button");
-        btn.classList.add("showLlm");
-        text = document.createTextNode("LLM");
-        btn.appendChild(text);
-        btn.onclick = function () {
-            setSummaryState(".fireSeqSearchHitSummary", false);
-            setSummaryState(".fireSeqSearchLlmSummary", true);
-            processLlmSummary(serverInfo, parsedSearchResult, div);
-        };
-        titleBar.appendChild(btn);
-        return titleBar;
-    };
-    const bar = createTitleBarDom();
-    div.appendChild(bar);
+    if (ask) { titleBar.appendChild(ask.box); }
+
+    div.appendChild(titleBar);
+    if (ask) { div.appendChild(ask.answerBox); }
     return div;
 }
 
@@ -282,33 +589,20 @@ async function appendResultToSearchResult(serverInfo, parsedSearchResult, dom) {
         dom.classList.add("experimentalLayout");
     }
 
-    function insertDivToWebpage(result) {
-        let contextId = "rcnt";
-        if (window.location.host.includes("duckduckgo.com")) {
-            contextId = "web_content_wrapper";
-        }
-        if (window.location.host.includes("searx")) { // https://github.com/Endle/fireSeqSearch/issues/103
-            contextId = "results";
-        }
-        if (window.location.host.includes("metager")) { // https://github.com/Endle/fireSeqSearch/issues/127
-            contextId = "results";
-        }
-        document.getElementById(contextId).insertAdjacentElement("beforebegin", result);
-
-    }
-
     insertDivToWebpage(dom);
 }
 
-async function mainProcess(fetchResultArray) {
+async function mainProcess(fetchResultArray, searchParameter) {
     consoleLogForDebug("main process");
 
     const serverInfo = fetchResultArray[0];
     const rawSearchResult = fetchResultArray[1];
     consoleLogForDebug(serverInfo);
+    const caps = detectBackendCapabilities(serverInfo);
+    consoleLogForDebug("Backend version " + caps.version + ", capabilities: " + JSON.stringify(caps.list));
     const parsedSearchResult = parseRawList(rawSearchResult);
 
-    const fireDom = createFireSeqDom(serverInfo, parsedSearchResult);
+    const fireDom = createFireSeqDom(serverInfo, parsedSearchResult, caps, searchParameter);
 
     appendResultToSearchResult(serverInfo, parsedSearchResult, fireDom);
 
@@ -352,11 +646,10 @@ function getSearchParameterFromCurrentPage() {
     Promise.all([
         fetch("http://127.0.0.1:3030/server_info"),
         fetch("http://127.0.0.1:3030/query/" + searchParameter)
-    ]).then(function (responses) {
-        return Promise.all(responses.map(function (response) {return response.json();}));
-    }).then(function (data) {
-        mainProcess(data);
-    }).then((_e) => {
+    ]).then(async function (responses) {
+        const serverInfo = await responses[0].json();
+        const rawSearchResult = await responses[1].json();
+        await mainProcess([serverInfo, rawSearchResult], searchParameter);
         const highlightedItems = document.querySelectorAll('.fireSeqSearchHighlight');
         consoleLogForDebug(highlightedItems);
         highlightedItems.forEach((element) => {
