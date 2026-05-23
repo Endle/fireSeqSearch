@@ -570,8 +570,10 @@ async function appendResultToSearchResult(serverInfo, parsedSearchResult, dom) {
             const href = createHrefToLogseq(record, serverInfo);
             li.appendChild(href);
 
-            const summary = createElementWithText("span", "");
-            summary.innerHTML = record.summary;
+            // Summary text comes from an LLM run over the user's notes; render
+            // as text, not HTML. Notes ingested from the web can carry script
+            // fragments and the model will reproduce them verbatim.
+            const summary = createElementWithText("span", record.summary || "");
             summary.classList.add('fireSeqSearchHitSummary');
             li.appendChild(summary);
 
