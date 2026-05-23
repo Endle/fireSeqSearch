@@ -141,6 +141,13 @@ impl Summarizer {
     }
 
     async fn process(&self, note_id: i64) {
+        // KNOWN RACE: a page edited mid-summarize can land with a summary
+        // generated against stale content. Mitigation today is the small
+        // write window + the next 10-min indexer rescan catching it. Stricter
+        // fix: make save_summary_with_embedding a conditional
+        // `UPDATE … WHERE summary_status = IN_PROGRESS` so the write becomes
+        // a no-op if the indexer already requeued. Defer until it actually
+        // bites in practice.
         if let Err(e) = self.store.set_summary_status(note_id, SUMMARY_IN_PROGRESS) {
             error!("summarizer: set IN_PROGRESS for {}: {}", note_id, e);
             return;
