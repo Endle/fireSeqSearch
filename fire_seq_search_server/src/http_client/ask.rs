@@ -46,6 +46,10 @@ pub struct AskRequest {
 
 const DEFAULT_K: usize = 8;
 const MAX_K: usize = 8;
+/// Reject questions longer than this. ~4000 chars (≈1000 tokens at chars/4)
+/// leaves headroom in the embedder (8K-token window) and the chat prompt
+/// (16K context, K=8 sources). A real search question is well under this.
+const MAX_QUESTION_CHARS: usize = 4000;
 /// Per-source excerpt cap (~600 tokens at chars/4) — matches the chunker's
 /// `CAP_TOKENS`, so a single packed chunk fits without truncation.
 const EXCERPT_BUDGET_CHARS: usize = 2400;
@@ -86,6 +90,13 @@ async fn run_ask(engine: &QueryEngine, req: &AskRequest, tx: &mut EventTx) -> Re
     let question = req.question.trim().to_string();
     if question.is_empty() {
         return Err("empty question".to_string());
+    }
+    if question.chars().count() > MAX_QUESTION_CHARS {
+        return Err(format!(
+            "question too long: {} chars (max {})",
+            question.chars().count(),
+            MAX_QUESTION_CHARS
+        ));
     }
     let k = req.k.unwrap_or(DEFAULT_K).clamp(1, MAX_K);
     info!("/ask: {:?} (k={})", question, k);
