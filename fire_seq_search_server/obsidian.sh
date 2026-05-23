@@ -1,5 +1,5 @@
 set -e
-cargo build --features llm
+cargo build
 rm ./fire_seq_search_server -f
 cp --force target/debug/fire_seq_search_server ./fire_seq_search_server
 

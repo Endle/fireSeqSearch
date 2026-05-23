@@ -12,6 +12,15 @@ feature-depth = 1
 ignore = [
     { id = "RUSTSEC-2020-0056", reason = "pdf extract" },
     { id = "RUSTSEC-2021-0153", reason = "pdf" },
+    # Transitive deps from reqwest/axum/tokio closure. No committed Cargo.lock,
+    # so the resolved versions drift; revisit when bumping reqwest/axum.
+    { id = "RUSTSEC-2024-0421", reason = "idna 0.5: transitive via reqwest -> url" },
+    { id = "RUSTSEC-2025-0004", reason = "openssl 0.10.66 UAF: transitive via reqwest native-tls" },
+    { id = "RUSTSEC-2025-0022", reason = "openssl 0.10.66 UAF: transitive via reqwest native-tls" },
+    { id = "RUSTSEC-2025-0023", reason = "tokio broadcast unsound: transitive via axum/reqwest" },
+    { id = "RUSTSEC-2025-0056", reason = "adler unmaintained: transitive via miniz_oxide" },
+    { id = "RUSTSEC-2025-0134", reason = "rustls-pemfile unmaintained: transitive via reqwest" },
+    { id = "RUSTSEC-2026-0007", reason = "bytes BytesMut overflow: transitive via hyper/reqwest" },
 ]
 
 
@@ -26,6 +35,8 @@ allow = [
     "CC0-1.0",
     "MPL-2.0",
     "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "ISC",
 ]
 # The confidence threshold for detecting a license from license text.
 # The higher the value, the more closely the license text must be to the
@@ -35,7 +46,6 @@ confidence-threshold = 0.8
 # Allow 1 or more licenses on a per-crate basis, so that particular licenses
 # aren't accepted for every possible crate as with the normal allow list
 exceptions = [
-    { name = "fastdivide", allow = ["zlib-acknowledgement"] },
 ]
 
 # This section is considered when running `cargo deny check bans`.

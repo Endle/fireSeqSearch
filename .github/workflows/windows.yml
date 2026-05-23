@@ -25,10 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         target: [
-          i686-pc-windows-msvc,
           x86_64-pc-windows-msvc,
-          i686-pc-windows-gnu,
-          x86_64-pc-windows-gnu,
         ]
         cfg_release_channel: [stable]
 
@@ -101,7 +98,6 @@ jobs:
       fail-fast: false
       matrix:
         target: [
-          i686-pc-windows-msvc,
           x86_64-pc-windows-msvc,
         ]
         cfg_release_channel: [ stable ]

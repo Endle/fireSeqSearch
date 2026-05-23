@@ -1,6 +1,6 @@
 [package]
 name = "fire_seq_search_server"
-version = "0.2.1"
+version = "0.3.1"
 edition = "2021"
 license = "MIT"
 
@@ -21,11 +21,6 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive", "rc"] }
 url = "2.3.1"
 
-# QueryEngine
-tantivy = "0.22"
-tantivy-tokenizer-api = "0.3.0"
-jieba-rs = { version = "0.7.0" }
-
 
 log = "0.4.22"
 env_logger = "0.11.5"
@@ -35,7 +30,7 @@ clap = { version = "4.0", features = ["derive"] }
 lazy_static = "1.4.0"
 rayon = "1.5"
 futures = "0.3"
-ctrlc = "3.4"
+ctrlc = { version = "3.4", features = ["termination"] }
 sysinfo = "0.34.2"
 kill_tree = "0.2.4"
 urlencoding = "2.1.0"
@@ -48,6 +43,7 @@ stop-words = "0.7.2"
 regex = "1"
 lingua = { version = "1.4.0", default-features = false, features = ["chinese", "english"] }
 shellexpand = "3.1"
+shell-words = "1.1"
 
 #Highlight (Output)
 html-escape = "0.2.13"
@@ -63,15 +59,12 @@ pdf-extract-temporary-mitigation-panic = "0.7.1"
 
 
 
-# TODO Currently turn them off will make cargo build fail
-#   I should make these deps optional, so those who doesn't want LLM could have a smaller binary
-sha256 = { version = "1.5.0", optional = true }
-reqwest = { version = "0.12", features = ["json"], optional = false }
-serde_derive = { version = "1.0.209", optional = false}
+# LLM backend (always on)
+reqwest = { version = "0.12", features = ["json", "stream"] }
+serde_derive = "1.0.209"
+thiserror = "1"
 
-[features]
-#default = ["llm"]
-llm = ["sha256",
-    #"serde_derive",
-        #"request"
-]
+# Indexer (phase 2)
+rusqlite = { version = "0.31", features = ["bundled"] }
+blake3 = "1"
+walkdir = "2"
