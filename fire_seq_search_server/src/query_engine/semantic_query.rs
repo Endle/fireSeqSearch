@@ -270,7 +270,7 @@ pub async fn semantic_query(
                 "(summary-only hit, no chunk anchor)".to_string(),
             ),
         };
-        let logseq_uri = generate_uri_v2(&note.page_title, server_info);
+        let logseq_uri = generate_uri_v2(&note.page_title, &note.rel_path, server_info);
         let status_str = summary_status_str(note.summary_status);
         info!(
             "hit: page={:?} score={:.3} chunk_id={} summary={} chunk_text={:?}",
