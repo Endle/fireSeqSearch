@@ -99,6 +99,12 @@ struct Cli {
     /// ranks — so a chunk below this threshold can still surface if the
     /// lexical pass ranks it highly. Calibrated for bge-m3 with packed
     /// multi-bullet chunks; raise if you see dense-side noise.
+    ///
+    /// KNOWN: this is provisional. Obsidian smoke runs show top hits in the
+    /// 0.03–0.05 band (vs ≥0.50 typical on Logseq) — the floor is too low
+    /// on the Obsidian path. Right fix is probably a per-software default
+    /// or a relative cutoff (must beat corpus mean by a margin). Hold until
+    /// eval_retrieval.py has Obsidian queries to measure against.
     #[arg(long, default_value_t = 0.35)]
     min_score: f32,
 }
@@ -142,6 +148,7 @@ async fn main() {
         }
     };
 
+    let software = server_info.software.clone();
     let mut engine = QueryEngine::new(server_info, backend.clone(), store.clone(), matches.min_score);
     info!("Query engine ready");
 
@@ -151,6 +158,7 @@ async fn main() {
         backend.clone(),
         notebook_path.clone(),
         indexer_handle.clone(),
+        software.clone(),
     );
     if let Err(e) = indexer.hydrate().await {
         error!("Indexer hydrate failed: {}", e);
@@ -165,6 +173,7 @@ async fn main() {
         backend.clone(),
         notebook_path,
         indexer_handle,
+        software,
     );
     engine.summarizer = Some(summarizer_handle);
 
