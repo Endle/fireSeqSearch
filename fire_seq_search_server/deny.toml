@@ -26,6 +26,8 @@ allow = [
     "CC0-1.0",
     "MPL-2.0",
     "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "ISC",
 ]
 # The confidence threshold for detecting a license from license text.
 # The higher the value, the more closely the license text must be to the
@@ -35,7 +37,6 @@ confidence-threshold = 0.8
 # Allow 1 or more licenses on a per-crate basis, so that particular licenses
 # aren't accepted for every possible crate as with the normal allow list
 exceptions = [
-    { name = "fastdivide", allow = ["zlib-acknowledgement"] },
 ]
 
 # This section is considered when running `cargo deny check bans`.

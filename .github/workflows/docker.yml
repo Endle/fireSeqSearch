@@ -1,10 +1,15 @@
 name: Build/release docker images
 on:
-  push:
-    branches:
-      - 'master'
-    paths-ignore:
-      - '**.md'
+  workflow_dispatch:
+  # Disabled after the LLM-first rewrite: the existing Dockerfile builds only
+  # the Rust binary, which is not functional without llama-server + bge-m3 +
+  # a chat model. Re-enable once Dockerfile bundles llama-server (see
+  # Containerfile in the repo root for the llama-server build).
+  # push:
+  #   branches:
+  #     - 'master'
+  #   paths-ignore:
+  #     - '**.md'
 jobs:
   docker:
     runs-on: ubuntu-latest
