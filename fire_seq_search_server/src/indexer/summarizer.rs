@@ -9,6 +9,7 @@ use crate::indexer::chunker::{is_junk_summary, is_summarizable, preprocess};
 use crate::indexer::store::{Store, SUMMARY_IN_PROGRESS};
 use crate::indexer::IndexerHandle;
 use crate::llm_backend::{LlmBackend, Message};
+use crate::query_engine::NotebookSoftware;
 
 const PAGE_BUDGET_CHARS: usize = 8000;
 const QUEUE_CAPACITY: usize = 256;
@@ -35,6 +36,7 @@ pub struct Summarizer {
     notebook_path: PathBuf,
     rx_high: mpsc::Receiver<i64>,
     handle: IndexerHandle,
+    software: NotebookSoftware,
 }
 
 impl Summarizer {
@@ -43,9 +45,10 @@ impl Summarizer {
         backend: Arc<LlmBackend>,
         notebook_path: PathBuf,
         handle: IndexerHandle,
+        software: NotebookSoftware,
     ) -> SummarizerHandle {
         let (tx, rx) = mpsc::channel(QUEUE_CAPACITY);
-        let s = Self { store, backend, notebook_path, rx_high: rx, handle };
+        let s = Self { store, backend, notebook_path, rx_high: rx, handle, software };
         tokio::spawn(async move { s.run().await });
         SummarizerHandle { queue_high: tx }
     }
@@ -122,7 +125,7 @@ impl Summarizer {
                 Ok(s) => s,
                 Err(_) => continue, // file gone; the indexer's delete pass handles it
             };
-            if !is_summarizable(&raw) {
+            if !is_summarizable(&self.software, &raw) {
                 self.store
                     .mark_summary_unsummarizable(note_id)
                     .map_err(|e| e.to_string())?;
@@ -187,7 +190,7 @@ impl Summarizer {
         // Deterministic gate: don't ask the LLM about pages with no narrative
         // content. Its only honest answers ("Empty.", title-echo) become noise
         // vectors in summary_vec. This does not depend on model behaviour.
-        if !is_summarizable(&raw) {
+        if !is_summarizable(&self.software, &raw) {
             return Ok((String::new(), None));
         }
         let clean = preprocess(&raw);

@@ -142,6 +142,7 @@ async fn main() {
         }
     };
 
+    let software = server_info.software.clone();
     let mut engine = QueryEngine::new(server_info, backend.clone(), store.clone(), matches.min_score);
     info!("Query engine ready");
 
@@ -151,6 +152,7 @@ async fn main() {
         backend.clone(),
         notebook_path.clone(),
         indexer_handle.clone(),
+        software.clone(),
     );
     if let Err(e) = indexer.hydrate().await {
         error!("Indexer hydrate failed: {}", e);
@@ -165,6 +167,7 @@ async fn main() {
         backend.clone(),
         notebook_path,
         indexer_handle,
+        software,
     );
     engine.summarizer = Some(summarizer_handle);
 

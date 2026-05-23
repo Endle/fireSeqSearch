@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use log::info;
 
-use crate::indexer::chunker::{is_stub_unit, split_into_top_level_units};
+use crate::indexer::chunker::{is_stub_unit, split_into_obsidian_units, split_into_top_level_units};
+use crate::query_engine::NotebookSoftware;
 use crate::indexer::store::{summary_status_str, ChunkDetail, NoteDetail, SUMMARY_OK};
 use crate::indexer::{IndexerHandle, Store, SummarizerHandle};
 use crate::llm_backend::LlmBackend;
@@ -233,7 +234,14 @@ pub async fn semantic_query(
     // top-level bullet units the chunker packed in, score each unit against
     // the query, pick the best. One batched embed call covers every
     // candidate across all hits, so cost scales with K (≤10) not corpus.
-    let snippet_map = select_snippets(&note_hits, &id_to_detail, &note_map, backend, &query_emb)
+    let snippet_map = select_snippets(
+        &note_hits,
+        &id_to_detail,
+        &note_map,
+        backend,
+        &query_emb,
+        &server_info.software,
+    )
         .await
         .map_err(|e| e.to_string())?;
 
@@ -406,6 +414,7 @@ async fn select_snippets(
     note_map: &HashMap<i64, &NoteDetail>,
     backend: &LlmBackend,
     query_emb: &[f32],
+    software: &NotebookSoftware,
 ) -> Result<HashMap<i64, String>, String> {
     // Each candidate carries (chunk_id, embed_text, display_text). We flatten
     // across all hits so one HTTP call covers everything.
@@ -420,13 +429,35 @@ async fn select_snippets(
             None => continue,
         };
         let body = strip_title_prefix(&chunk.text, &note.page_title);
-        for unit in split_into_top_level_units(body) {
-            if is_stub_unit(&unit) {
-                continue;
+        match software {
+            NotebookSoftware::Logseq => {
+                for unit in split_into_top_level_units(body) {
+                    if is_stub_unit(&unit) {
+                        continue;
+                    }
+                    let display = unit.join("\n");
+                    let embed_text = format!("# {}\n\n{}", note.page_title, display);
+                    candidates.push((*chunk_id, embed_text, display));
+                }
             }
-            let display = unit.join("\n");
-            let embed_text = format!("# {}\n\n{}", note.page_title, display);
-            candidates.push((*chunk_id, embed_text, display));
+            NotebookSoftware::Obsidian => {
+                // Obsidian chunks aren't bullet trees. Split on `#` headings;
+                // if the chunk has none, the whole body is the unit.
+                let units = split_into_obsidian_units(body);
+                let units: Vec<String> = if units.is_empty() {
+                    vec![body.to_string()]
+                } else {
+                    units
+                };
+                for unit in units {
+                    let display = unit.trim_end().to_string();
+                    if display.trim().is_empty() {
+                        continue;
+                    }
+                    let embed_text = format!("# {}\n\n{}", note.page_title, display);
+                    candidates.push((*chunk_id, embed_text, display));
+                }
+            }
         }
     }
 

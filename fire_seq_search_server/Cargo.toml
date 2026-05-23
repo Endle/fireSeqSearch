@@ -68,3 +68,6 @@ thiserror = "1"
 rusqlite = { version = "0.31", features = ["bundled"] }
 blake3 = "1"
 walkdir = "2"
+
+[dev-dependencies]
+tempfile = "3"

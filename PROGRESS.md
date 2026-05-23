@@ -40,21 +40,31 @@ These are settled. Don't relitigate without strong evidence.
   startup all rows hydrate into the in-memory `Vec`.
 - **Change detection:** mtime as fast filter, `content_hash` (Blake3) as truth.
   A note is re-embedded only when both indicate a real change.
-- **Chunking:** Logseq bullet-tree aware.
-  - Top-level bullets are the boundary unit.
-  - Stub-only units (lines that are just `-`/`*`/whitespace) are dropped at
-    chunk-creation time. Logseq's editor emits these constantly and they
-    poison retrieval if kept.
-  - Adjacent top-level bullets are greedy-packed into a single chunk up to
-    `CAP_TOKENS = 600`. This amortizes the `# {page_title}\n\n` prefix over
-    longer text and produces less noisy embeddings.
-  - Oversized single units split at descendant-bullet boundaries.
-  - YAML frontmatter, Logseq `key:: value` properties, and
-    `#+BEGIN_QUERY ... #+END_QUERY` blocks are stripped before chunking.
+- **Chunking:** notebook-flavour aware (`--obsidian_md` flag picks the path).
+  - **Logseq path:** top-level bullets are the boundary unit. Stub-only units
+    (lines that are just `-`/`*`/whitespace) are dropped at chunk-creation
+    time — Logseq's editor emits these constantly and they poison retrieval
+    if kept. Adjacent top-level bullets are greedy-packed into a single chunk
+    up to `CAP_TOKENS = 600`. Oversized single units split at descendant-
+    bullet boundaries. Logseq `key:: value` properties,
+    `#+BEGIN_QUERY ... #+END_QUERY` blocks, and SCHEDULED/DEADLINE/CLOSED
+    task-state continuation lines are stripped.
+  - **Obsidian path:** sections delimited by `#`-prefixed ATX headings are
+    the boundary unit (anything before the first heading is the leading
+    unit; notes with no headings are a single unit). Greedy-packed to
+    `CAP_TOKENS = 600`; oversized sections split at blank-line paragraph
+    boundaries, re-emitting the section heading at the top of each
+    sub-chunk. `#tag` (no space) is correctly distinguished from `# Heading`.
+  - YAML frontmatter is stripped on both paths.
+  - Both paths emit chunks of the form `# {page_title}\n\n{body}` so the
+    page title participates in retrieval.
   - Token-counting heuristic: `chars / 4`.
-- **Walker scope:** only `pages/` and `journals/` subdirectories. The
-  `logseq/` and `assets/` trees are skipped by construction (we don't enter
-  them).
+- **Walker scope:**
+  - **Logseq:** only `pages/` and `journals/` subdirectories. The `logseq/`
+    and `assets/` trees are skipped by construction (we don't enter them).
+  - **Obsidian:** recursive walk over the entire vault, skipping any
+    dot-prefixed directory (`.obsidian/`, `.git/`, `.stversions/`, …) and
+    `trash/`. Non-`.md` files are filtered downstream.
 - **`min_score` default:** `0.35`, calibrated for packed multi-bullet chunks.
   Adjustable via `--min-score`. Was 0.55 when chunks were short and dominated
   by the title prefix; lowered after M1 packing reduced typical similarities.

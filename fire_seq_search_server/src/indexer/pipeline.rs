@@ -11,12 +11,14 @@ use crate::indexer::chunker::{chunk_note, is_summarizable, preprocess};
 use crate::indexer::store::{Store, CHUNKER_VERSION};
 use crate::indexer::{IndexerError, IndexerHandle};
 use crate::llm_backend::LlmBackend;
+use crate::query_engine::NotebookSoftware;
 
 pub struct Indexer {
     store: Arc<Store>,
     backend: Arc<LlmBackend>,
     notebook_path: PathBuf,
     handle: IndexerHandle,
+    software: NotebookSoftware,
     /// If `Some`, mirror the notebook into this directory with each note's
     /// post-preprocess markdown and its final chunks, so noise vs information
     /// loss in the stripper can be spot-checked. Set via the
@@ -30,13 +32,14 @@ impl Indexer {
         backend: Arc<LlmBackend>,
         notebook_path: PathBuf,
         handle: IndexerHandle,
+        software: NotebookSoftware,
     ) -> Self {
         let dump_processed_dir = std::env::var_os("FIRE_SEQ_DUMP_PROCESSED_DIR")
             .map(PathBuf::from);
         if let Some(ref d) = dump_processed_dir {
             info!("FIRE_SEQ_DUMP_PROCESSED_DIR={} — will dump stripped notes + chunks per indexed file", d.display());
         }
-        Self { store, backend, notebook_path, handle, dump_processed_dir }
+        Self { store, backend, notebook_path, handle, software, dump_processed_dir }
     }
 
     pub async fn hydrate(&self) -> Result<(), IndexerError> {
@@ -133,7 +136,7 @@ impl Indexer {
         // hash but no chunks — the next scan's hash-match fast-path then skips
         // re-embedding forever.
         let page_title = path_to_page_title(rel_path);
-        let chunks = chunk_note(&page_title, &raw);
+        let chunks = chunk_note(&self.software, &page_title, &raw);
 
         if let Some(ref dump_dir) = self.dump_processed_dir {
             if let Err(e) = dump_processed_note(dump_dir, rel_path, &raw, &chunks) {
@@ -186,7 +189,7 @@ impl Indexer {
         // If the page has chunks but no real narrative content (e.g. a single
         // `[[wikilink]]`), short-circuit the summarizer: mark it OK with no
         // summary now instead of queueing an LLM call the gate will reject.
-        if !is_summarizable(&raw) {
+        if !is_summarizable(&self.software, &raw) {
             self.store.mark_summary_unsummarizable(note_id)?;
         }
         let old_ids = self.store.get_chunk_ids_for_note(note_id)?;
@@ -232,47 +235,7 @@ impl Indexer {
     }
 
     fn walk_notebook(&self) -> Result<Vec<(String, i64, PathBuf)>, IndexerError> {
-        let notebook = &self.notebook_path;
-        let mut entries = Vec::new();
-
-        for sub in ["pages", "journals"] {
-            let root = notebook.join(sub);
-            if !root.exists() {
-                continue;
-            }
-
-            for entry in WalkDir::new(&root).follow_links(false) {
-                let entry = entry?;
-
-                if !entry.file_type().is_file() {
-                    continue;
-                }
-
-                let path = entry.path();
-
-                if path.extension().and_then(|e| e.to_str()) != Some("md") {
-                    continue;
-                }
-
-                let mtime = entry
-                    .metadata()?
-                    .modified()
-                    .unwrap_or(UNIX_EPOCH)
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs() as i64;
-
-                let rel_path = path
-                    .strip_prefix(notebook)
-                    .unwrap_or(path)
-                    .to_string_lossy()
-                    .into_owned();
-
-                entries.push((rel_path, mtime, path.to_owned()));
-            }
-        }
-
-        Ok(entries)
+        walk_notebook_at(&self.notebook_path, &self.software)
     }
 
     pub async fn run(self) {
@@ -330,6 +293,91 @@ fn dump_processed_note(
     std::fs::write(&out_path, body)
 }
 
+pub(crate) fn walk_notebook_at(
+    notebook: &Path,
+    software: &NotebookSoftware,
+) -> Result<Vec<(String, i64, PathBuf)>, IndexerError> {
+    match software {
+        NotebookSoftware::Logseq => walk_logseq(notebook),
+        NotebookSoftware::Obsidian => walk_obsidian(notebook),
+    }
+}
+
+/// Logseq's `pages/` and `journals/` subdirectories. `logseq/` and
+/// `assets/` are skipped by construction (never entered).
+fn walk_logseq(notebook: &Path) -> Result<Vec<(String, i64, PathBuf)>, IndexerError> {
+    let mut entries = Vec::new();
+    for sub in ["pages", "journals"] {
+        let root = notebook.join(sub);
+        if !root.exists() {
+            continue;
+        }
+        for entry in WalkDir::new(&root).follow_links(false) {
+            let entry = entry?;
+            if let Some(e) = collect_md_entry(notebook, &entry) {
+                entries.push(e);
+            }
+        }
+    }
+    Ok(entries)
+}
+
+/// Obsidian vaults are arbitrarily nested under the vault root. Walk
+/// recursively, skipping `.obsidian/` (config + plugins), `.trash/`, and
+/// any dot-prefixed directory (covers `.git/`, `.stversions/`, etc.).
+/// Non-`.md` files (PDFs, images, attachments) are filtered downstream by
+/// `collect_md_entry`.
+fn walk_obsidian(notebook: &Path) -> Result<Vec<(String, i64, PathBuf)>, IndexerError> {
+    let mut entries = Vec::new();
+    let walker = WalkDir::new(notebook)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| {
+            if e.depth() == 0 {
+                return true;
+            }
+            if !e.file_type().is_dir() {
+                return true;
+            }
+            let name = e.file_name().to_string_lossy();
+            !name.starts_with('.') && name != "trash"
+        });
+    for entry in walker {
+        let entry = entry?;
+        if let Some(e) = collect_md_entry(notebook, &entry) {
+            entries.push(e);
+        }
+    }
+    Ok(entries)
+}
+
+fn collect_md_entry(
+    notebook: &Path,
+    entry: &walkdir::DirEntry,
+) -> Option<(String, i64, PathBuf)> {
+    if !entry.file_type().is_file() {
+        return None;
+    }
+    let path = entry.path();
+    if path.extension().and_then(|e| e.to_str()) != Some("md") {
+        return None;
+    }
+    let mtime = entry
+        .metadata()
+        .ok()?
+        .modified()
+        .unwrap_or(UNIX_EPOCH)
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    let rel_path = path
+        .strip_prefix(notebook)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .into_owned();
+    Some((rel_path, mtime, path.to_owned()))
+}
+
 fn path_to_page_title(rel_path: &str) -> String {
     let stem = Path::new(rel_path)
         .file_stem()
@@ -338,4 +386,63 @@ fn path_to_page_title(rel_path: &str) -> String {
     urlencoding::decode(stem)
         .map(|s| s.into_owned())
         .unwrap_or_else(|_| stem.to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn touch(p: &Path, body: &str) {
+        if let Some(parent) = p.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        fs::write(p, body).unwrap();
+    }
+
+    #[test]
+    fn obsidian_walker_recurses_and_skips_dotdirs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        touch(&root.join("Top.md"), "top");
+        touch(&root.join("sub/Nested.md"), "nested");
+        touch(&root.join("sub/deeper/Deep.md"), "deep");
+        // Skipped: dot-dirs and the Obsidian config tree.
+        touch(&root.join(".obsidian/config.json"), "{}");
+        touch(&root.join(".obsidian/plugins/foo/main.md"), "should not be indexed");
+        touch(&root.join(".git/HEAD"), "ref");
+        touch(&root.join(".trash/Old.md"), "should not be indexed");
+        // Non-md files are ignored at the file filter.
+        touch(&root.join("attachments/img.png"), "binary");
+
+        let mut got: Vec<String> =
+            walk_notebook_at(root, &NotebookSoftware::Obsidian)
+                .unwrap()
+                .into_iter()
+                .map(|(p, _, _)| p.replace('\\', "/"))
+                .collect();
+        got.sort();
+        assert_eq!(got, vec!["Top.md", "sub/Nested.md", "sub/deeper/Deep.md"]);
+    }
+
+    #[test]
+    fn logseq_walker_only_enters_pages_and_journals() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        touch(&root.join("pages/Foo.md"), "");
+        touch(&root.join("journals/2024_01_01.md"), "");
+        touch(&root.join("assets/x.pdf"), "");
+        touch(&root.join("logseq/config.edn"), "");
+        // A stray top-level .md (not in pages/) must be ignored under Logseq.
+        touch(&root.join("README.md"), "");
+
+        let mut got: Vec<String> =
+            walk_notebook_at(root, &NotebookSoftware::Logseq)
+                .unwrap()
+                .into_iter()
+                .map(|(p, _, _)| p.replace('\\', "/"))
+                .collect();
+        got.sort();
+        assert_eq!(got, vec!["journals/2024_01_01.md", "pages/Foo.md"]);
+    }
 }
