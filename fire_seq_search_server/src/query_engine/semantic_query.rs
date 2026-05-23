@@ -384,6 +384,32 @@ fn truncate_chars(s: &str, max_chars: usize) -> String {
 /// Pick the first non-empty line from `text` that isn't the `# {title}` prefix
 /// the chunker prepends. Falls back to the first non-empty line, then "".
 /// Used as a last-resort when snippet selection has no candidates.
+/// True if `unit` is either a single ATX heading line, or a heading line
+/// followed only by blank lines. Used to discard heading-only sections from
+/// snippet candidates in the Obsidian path.
+fn heading_only(unit: &str) -> bool {
+    let mut saw_heading = false;
+    for line in unit.lines() {
+        let t = line.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if !saw_heading {
+            let after_hashes = t.trim_start_matches('#');
+            let is_heading = after_hashes.len() < t.len()
+                && matches!(after_hashes.chars().next(), Some(' ') | Some('\t'));
+            if !is_heading {
+                return false;
+            }
+            saw_heading = true;
+        } else {
+            // Any non-blank line after the heading means there's a body.
+            return false;
+        }
+    }
+    saw_heading
+}
+
 fn first_content_line(text: &str, page_title: &str) -> String {
     let title_line = format!("# {}", page_title);
     for line in text.lines() {
@@ -452,6 +478,15 @@ async fn select_snippets(
                 for unit in units {
                     let display = unit.trim_end().to_string();
                     if display.trim().is_empty() {
+                        continue;
+                    }
+                    // Skip units whose post-heading body is empty — otherwise
+                    // top_snippet shows a bare `## Some Heading` line because
+                    // the next paragraph was an image embed (now stripped in
+                    // preprocess) or fell into the next unit. The display
+                    // would carry no information beyond the heading itself,
+                    // which the page title already conveys.
+                    if heading_only(&display) {
                         continue;
                     }
                     let embed_text = format!("# {}\n\n{}", note.page_title, display);
@@ -538,5 +573,21 @@ mod tests {
         assert!(should_run_lexical("日本"));
         assert!(should_run_lexical("japan"));
         assert!(should_run_lexical("ab"));
+    }
+
+    #[test]
+    fn heading_only_detects_heading_with_no_body() {
+        assert!(heading_only("## Calculations from Transit Observations"));
+        assert!(heading_only("## Calculations\n\n"));
+        assert!(heading_only("   ### Heading with leading ws  "));
+        // Heading + body line → not heading-only.
+        assert!(!heading_only("## H\nbody text"));
+        assert!(!heading_only("## H\n\nbody text"));
+        // Not a heading at all.
+        assert!(!heading_only("body text"));
+        assert!(!heading_only("#tag is not a heading"));
+        // Empty.
+        assert!(!heading_only(""));
+        assert!(!heading_only("   \n\n"));
     }
 }

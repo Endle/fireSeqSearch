@@ -7,7 +7,7 @@ use rusqlite::{params, Connection};
 
 use crate::indexer::IndexerError;
 
-pub const CHUNKER_VERSION: i64 = 4;
+pub const CHUNKER_VERSION: i64 = 5;
 
 // Summary lifecycle states stored in `notes.summary_status`.
 pub const SUMMARY_NONE: i64 = 0;

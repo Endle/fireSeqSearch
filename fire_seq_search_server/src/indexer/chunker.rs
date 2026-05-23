@@ -79,6 +79,24 @@ fn flush_buffer(
 /// boundaries.
 fn chunk_note_obsidian(page_title: &str, raw: &str) -> Vec<Chunk> {
     let preprocessed = preprocess(raw);
+    let trimmed = preprocessed.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+
+    // Obsidian's convention is one note = one concept; users curate notes at
+    // a granularity where the whole body is the unit of retrieval. Embedding
+    // a small note as a single chunk gives bge-m3 the full topical context
+    // and avoids splitting a 3-paragraph note into 3 chunks that then
+    // compete with each other for the same query. Only fall back to the
+    // heading-based splitter when the note actually exceeds the cap.
+    if approx_tokens(trimmed) <= CAP_TOKENS {
+        return vec![Chunk {
+            ord: 0,
+            text: format!("# {}\n\n{}", page_title, trimmed),
+        }];
+    }
+
     let units = split_into_obsidian_units(&preprocessed);
     let units: Vec<String> = units
         .into_iter()
@@ -407,11 +425,21 @@ pub fn preprocess(raw: &str) -> String {
             r"(?m)^(?P<task>\s*[-*]\s+(?:DONE|TODO|DOING|NOW|LATER|CANCELED|WAITING)\b[^\n]*)\n(?:\s*(?:SCHEDULED|DEADLINE|CLOSED):\s*<[^>]+>\s*\n?)+",
         )
         .unwrap();
+        // Image embeds in both syntaxes contribute nothing to retrieval and
+        // crowd snippets — an Obsidian page that starts with
+        // `![[diagram.svg|align:center|550]]` would otherwise return the embed
+        // markup as its top_snippet. We strip the whole embed (alt text
+        // included for the standard MD form), not just the URL, because the
+        // alt is usually a filename like "Pasted image 20240101.png" — noise.
+        static ref IMG_WIKI: Regex = Regex::new(r"!\[\[[^\]]*\]\]").unwrap();
+        static ref IMG_MD: Regex = Regex::new(r"!\[[^\]]*\]\([^)]*\)").unwrap();
     }
     let s = FRONTMATTER.replace(raw, "");
     let s = ADV_QUERY.replace_all(&s, "");
     let s = PROP_LINE.replace_all(&s, "");
     let s = TASK_TIMESTAMP.replace_all(&s, "$task\n");
+    let s = IMG_WIKI.replace_all(&s, "");
+    let s = IMG_MD.replace_all(&s, "");
     unwrap_template_bullets(&s)
 }
 
@@ -861,5 +889,53 @@ mod tests {
         assert!(is_summarizable(OBSIDIAN, "A short note about coffee."));
         assert!(!is_summarizable(OBSIDIAN, ""));
         assert!(!is_summarizable(OBSIDIAN, "tiny"));
+    }
+
+    #[test]
+    fn obsidian_small_note_is_a_single_chunk() {
+        // The Oort Cloud / Kuiper Belt / Asteroid Belt style: a few short
+        // sections (image + a couple of paragraphs) that all fit under
+        // CAP_TOKENS. Obsidian users curate notes at concept-granularity;
+        // splitting these into per-heading chunks fragments retrieval.
+        let md = "Intro.\n\n# Section A\nBody A.\n\n# Section B\nBody B.\n";
+        let chunks = chunk_note(OBSIDIAN, "Page", md);
+        assert_eq!(chunks.len(), 1, "small Obsidian notes must be one chunk");
+        // Must carry the whole body.
+        assert!(chunks[0].text.contains("Intro"));
+        assert!(chunks[0].text.contains("Body A"));
+        assert!(chunks[0].text.contains("Body B"));
+    }
+
+    #[test]
+    fn obsidian_oversized_note_still_splits() {
+        // Above CAP, the heading-based splitter takes over.
+        let para = format!("{}\n\n", "word ".repeat(600));
+        let md = format!("# A\n{}# B\n{}", para, para);
+        let chunks = chunk_note(OBSIDIAN, "Page", &md);
+        assert!(chunks.len() >= 2, "oversized notes must split, got {}", chunks.len());
+    }
+
+    #[test]
+    fn obsidian_image_embeds_stripped() {
+        // Both wikilink and markdown image syntaxes. After stripping the
+        // image, the chunk body should contain only the prose.
+        let md = "![[solarSystem_sizes.svg|align:center|550]]\n\nThe Oort Cloud is far.\n\n![alt](other.png)\nMore prose.\n";
+        let chunks = chunk_note(OBSIDIAN, "OortCloud", md);
+        assert_eq!(chunks.len(), 1);
+        let t = &chunks[0].text;
+        assert!(!t.contains("solarSystem_sizes"), "wikilink image leaked: {t:?}");
+        assert!(!t.contains("![alt]"), "MD image leaked: {t:?}");
+        assert!(!t.contains("other.png"), "MD image URL leaked: {t:?}");
+        assert!(t.contains("The Oort Cloud is far"));
+        assert!(t.contains("More prose"));
+    }
+
+    #[test]
+    fn obsidian_image_only_note_is_empty() {
+        // A note that's nothing but an image embed has no narrative content
+        // post-strip; it should produce no chunks (and no summary call).
+        let md = "![[diagram.svg]]\n";
+        assert_eq!(chunk_note(OBSIDIAN, "Page", md).len(), 0);
+        assert!(!is_summarizable(OBSIDIAN, md));
     }
 }
