@@ -79,18 +79,6 @@ The server hosts endpoints on `http://127.0.0.1:3030`. The extension talks to
 it from your browser.
 
 
-API surface
------------
-
-- `GET /query/:term` — semantic search. Returns ranked `PageHit`s with title,
-  app URI, score, snippet, and summary.
-- `POST /ask` — SSE-streamed RAG Q&A. Body `{question, k?}`. Streams `meta`
-  (sources) → `delta*` → `done` (with cited/invalid markers).
-- `POST /reindex` — manual rescan.
-- `GET /server_info` — version + capabilities. The extension uses this to
-  refuse incompatible backends and to gate UI features.
-
-
 License
 -------
 
