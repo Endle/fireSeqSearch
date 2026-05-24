@@ -20,14 +20,9 @@ More examples at [`docs/examples.md`](docs/examples.md).
 What you get
 ------------
 
-- **Semantic search appended to search results.** Hits are ranked by dense
-  embedding similarity (`bge-m3`), not keyword overlap.
-- **One-line LLM summary per page.** Generated in the background, shown next
-  to each hit so you can tell at a glance whether a result is what you want.
-- **`/ask` Q&A in the browser popup.** Type a question; the server retrieves
-  relevant chunks from your notebook, streams back a cited answer, and the
-  addon validates citations against the retrieved set so the model can't
-  invent sources.
+- **Semantic search** — finds your notes by meaning, not keyword overlap.
+- **One-line LLM summary per page**, so you can scan results at a glance.
+- **`/ask` Q&A** — ask a question, get a cited answer drawn from your notes.
 
 
 Installation
