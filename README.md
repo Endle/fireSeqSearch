@@ -4,20 +4,25 @@ fireSeqSearch
 Local semantic search and RAG over your **Logseq** or **Obsidian** notes,
 surfaced in your search engine.
 
-When you Google something, fireSeqSearch also searches your personal notebook
+When you google something, fireSeqSearch also searches your personal notebook
 and appends the hits — and, optionally, asks an LLM to answer your question
 using your notes as the source. Everything runs locally; no notes leave your
 machine.
 
-More examples at <https://github.com/Endle/fireSeqSearch/blob/master/docs/examples.md>
+> Works the same on Bing, DuckDuckGo, Searx, and Metager — "google" is just
+> shorthand.
+
+> Want the pre-LLM version? Use backend release `0.9` with the latest addon.
+> Details in [`docs/README-pre-llm.md`](docs/README-pre-llm.md).
+
+More examples at [`docs/examples.md`](docs/examples.md).
 
 
 What you get
 ------------
 
-- **Semantic search appended to Google results.** Hits are ranked by dense
-  embedding similarity (`bge-m3`), not keyword overlap — so `softmax` finds
-  your note titled *Normalising classifier outputs*.
+- **Semantic search appended to search results.** Hits are ranked by dense
+  embedding similarity (`bge-m3`), not keyword overlap.
 - **One-line LLM summary per page.** Generated in the background, shown next
   to each hit so you can tell at a glance whether a result is what you want.
 - **`/ask` Q&A in the browser popup.** Type a question; the server retrieves
@@ -29,13 +34,11 @@ What you get
 Installation
 ------------
 
-You need **both** the local server and the browser extension.
+Install bottom-up: LLM backend → local server → browser extension. The
+extension is useless until the server is running, and the server is useless
+until the LLM backend answers.
 
-### 1. Browser extension
-
-Firefox only: <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>
-
-### 2. Local LLM backend
+### 1. Local LLM backend
 
 The server talks to an OpenAI-compatible HTTP backend for embeddings and
 chat. The embedding model is **`bge-m3`** (Q4_K_M GGUF, 1024-dim, ~700 MB) —
@@ -47,7 +50,7 @@ By default the server spawns its own `llama-server`; see
 [`Containerfile`](Containerfile) for the Vulkan build. To use an existing
 server (Ollama, remote llama), pass `--embed-endpoint` / `--chat-endpoint`.
 
-### 3. Local server
+### 2. Local server
 
 Install Rust: <https://doc.rust-lang.org/cargo/getting-started/installation.html>
 
@@ -70,13 +73,17 @@ Or use [`debug_server.sh`](debug_server.sh) as a template.
 #### Obsidian
 
 ```
-./target/release/fire_seq_search_server --notebook_path /home/you/vault --obsidian_md
+./target/release/fire_seq_search_server --notebook_path /home/you/vault --obsidian-md
 ```
 
 Or use [`debug_obsidian.sh`](debug_obsidian.sh) as a template.
 
 The server hosts endpoints on `http://127.0.0.1:3030`. The extension talks to
 it from your browser.
+
+### 3. Browser extension
+
+Firefox only: <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>
 
 
 License
@@ -115,7 +122,7 @@ How it works
    /query  /ask  ◄───────── chat ──────────┘
         │
         ▼
-  browser extension appends to Google
+  browser extension appends to search results
 ```
 
 - **Index:** ~10K chunks fit in a flat in-memory `Vec<[f32; 1024]>`,
