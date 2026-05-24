@@ -26,49 +26,6 @@ What you get
   invent sources.
 
 
-Don't want an LLM dependency?
------------------------------
-
-This branch needs a local LLM backend (embedding + chat model, ~3GB of GGUFs,
-GPU recommended). If you'd rather have a single tantivy/BM25 binary with no
-LLM — use release `0.9`. Install instructions live in
-[`docs/README-pre-llm.md`](docs/README-pre-llm.md).
-
-
-How it works
-------------
-
-```
-  notes on disk                    local LLM backend
-  (Logseq / Obsidian)              (llama-server / Ollama)
-        │                                  │
-        ▼                                  │
-  chunker  ────────► embeddings ◄──────────┤
-        │                                  │
-        ▼                                  │
-  SQLite store ──► in-memory cosine        │
-        │                                  │
-        ▼                                  │
-   /query  /ask  ◄───────── chat ──────────┘
-        │
-        ▼
-  browser extension appends to Google
-```
-
-- **Index:** ~10K chunks fit in a flat in-memory `Vec<[f32; 1024]>`,
-  brute-force cosine. No vector DB, no ANN.
-- **Storage:** SQLite holds notes and chunks; the index is rebuilt in memory
-  from SQLite on startup.
-- **Refresh:** mtime + Blake3 content hash detect changes. 10-minute
-  background rescan; manual `POST /reindex` trigger.
-- **LLM serving:** OpenAI-compatible HTTP (embed + chat). By default the
-  server spawns its own `llama-server`; you can also point at a pre-running
-  server (Ollama, remote llama) via `--embed-endpoint` / `--chat-endpoint`.
-
-See [`CLAUDE.md`](CLAUDE.md) for the locked technical decisions and
-rationale.
-
-
 Installation
 ------------
 
@@ -76,30 +33,19 @@ You need **both** the local server and the browser extension.
 
 ### 1. Browser extension
 
-- Firefox: <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>
-- Other browsers, via userscript:
-  - [Tampermonkey](https://www.tampermonkey.net/) → [monkeyscript.user.js](https://github.com/Endle/fireSeqSearch/raw/master/fireSeqSearch_addon/monkeyscript.user.js)
-  - [Violentmonkey](https://violentmonkey.github.io/) → [violentmonkeyscript.user.js](https://github.com/Endle/fireSeqSearch/blob/master/fireSeqSearch_addon/violentmonkeyscript.user.js)
+Firefox only: <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>
 
 ### 2. Local LLM backend
 
-You need an OpenAI-compatible server hosting an **embedding model** and a
-**chat model**.
+The server talks to an OpenAI-compatible HTTP backend for embeddings and
+chat. The embedding model is **`bge-m3`** (Q4_K_M GGUF, 1024-dim, ~700 MB) —
+chosen and pinned for retrieval quality. Any reasonable instruct-tuned chat
+model works.
 
-- Recommended embedding model: `bge-m3` (Q4_K_M GGUF, ~700 MB).
-- Chat model: any reasonable instruct-tuned model that fits your GPU/RAM.
-
-If you don't already run one, the included scripts build and launch
-`llama-server` for you:
-
-- GPU build (Vulkan, Fedora-based container):
-  `bash build_llama_server.sh` — see [`Containerfile`](Containerfile).
-- For non-Vulkan setups, point `--embed-endpoint` / `--chat-endpoint` at an
-  Ollama or remote llama-server instance.
-
-GPU note: Vulkan is recommended (works on stock Mesa 25.3+). ROCm on consumer
-AMD cards (e.g. gfx1102) is rough; we use Vulkan in production. CPU-only
-works but is slow.
+By default the server spawns its own `llama-server`; see
+[`build_llama_server.sh`](build_llama_server.sh) and
+[`Containerfile`](Containerfile) for the Vulkan build. To use an existing
+server (Ollama, remote llama), pass `--embed-endpoint` / `--chat-endpoint`.
 
 ### 3. Local server
 
@@ -162,6 +108,40 @@ Similar projects
 - [karlicoss/promnesia](https://github.com/karlicoss/promnesia) — broader
   scope; fireSeqSearch only appends notebook hits to search results.
 - [Logseq Copilot](https://chrome.google.com/webstore/detail/logseq-copilot/hihgfcgbmnbomabfdbajlbpnacndeihl)
+
+
+How it works
+------------
+
+```
+  notes on disk                    local LLM backend
+  (Logseq / Obsidian)              (llama-server / Ollama)
+        │                                  │
+        ▼                                  │
+  chunker  ────────► embeddings ◄──────────┤
+        │                                  │
+        ▼                                  │
+  SQLite store ──► in-memory cosine        │
+        │                                  │
+        ▼                                  │
+   /query  /ask  ◄───────── chat ──────────┘
+        │
+        ▼
+  browser extension appends to Google
+```
+
+- **Index:** ~10K chunks fit in a flat in-memory `Vec<[f32; 1024]>`,
+  brute-force cosine. No vector DB, no ANN.
+- **Storage:** SQLite holds notes and chunks; the index is rebuilt in memory
+  from SQLite on startup.
+- **Refresh:** mtime + Blake3 content hash detect changes. 10-minute
+  background rescan; manual `POST /reindex` trigger.
+- **LLM serving:** OpenAI-compatible HTTP (embed + chat). By default the
+  server spawns its own `llama-server`; you can also point at a pre-running
+  server (Ollama, remote llama) via `--embed-endpoint` / `--chat-endpoint`.
+
+See [`CLAUDE.md`](CLAUDE.md) for the locked technical decisions and
+rationale.
 
 
 Star history
