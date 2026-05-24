@@ -4,10 +4,9 @@ fireSeqSearch
 Local semantic search and RAG over your **Logseq** or **Obsidian** notes,
 surfaced in your search engine.
 
-When you google something, fireSeqSearch also searches your personal notebook
-and appends the hits — and, optionally, asks an LLM to answer your question
-using your notes as the source. Everything runs locally; no notes leave your
-machine.
+When you google, fireSeqSearch appends hits from your personal notebook to
+the search results, and optionally asks an LLM to answer your question
+grounded in those notes. All local.
 
 > Works the same on Bing, DuckDuckGo, Searx, and Metager — "google" is just
 > shorthand.
