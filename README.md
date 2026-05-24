@@ -39,6 +39,14 @@ chat. The embedding model is **`bge-m3`** (Q4_K_M GGUF, 1024-dim, ~700 MB) —
 chosen and pinned for retrieval quality. Any reasonable instruct-tuned chat
 model works.
 
+Download both GGUFs and drop them in `~/llm/` — that's where the server
+looks by default:
+
+- `~/llm/bge-m3-Q4_K_M.gguf` (embedding)
+- `~/llm/Qwen3.5-9B-UD-Q4_K_XL.gguf` (chat)
+
+Override with `--embed-model` / `--chat-model` if you keep them elsewhere.
+
 By default the server spawns its own `llama-server`; see
 [`build_llama_server.sh`](build_llama_server.sh) and
 [`Containerfile`](Containerfile) for the Vulkan build. To use an existing
