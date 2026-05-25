@@ -1,81 +1,148 @@
-fireSeqSearch: Append Logseq/Obsidian notes while Googling
+fireSeqSearch
+=============
 
-Introduction
---------
-[fireSeqSearch](https://github.com/Endle/fireSeqSearch) is inspired by [Evernote](https://evernote.com)'s browser extension - if we search a term, for example, `softmax` in Google, [fireSeqSearch](https://github.com/Endle/fireSeqSearch) will also search in our personal notebook, and append the hits into Google results.
+Local semantic search and RAG over your **Logseq** or **Obsidian** notes,
+surfaced in your search engine.
 
-More examples at <https://github.com/Endle/fireSeqSearch/blob/master/docs/examples.md>
+When you google, fireSeqSearch appends hits from your personal notebook to
+the search results, and optionally asks an LLM to answer your question
+grounded in those notes. All local.
 
+> Works the same on Bing, DuckDuckGo, Searx, and Metager — "google" is just
+> shorthand.
 
+> Want the pre-LLM version? Use backend release `0.9` with the latest addon.
+> Details in [`docs/README-pre-llm.md`](docs/README-pre-llm.md).
 
-How to use it
-------------------
-You need to install **BOTH** the server-side app and the browser extension. The server reads your logseq notebooks in read-only mode, and hosts endpoints at 127.0.0.1:3030.
-
-### Install Browser Extension  
-1. Install latest web extension <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>   
-2. If you're using other browser, you can install userscirpts instead. [Tampermonkey](https://www.tampermonkey.net/) =>  [monkeyscript.user.js](https://github.com/Endle/fireSeqSearch/raw/master/fireSeqSearch_addon/monkeyscript.user.js).  [Violentmonkey](https://violentmonkey.github.io/)  => [violentmonkeyscript.user.js](https://github.com/Endle/fireSeqSearch/blob/master/fireSeqSearch_addon/violentmonkeyscript.user.js)
-
-
-### Install Local Server
-
-**Obsidian MD** users: Run `fire_seq_search_server --notebook_path <path> --obsidian-md`. [Example obsidian.sh](https://github.com/Endle/fireSeqSearch/blob/master/fire_seq_search_server/obsidian.sh)  
+More examples at [`docs/examples.md`](docs/examples.md).
 
 
-#### Windows
-Steps:  
-1. Download the latest release at <https://github.com/Endle/fireSeqSearch/releases>
-2. If you're using PowerShell, run `.\fire_seq_search_server.exe  --notebook_path C:\Users\li\logseq_notebook`
-3. If you're using Msys2, run `./fire_seq_search_server --notebook_path /c/Users/li/logseq_notebook`
-4. Please remember to change the path to your notebook
+What you get
+------------
 
-#### Linux and macOS
-1. Install rust. See <https://doc.rust-lang.org/cargo/getting-started/installation.html>
-2. `git clone https://github.com/Endle/fireSeqSearch`
-3. `cd fire_seq_search_server && cargo build`
-4. `target/debug/fire_seq_search_server --notebook_path /home/li/my_notebook`
-5. Min rust version: See https://github.com/Endle/fireSeqSearch/blob/master/.github/workflows/rust.yml#L21
+- **Semantic search** — finds your notes by meaning, not keyword overlap.
+- **One-line LLM summary per page**, so you can scan results at a glance.
+- **`/ask` Q&A** — ask a question, get a cited answer drawn from your notes.
 
+
+Installation
+------------
+
+Install bottom-up: LLM backend → local server → browser extension. The
+extension is useless until the server is running, and the server is useless
+until the LLM backend answers.
+
+### 1. Local LLM backend
+
+The server talks to an OpenAI-compatible HTTP backend for embeddings and
+chat. The embedding model is **`bge-m3`** (Q4_K_M GGUF, 1024-dim, ~700 MB) —
+chosen and pinned for retrieval quality. Any reasonable instruct-tuned chat
+model works.
+
+Download both GGUFs and drop them in `~/llm/` — that's where the server
+looks by default:
+
+- `~/llm/bge-m3-Q4_K_M.gguf` (embedding)
+- `~/llm/Qwen3.5-9B-UD-Q4_K_XL.gguf` (chat)
+
+Override with `--embed-model` / `--chat-model` if you keep them elsewhere.
+
+By default the server spawns its own `llama-server`; see
+[`build_llama_server.sh`](build_llama_server.sh) and
+[`Containerfile`](Containerfile) for the Vulkan build. To use an existing
+server (Ollama, remote llama), pass `--embed-endpoint` / `--chat-endpoint`.
+
+### 2. Local server
+
+Install Rust: <https://doc.rust-lang.org/cargo/getting-started/installation.html>
+
+Min Rust version: see [`.github/workflows/rust.yml`](.github/workflows/rust.yml).
+
+```
+git clone https://github.com/Endle/fireSeqSearch
+cd fireSeqSearch/fire_seq_search_server
+cargo build --release
+```
+
+#### Logseq
+
+```
+./target/release/fire_seq_search_server --notebook_path /home/you/logseq_notebook
+```
+
+Or use [`debug_server.sh`](debug_server.sh) as a template.
+
+#### Obsidian
+
+```
+./target/release/fire_seq_search_server --notebook_path /home/you/vault --obsidian-md
+```
+
+Or use [`debug_obsidian.sh`](debug_obsidian.sh) as a template.
+
+The server hosts endpoints on `http://127.0.0.1:3030`. The extension talks to
+it from your browser.
+
+### 3. Browser extension
+
+Firefox only: <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>
 
 
 License
+-------
+
+MIT (both server and addon). Third-party libraries may have their own
+licenses; see source.
+
+LOGO: <https://www.flaticon.com/free-icon/web-browser_7328762> — Flaticon
+license. UI icons by manshagraphics —
+<a href="https://www.flaticon.com/free-icons/ui" title="ui icons">Flaticon</a>.
+
+
+Similar projects
 ----------------
-This project (both server and addon) is using MIT license. Some third party library may have other licenses (see source code)
 
-
-<a href="https://www.flaticon.com/free-icons/ui" title="ui icons">Ui icons created by manshagraphics - Flaticon</a>
-
-
-LOGO link: <https://www.flaticon.com/free-icon/web-browser_7328762>
-
-
-LOGO license: Flaticon license
+- [karlicoss/promnesia](https://github.com/karlicoss/promnesia) — broader
+  scope; fireSeqSearch only appends notebook hits to search results.
+- [Logseq Copilot](https://chrome.google.com/webstore/detail/logseq-copilot/hihgfcgbmnbomabfdbajlbpnacndeihl)
 
 
 How it works
----------
-This is what [fireSeqSearch](https://github.com/Endle/fireSeqSearch) does on my logseq notebook. I had to split it into two parts because Firefox extensions are not allowed to access local files.
+------------
 
-fireSeqSearch has two parts:
+```
+  notes on disk                    local LLM backend
+  (Logseq / Obsidian)              (llama-server / Ollama)
+        │                                  │
+        ▼                                  │
+  chunker  ────────► embeddings ◄──────────┤
+        │                                  │
+        ▼                                  │
+  SQLite store ──► in-memory cosine        │
+        │                                  │
+        ▼                                  │
+   /query  /ask  ◄───────── chat ──────────┘
+        │
+        ▼
+  browser extension appends to search results
+```
 
-### 1. search server
-It read all local loseq notebooks, and hosts logseq pages on http://127.0.0.1:3030
+- **Index:** ~10K chunks fit in a flat in-memory `Vec<[f32; 1024]>`,
+  brute-force cosine. No vector DB, no ANN.
+- **Storage:** SQLite holds notes and chunks; the index is rebuilt in memory
+  from SQLite on startup.
+- **Refresh:** mtime + Blake3 content hash detect changes. 10-minute
+  background rescan; manual `POST /reindex` trigger.
+- **LLM serving:** OpenAI-compatible HTTP (embed + chat). By default the
+  server spawns its own `llama-server`; you can also point at a pre-running
+  server (Ollama, remote llama) via `--embed-endpoint` / `--chat-endpoint`.
 
-It provides the API `http://127.0.0.1:3030/query/`
+See [`CLAUDE.md`](CLAUDE.md) for the locked technical decisions and
+rationale.
 
 
-### 2. Browser extension
-Every time we use search engine, it will fetch `http://127.0.0.1:3030/query/keywords`and append all hits to the web page.
-
-
-Similar Projects
---------------
-* [karlicoss/promnesia](https://github.com/karlicoss/promnesia)  - [Promnesia](https://github.com/karlicoss/promnesia) is a mature and interesting project, aming a more ambitious goal. [fireSeqSearch](https://github.com/Endle/fireSeqSearch) only does one thing - append logseq hits to search engine results.
-* Logseq Copilot - https://chrome.google.com/webstore/detail/logseq-copilot/hihgfcgbmnbomabfdbajlbpnacndeihl
-
-Star History
---------
-
+Star history
+------------
 
 [![Star History Chart](https://api.star-history.com/svg?repos=Endle/fireSeqSearch&type=Date)](https://star-history.com/#Endle/fireSeqSearch&Date)
 
