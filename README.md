@@ -87,6 +87,11 @@ it from your browser.
 
 Firefox only: <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>
 
+Example
+-------
+[AstroWiki-RAG-2026-05-24.webm](https://github.com/user-attachments/assets/9de7c1f1-d4d2-4ee0-af1c-3a8b81fdd956)
+
+Notebook provider: [AYelland/AstroWiki_2.0](https://github.com/AYelland/AstroWiki_2.0)
 
 License
 -------
