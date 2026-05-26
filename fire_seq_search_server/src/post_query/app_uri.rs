@@ -1,7 +1,7 @@
 use crate::post_query::logseq_uri::{generate_logseq_uri, parse_date_from_str};
 use crate::post_query::obsidian_uri::generate_obsidian_uri;
+use crate::config::ServerInformation;
 use crate::note_intake::NotebookSoftware::{Logseq, Obsidian};
-use crate::query_engine::ServerInformation;
 
 /// Build the `logseq://` / `obsidian://` URI for a note hit.
 ///

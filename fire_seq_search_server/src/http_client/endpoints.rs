@@ -2,12 +2,13 @@ use std::sync::Arc;
 use log::{debug, error, info};
 
 use crate::llm_backend::Message;
-use crate::query_engine::{term_preprocess, QueryEngine, ServerInformation};
-use crate::query_engine::semantic_query::{semantic_query, PageHit};
+use crate::app_state::AppState;
+use crate::config::ServerInformation;
+use crate::semantic_query::{semantic_query, PageHit};
 use axum::http::StatusCode;
 use axum::Json;
 use axum::extract::State;
-use axum::{response::Html, extract::Path};
+use axum::extract::Path;
 
 #[derive(serde::Serialize)]
 pub struct IndexerStatusJson {
@@ -34,7 +35,7 @@ pub struct ServerInfoResponse {
 }
 
 pub async fn get_server_info(
-    State(engine_arc): State<Arc<QueryEngine>>,
+    State(engine_arc): State<Arc<AppState>>,
 ) -> Json<ServerInfoResponse> {
     let indexer = if let Some(ref handle) = engine_arc.indexer {
         let s = handle.status.read().await;
@@ -63,7 +64,7 @@ pub async fn get_server_info(
 }
 
 pub async fn reindex(
-    State(engine_arc): State<Arc<QueryEngine>>,
+    State(engine_arc): State<Arc<AppState>>,
 ) -> StatusCode {
     match &engine_arc.indexer {
         Some(handle) => {
@@ -74,9 +75,18 @@ pub async fn reindex(
     }
 }
 
+/// URL-decode the path-captured term and run the same CJK whitespace
+/// normalization the addon expects. Kept inline here since `/query` is the
+/// only caller.
+fn term_preprocess(term: String) -> String {
+    let term = term.replace("%20", " ");
+    let term_vec = crate::decode_cjk_str(term);
+    term_vec.join(" ")
+}
+
 pub async fn query(
     Path(term): Path<String>,
-    State(engine_arc): State<Arc<QueryEngine>>,
+    State(engine_arc): State<Arc<AppState>>,
 ) -> Result<Json<Vec<PageHit>>, StatusCode> {
     let term = term_preprocess(term);
     info!("Semantic search: {}", &term);
@@ -127,7 +137,7 @@ const PAGE_BUDGET_CHARS: usize = 32_000; // ~8K tokens at chars/4
 const MAX_QUERY_CHARS: usize = 4000;
 
 pub async fn highlight(
-    State(engine_arc): State<Arc<QueryEngine>>,
+    State(engine_arc): State<Arc<AppState>>,
     Json(req): Json<HighlightRequest>,
 ) -> Json<HighlightResponse> {
     if req.query.chars().count() > MAX_QUERY_CHARS {
@@ -234,10 +244,3 @@ fn clip_chars(s: &str, max: usize) -> String {
     }
 }
 
-pub async fn generate_word_cloud(
-    State(engine_arc): State<Arc<QueryEngine>>,
-) -> Html<String> {
-    let div_id = "fireSeqSearchWordcloudRawJson";
-    let json = engine_arc.generate_wordcloud();
-    Html(format!("<div id=\"{}\">{}</div>", div_id, json))
-}

@@ -5,7 +5,7 @@ use regex::RegexBuilder;
 
 use lazy_static::lazy_static;
 use crate::post_query::highlighter::HighlightStatusWithWords::{Highlight, Lowlight};
-use crate::query_engine::ServerInformation;
+use crate::config::ServerInformation;
 
 lazy_static! {
     static ref STOPWORDS_LIST: HashSet<String> =  crate::language_tools::generate_stopwords_list();

@@ -33,9 +33,9 @@ use log::{error, info};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+use crate::app_state::AppState;
 use crate::llm_backend::Message;
-use crate::query_engine::semantic_query::semantic_query;
-use crate::query_engine::QueryEngine;
+use crate::semantic_query::semantic_query;
 
 #[derive(Deserialize)]
 pub struct AskRequest {
@@ -73,7 +73,7 @@ lazy_static! {
 type EventTx = futures::channel::mpsc::Sender<Result<Event, Infallible>>;
 
 pub async fn ask(
-    State(engine): State<Arc<QueryEngine>>,
+    State(engine): State<Arc<AppState>>,
     Json(req): Json<AskRequest>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     let (mut tx, rx) = futures::channel::mpsc::channel::<Result<Event, Infallible>>(64);
@@ -86,7 +86,7 @@ pub async fn ask(
     Sse::new(rx).keep_alive(KeepAlive::default())
 }
 
-async fn run_ask(engine: &QueryEngine, req: &AskRequest, tx: &mut EventTx) -> Result<(), String> {
+async fn run_ask(engine: &AppState, req: &AskRequest, tx: &mut EventTx) -> Result<(), String> {
     let question = req.question.trim().to_string();
     if question.is_empty() {
         return Err("empty question".to_string());

@@ -1,5 +1,5 @@
 use url::Url;
-use crate::query_engine::ServerInformation;
+use crate::config::ServerInformation;
 
 /// Build `obsidian://open?vault=…&file=…` for the given vault-relative path
 /// (`.md` extension stripped). Obsidian resolves `file=` against the entire
