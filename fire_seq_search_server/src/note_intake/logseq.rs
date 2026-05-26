@@ -10,6 +10,24 @@ use regex::Regex;
 /// shared (frontmatter + image-embed) pass.
 pub fn strip(input: &str) -> String {
     lazy_static! {
+        // Logseq render-time macros: `{{embed ((uuid))}}`, `{{embed [[Page]]}}`,
+        // `{{video url}}`, `{{youtube url}}`, `{{query …}}`, `{{renderer …}}`,
+        // `{{tweet url}}`, `{{cards [[Page]]}}`, `{{cloze answer}}`,
+        // `{{namespace [[Parent]]}}`, etc. The on-disk text is a transclusion
+        // marker, not the rendered content — embedding it as chunk text
+        // produces UUID-dominated vectors and "this page contains an embed
+        // with ID …" prompt-echo summaries. None of these forms carry
+        // extractable narrative content, so strip the whole macro.
+        static ref MACRO_CALL: Regex =
+            Regex::new(r"\{\{[a-z][a-z-]*(?:\s+[^}]*)?\}\}").unwrap();
+        // Bare block reference: `((8-4-4-4-12-hex))`. Logseq inserts these
+        // when you alias another block. Same problem as the {{embed}} form
+        // (no extractable text) without the macro wrapper. Strict UUID shape
+        // so prose like `((hello))` or `((a == b))` is not eaten.
+        static ref BLOCK_REF: Regex = Regex::new(
+            r"\(\([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\)\)"
+        )
+        .unwrap();
         // Eat any leading bullet/whitespace in front of `#+BEGIN_QUERY` so the
         // block strip doesn't leave an orphan `\t- ` that merges with the next
         // line. Without this, a Logseq template like
@@ -38,7 +56,13 @@ pub fn strip(input: &str) -> String {
         )
         .unwrap();
     }
-    let s = ADV_QUERY.replace_all(input, "");
+    // Strip macros first so a bullet like `- {{embed ((uuid))}}` collapses to
+    // `- `, which is_stub_unit then drops. Downstream passes (ADV_QUERY,
+    // PROP_LINE, TASK_TIMESTAMP) don't overlap with macros, but the ordering
+    // is cleaner: noise before structural rewriting.
+    let s = MACRO_CALL.replace_all(input, "");
+    let s = BLOCK_REF.replace_all(&s, "");
+    let s = ADV_QUERY.replace_all(&s, "");
     let s = PROP_LINE.replace_all(&s, "");
     let s = TASK_TIMESTAMP.replace_all(&s, "$task\n");
     unwrap_template_bullets(&s)
@@ -257,5 +281,82 @@ mod tests {
         let out = preprocess(LOGSEQ, md);
         assert!(out.contains("- parent kept"));
         assert!(out.contains("    - grand kept"));
+    }
+
+    #[test]
+    fn block_embed_macro_is_stripped() {
+        // The Bin Ma case: a page whose only content is a {{embed ((uuid))}}
+        // block-embed marker. The on-disk UUID is meaningless to the LLM and
+        // dominates any embedding it lands in. After stripping, the page has
+        // no narrative content and should not pass the summarizer gate.
+        let md = "- {{embed ((63509f59-0731-4231-ba77-91096fb044db))}}\n- \n- \n";
+        let out = preprocess(LOGSEQ, md);
+        assert!(!out.contains("embed"), "macro survived: {out:?}");
+        assert!(!out.contains("63509f59"), "uuid survived: {out:?}");
+        assert_eq!(
+            crate::note_intake::narrative_chars(LOGSEQ, md),
+            0,
+            "page should now register as zero-content"
+        );
+    }
+
+    #[test]
+    fn page_embed_macro_is_stripped() {
+        let md = "- {{embed [[Some Other Page]]}}\n";
+        let out = preprocess(LOGSEQ, md);
+        assert!(!out.contains("Some Other Page"), "page embed leaked: {out:?}");
+        assert!(!out.contains("embed"), "macro keyword leaked: {out:?}");
+    }
+
+    #[test]
+    fn other_render_macros_are_stripped() {
+        // The {{...}} family — all render-time substitutions, none carry
+        // extractable text on disk.
+        for md in [
+            "- {{video https://example.com/v.mp4}}\n",
+            "- {{youtube https://youtu.be/abc}}\n",
+            "- {{tweet https://x.com/a/status/123}}\n",
+            "- {{renderer :some-arg foo}}\n",
+            "- {{query (page-tags [[topic]])}}\n",
+            "- {{cards [[Spaced Repetition]]}}\n",
+            "- {{namespace [[Parent]]}}\n",
+        ] {
+            let out = preprocess(LOGSEQ, md);
+            assert!(
+                !out.contains("{{") && !out.contains("}}"),
+                "macro braces leaked from {md:?}: {out:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn bare_block_reference_uuid_is_stripped() {
+        // Logseq inserts ((uuid)) when you alias another block.
+        let md = "- See also ((63509f59-0731-4231-ba77-91096fb044db)) for context\n";
+        let out = preprocess(LOGSEQ, md);
+        assert!(!out.contains("63509f59"), "UUID survived: {out:?}");
+        assert!(out.contains("See also"), "prose around it eaten: {out:?}");
+        assert!(out.contains("for context"), "prose around it eaten: {out:?}");
+    }
+
+    #[test]
+    fn non_uuid_double_parens_are_preserved() {
+        // Prose with double parens that aren't UUIDs must survive — the
+        // strict UUID-shape regex is on purpose.
+        let md = "- math: ((a == b)) and ((hello world))\n";
+        let out = preprocess(LOGSEQ, md);
+        assert!(out.contains("((a == b))"), "math eaten: {out:?}");
+        assert!(out.contains("((hello world))"), "prose eaten: {out:?}");
+    }
+
+    #[test]
+    fn embed_only_page_passes_through_to_zero_chunks() {
+        // End-to-end: a Bin-Ma-shape page goes through chunker as zero chunks
+        // (because narrative_chars is zero → is_stub_unit drops the macro
+        // line after strip).
+        use crate::indexer::chunker::chunk_note;
+        let md = "- {{embed ((63509f59-0731-4231-ba77-91096fb044db))}}\n- \n- \n";
+        let chunks = chunk_note(LOGSEQ, "Bin Ma", md);
+        assert_eq!(chunks.len(), 0, "embed-only page should produce no chunks");
     }
 }
