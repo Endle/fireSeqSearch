@@ -2,13 +2,13 @@ use std::collections::HashMap;
 
 use log::info;
 
+use crate::config::ServerInformation;
 use crate::indexer::chunker::split_into_obsidian_units;
-use crate::note_intake::{is_stub_unit, split_into_top_level_units, NotebookSoftware};
 use crate::indexer::store::{summary_status_str, ChunkDetail, NoteDetail, SUMMARY_OK};
 use crate::indexer::{IndexerHandle, Store, SummarizerHandle};
 use crate::llm_backend::LlmBackend;
+use crate::note_intake::{is_stub_unit, split_into_top_level_units, NotebookSoftware};
 use crate::post_query::app_uri::generate_uri_v2;
-use crate::query_engine::ServerInformation;
 
 /// Hard cap on displayed snippet length. Long enough for a parent bullet plus
 /// several descendants; short enough that result cards don't explode.

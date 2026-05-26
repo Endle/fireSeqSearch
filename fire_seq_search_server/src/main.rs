@@ -10,8 +10,9 @@ use fire_seq_search_server::indexer::{Indexer, IndexerHandle, Store};
 use fire_seq_search_server::llm_backend::{
     EndpointSource, LlmBackend, LlmBackendConfig,
 };
+use fire_seq_search_server::app_state::AppState;
+use fire_seq_search_server::config::ServerInformation;
 use fire_seq_search_server::note_intake::NotebookSoftware::*;
-use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
 
 #[derive(Parser)]
 #[command(author, version)]
@@ -26,16 +27,10 @@ struct Cli {
     notebook_name: Option<String>,
 
     #[arg(long, default_value_t = false)]
-    parse_pdf_links: bool,
-
-    #[arg(long, default_value_t = false)]
     obsidian_md: bool,
 
     #[arg(long, default_value_t = false)]
     enable_journal_query: bool,
-
-    #[arg(long, default_value_t = false)]
-    exclude_zotero_items: bool,
 
     #[arg(long, default_value_t = 10, value_name = "HITS")]
     show_top_hits: usize,
@@ -149,8 +144,8 @@ async fn main() {
     };
 
     let software = server_info.software.clone();
-    let mut engine = QueryEngine::new(server_info, backend.clone(), store.clone(), matches.min_score);
-    info!("Query engine ready");
+    let mut engine = AppState::new(server_info, backend.clone(), store.clone(), matches.min_score);
+    info!("App state ready");
 
     let indexer_handle = IndexerHandle::default();
     let indexer = Indexer::new(
@@ -195,7 +190,6 @@ async fn main() {
         .route("/query/:term", axum::routing::get(endpoints::query))
         .route("/highlight", axum::routing::post(endpoints::highlight))
         .route("/server_info", axum::routing::get(endpoints::get_server_info))
-        .route("/wordcloud", axum::routing::get(endpoints::generate_word_cloud))
         .route("/reindex", axum::routing::post(endpoints::reindex))
         .route("/ask", axum::routing::post(ask::ask))
         .with_state(engine_arc.clone());
@@ -285,8 +279,6 @@ fn build_server_info(args: &Cli) -> ServerInformation {
         enable_journal_query: args.enable_journal_query,
         show_top_hits: args.show_top_hits,
         show_summary_single_line_chars_limit: args.show_summary_single_line_chars_limit,
-        parse_pdf_links: args.parse_pdf_links,
-        exclude_zotero_items: args.exclude_zotero_items,
         software,
         convert_underline_hierarchy: true,
         host,
