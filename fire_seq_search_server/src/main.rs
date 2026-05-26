@@ -10,7 +10,7 @@ use fire_seq_search_server::indexer::{Indexer, IndexerHandle, Store};
 use fire_seq_search_server::llm_backend::{
     EndpointSource, LlmBackend, LlmBackendConfig,
 };
-use fire_seq_search_server::query_engine::NotebookSoftware::*;
+use fire_seq_search_server::note_intake::NotebookSoftware::*;
 use fire_seq_search_server::query_engine::{QueryEngine, ServerInformation};
 
 #[derive(Parser)]

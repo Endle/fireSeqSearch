@@ -7,11 +7,12 @@ use log::{error, info};
 use tokio::time::Duration;
 use walkdir::WalkDir;
 
-use crate::indexer::chunker::{chunk_note, is_summarizable, preprocess};
+use crate::indexer::chunker::chunk_note;
 use crate::indexer::store::{Store, CHUNKER_VERSION};
+use crate::indexer::summarizer::is_summarizable;
 use crate::indexer::{IndexerError, IndexerHandle};
 use crate::llm_backend::LlmBackend;
-use crate::query_engine::NotebookSoftware;
+use crate::note_intake::{preprocess, NotebookSoftware};
 
 pub struct Indexer {
     store: Arc<Store>,
@@ -139,7 +140,7 @@ impl Indexer {
         let chunks = chunk_note(&self.software, &page_title, &raw);
 
         if let Some(ref dump_dir) = self.dump_processed_dir {
-            if let Err(e) = dump_processed_note(dump_dir, rel_path, &raw, &chunks) {
+            if let Err(e) = dump_processed_note(&self.software, dump_dir, rel_path, &raw, &chunks) {
                 error!("dump_processed_note failed for {}: {}", rel_path, e);
             }
         }
@@ -267,6 +268,7 @@ async fn embed_chunks(backend: &LlmBackend, texts: &[String]) -> Result<Vec<Vec<
 /// each final chunk (what the embedder/LLM see). Only invoked when
 /// `FIRE_SEQ_DUMP_PROCESSED_DIR` is set; never affects indexing behaviour.
 fn dump_processed_note(
+    software: &NotebookSoftware,
     dump_dir: &Path,
     rel_path: &str,
     raw: &str,
@@ -276,7 +278,7 @@ fn dump_processed_note(
     if let Some(parent) = out_path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let preprocessed = preprocess(raw);
+    let preprocessed = preprocess(software, raw);
     let mut body = String::with_capacity(raw.len() + preprocessed.len() + 256);
     body.push_str("=== RAW ===\n");
     body.push_str(raw);

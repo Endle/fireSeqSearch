@@ -2,11 +2,7 @@ pub mod semantic_query;
 
 use std::sync::Arc;
 
-#[derive(Debug, Clone, serde::Serialize, PartialEq)]
-pub enum NotebookSoftware {
-    Logseq,
-    Obsidian,
-}
+use crate::note_intake::NotebookSoftware;
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ServerInformation {
