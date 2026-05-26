@@ -1,6 +1,4 @@
-use regex::Regex;
-
-use crate::query_engine::NotebookSoftware;
+use crate::note_intake::{is_stub_unit, preprocess, split_into_top_level_units, NotebookSoftware};
 
 #[derive(Debug, Clone)]
 pub struct Chunk {
@@ -22,7 +20,7 @@ pub fn chunk_note(software: &NotebookSoftware, page_title: &str, raw: &str) -> V
 }
 
 fn chunk_note_logseq(page_title: &str, raw: &str) -> Vec<Chunk> {
-    let preprocessed = preprocess(raw);
+    let preprocessed = preprocess(&NotebookSoftware::Logseq, raw);
     let units: Vec<Vec<String>> = split_into_top_level_units(&preprocessed)
         .into_iter()
         .filter(|u| !is_stub_unit(u))
@@ -78,7 +76,7 @@ fn flush_buffer(
 /// `CAP_TOKENS`; oversized units are split at blank-line paragraph
 /// boundaries.
 fn chunk_note_obsidian(page_title: &str, raw: &str) -> Vec<Chunk> {
-    let preprocessed = preprocess(raw);
+    let preprocessed = preprocess(&NotebookSoftware::Obsidian, raw);
     let trimmed = preprocessed.trim();
     if trimmed.is_empty() {
         return Vec::new();
@@ -293,228 +291,11 @@ fn split_obsidian_unit(page_title: &str, unit: &str, ord: &mut usize) -> Vec<Chu
     chunks
 }
 
-/// A unit is "stub" if every line, after stripping bullet markers and whitespace,
-/// is empty. Logseq's editor leaves bare `-` lines as placeholders.
-pub(crate) fn is_stub_unit(unit: &[String]) -> bool {
-    unit.iter().all(|line| {
-        let t = line.trim();
-        t.is_empty() || t == "-" || t == "*"
-    })
-}
-
-/// Minimum narrative-content length (in chars) below which a page is not worth
-/// summarizing. Below this floor the page body is title-echo, a single
-/// `[[wikilink]]`, an abbreviation, or a `Stub now` placeholder — content the
-/// chunk index (which embeds `# {title}\n\n{body}`) already covers, and which
-/// an LLM can only respond to with `Empty.` or by parroting the title. Either
-/// way the resulting summary embedding is noise that competes with real
-/// summaries. Heuristic, calibrated on the dev corpus; tune as needed.
-pub const SUMMARIZABLE_MIN_CHARS: usize = 16;
-
-/// Length of a page's "narrative" content: the non-stub bullet body (Logseq)
-/// or the heading-section prose (Obsidian), after stripping
-/// `[[wikilink]]`/`[text](url)` syntax down to their text, dropping bare URLs
-/// and bullet markers, and collapsing whitespace. Properties, frontmatter and
-/// advanced-query blocks are already gone via `preprocess`.
-pub fn narrative_chars(software: &NotebookSoftware, raw: &str) -> usize {
-    let preprocessed = preprocess(raw);
-    let body = match software {
-        NotebookSoftware::Logseq => split_into_top_level_units(&preprocessed)
-            .into_iter()
-            .filter(|u| !is_stub_unit(u))
-            .flatten()
-            .collect::<Vec<_>>()
-            .join("\n"),
-        NotebookSoftware::Obsidian => preprocessed,
-    };
-    if body.is_empty() {
-        return 0;
-    }
-    strip_markup(&body).chars().count()
-}
-
-/// Deterministic, model-independent gate for whether the summarizer should
-/// invoke the LLM on a page. See `SUMMARIZABLE_MIN_CHARS`.
-pub fn is_summarizable(software: &NotebookSoftware, raw: &str) -> bool {
-    narrative_chars(software, raw) >= SUMMARIZABLE_MIN_CHARS
-}
-
-/// True for summary *text* that carries no topical content: `Empty.`, `""`,
-/// `Summary:`, `空页面`, … — what older builds got from models that ignored the
-/// (now-removed) "return the empty string" instruction for stub pages. Used to
-/// scrub such rows on startup and as a last-ditch guard on fresh summaries.
-/// Intentionally tiny; this is a safety net, not a behavioural contract.
-pub fn is_junk_summary(summary: &str) -> bool {
-    let norm: String = summary
-        .trim_matches(|c: char| {
-            matches!(c, '"' | '\'' | '(' | ')' | '.' | ':' | '*' | '-') || c.is_whitespace()
-        })
-        .to_lowercase();
-    matches!(
-        norm.as_str(),
-        "" | "empty"
-            | "empty string"
-            | "empty page"
-            | "empty summary"
-            | "summary"
-            | "n/a"
-            | "na"
-            | "none"
-            | "no content"
-            | "blank"
-            | "nothing"
-            | "空"
-            | "空页面"
-            | "空字符串"
-            | "无"
-            | "无内容"
-    )
-}
-
-fn strip_markup(s: &str) -> String {
-    lazy_static! {
-        static ref MD_LINK: Regex = Regex::new(r"\[([^\]]+)\]\([^)]*\)").unwrap();
-        static ref WIKILINK: Regex = Regex::new(r"\[\[([^\]]+)\]\]").unwrap();
-        // Drop only the scheme: a URL's host + path ("uwaterloo.ca/student-
-        // success/...") carries the page's topic and should count as content.
-        static ref URL_SCHEME: Regex = Regex::new(r"https?://").unwrap();
-        static ref BULLET: Regex = Regex::new(r"(?m)^\s*[-*]\s*").unwrap();
-        static ref WS: Regex = Regex::new(r"\s+").unwrap();
-    }
-    let s = MD_LINK.replace_all(s, "$1");
-    let s = WIKILINK.replace_all(&s, "$1");
-    let s = URL_SCHEME.replace_all(&s, "");
-    let s = BULLET.replace_all(&s, "");
-    WS.replace_all(s.trim(), " ").into_owned()
-}
-
 const TARGET_TOKENS: usize = 400;
 const CAP_TOKENS: usize = 600;
 
 fn approx_tokens(s: &str) -> usize {
     s.chars().count() / 4
-}
-
-pub fn preprocess(raw: &str) -> String {
-    lazy_static! {
-        static ref FRONTMATTER: Regex = Regex::new(r"(?s)\A---\n.*?\n---\n?").unwrap();
-        // Eat any leading bullet/whitespace in front of `#+BEGIN_QUERY` so the
-        // block strip doesn't leave an orphan `\t- ` that merges with the next
-        // line. Without this, a Logseq template like
-        //     - Journal Template
-        //         - #+BEGIN_QUERY ... #+END_QUERY
-        //         - https://...
-        // produces a corrupted `- \t- https://...` line because the prefix on
-        // the BEGIN_QUERY line survives and the trailing newline gets eaten.
-        static ref ADV_QUERY: Regex =
-            Regex::new(r"(?msi)^[ \t]*(?:[-*]\s*)?#\+BEGIN_QUERY.*?#\+END_QUERY[ \t]*\n?").unwrap();
-        // Match Logseq property lines including when they're attached to a
-        // bullet, e.g. `- query-table:: false` or `\t- id:: abc-123`. The
-        // optional `[-*]\s+` after leading whitespace is the only difference
-        // from the original; without it any property prefixed with `- ` slips
-        // through and leaks into the chunk excerpt.
-        static ref PROP_LINE: Regex =
-            Regex::new(r"(?m)^\s*(?:[-*]\s+)?[A-Za-z][\w-]*::\s*.*$").unwrap();
-        // Logseq emits SCHEDULED/DEADLINE/CLOSED as continuation lines under
-        // a task-state bullet (DONE/TODO/DOING/NOW/LATER/CANCELED/WAITING).
-        // Strip only the timestamp continuation; keep the task line intact so
-        // task state still reaches retrieval. Matching the task line as
-        // context (rather than stripping bare `SCHEDULED:` lines) avoids
-        // accidentally eating user prose that happens to type the same word.
-        static ref TASK_TIMESTAMP: Regex = Regex::new(
-            r"(?m)^(?P<task>\s*[-*]\s+(?:DONE|TODO|DOING|NOW|LATER|CANCELED|WAITING)\b[^\n]*)\n(?:\s*(?:SCHEDULED|DEADLINE|CLOSED):\s*<[^>]+>\s*\n?)+",
-        )
-        .unwrap();
-        // Image embeds in both syntaxes contribute nothing to retrieval and
-        // crowd snippets — an Obsidian page that starts with
-        // `![[diagram.svg|align:center|550]]` would otherwise return the embed
-        // markup as its top_snippet. We strip the whole embed (alt text
-        // included for the standard MD form), not just the URL, because the
-        // alt is usually a filename like "Pasted image 20240101.png" — noise.
-        static ref IMG_WIKI: Regex = Regex::new(r"!\[\[[^\]]*\]\]").unwrap();
-        static ref IMG_MD: Regex = Regex::new(r"!\[[^\]]*\]\([^)]*\)").unwrap();
-    }
-    let s = FRONTMATTER.replace(raw, "");
-    let s = ADV_QUERY.replace_all(&s, "");
-    let s = PROP_LINE.replace_all(&s, "");
-    let s = TASK_TIMESTAMP.replace_all(&s, "$task\n");
-    let s = IMG_WIKI.replace_all(&s, "");
-    let s = IMG_MD.replace_all(&s, "");
-    unwrap_template_bullets(&s)
-}
-
-/// Logseq template parent bullets ("- Journal Template") are boilerplate
-/// headers the template engine inserts; they're not content, but the
-/// content the user wrote *under* them is. Drop the parent line and dedent
-/// its descendants by the first descendant's indent so real notes are
-/// promoted to depth-0 bullets and reach the LLM unprefixed.
-///
-/// Match is exact (case-insensitive, trimmed) on the bullet body — a real
-/// content bullet like `- Journal Template - DONE 厕所纸 20元40个` is left
-/// alone because its body isn't *just* the template name.
-fn unwrap_template_bullets(s: &str) -> String {
-    const TEMPLATE_NAMES: &[&str] = &["journal template"];
-    let lines: Vec<&str> = s.lines().collect();
-    let mut out = String::with_capacity(s.len());
-    let mut i = 0;
-    while i < lines.len() {
-        let line = lines[i];
-        if is_depth0_bullet(line) && is_template_header(line, TEMPLATE_NAMES) {
-            i += 1;
-            let mut indent: Option<usize> = None;
-            while i < lines.len() && !is_depth0_bullet(lines[i]) {
-                let l = lines[i];
-                let leading = l.bytes().take_while(|b| *b == b' ' || *b == b'\t').count();
-                if indent.is_none() && !l.trim().is_empty() {
-                    indent = Some(leading);
-                }
-                let strip = indent.unwrap_or(0).min(leading);
-                out.push_str(&l[strip..]);
-                out.push('\n');
-                i += 1;
-            }
-        } else {
-            out.push_str(line);
-            out.push('\n');
-            i += 1;
-        }
-    }
-    out
-}
-
-fn is_template_header(line: &str, names: &[&str]) -> bool {
-    let body = line.trim_start_matches(|c: char| c == '-' || c == '*' || c.is_whitespace());
-    let normalized = body.trim().to_lowercase();
-    names.iter().any(|n| *n == normalized)
-}
-
-fn is_depth0_bullet(line: &str) -> bool {
-    line.starts_with("- ") || line.starts_with("* ") || line == "-" || line == "*"
-}
-
-pub(crate) fn split_into_top_level_units(text: &str) -> Vec<Vec<String>> {
-    let mut units: Vec<Vec<String>> = Vec::new();
-    let mut current: Option<Vec<String>> = None;
-
-    for line in text.lines() {
-        if is_depth0_bullet(line) {
-            if let Some(u) = current.take() {
-                if !u.is_empty() {
-                    units.push(u);
-                }
-            }
-            current = Some(vec![line.to_owned()]);
-        } else if let Some(ref mut u) = current {
-            u.push(line.to_owned());
-        }
-        // lines before any bullet are discarded
-    }
-    if let Some(u) = current {
-        if !u.is_empty() {
-            units.push(u);
-        }
-    }
-    units
 }
 
 fn size_cap(page_title: &str, unit: &[String], ord: &mut usize) -> Vec<Chunk> {
@@ -636,180 +417,15 @@ mod tests {
     }
 
     #[test]
-    fn summarizable_gate() {
-        // Empty / stub-only / properties-only → not summarizable.
-        assert!(!is_summarizable(LOGSEQ, ""));
-        assert!(!is_summarizable(LOGSEQ, "-\n"));
-        assert!(!is_summarizable(LOGSEQ, "title:: System/161\n-\n"));
-        assert!(!is_summarizable(LOGSEQ, "file:: [x.pdf](../assets/x.pdf)\nfile-path:: ../assets/x.pdf\n-\n"));
-        // Title-echo / single wikilink / placeholder → not summarizable.
-        assert!(!is_summarizable(LOGSEQ, "- Bank of America\n-\n"));        // 15 chars
-        assert!(!is_summarizable(LOGSEQ, "- [[I DONT KNOW]]\n"));           // 11 chars
-        assert!(!is_summarizable(LOGSEQ, "- Stub now\n-\n"));               // 8 chars
-        assert!(!is_summarizable(LOGSEQ, "- Met\n- M\n"));                  // 6 chars
-        assert!(!is_summarizable(LOGSEQ, "- https://x.io\n-\n"));           // bare host, 4 chars
-        // Real, if brief, content → summarizable.
-        assert!(is_summarizable(LOGSEQ, "- A [[NP-complete]] problem\n-\n"));       // "A NP-complete problem"
-        assert!(is_summarizable(LOGSEQ, "- Journal Template - DONE 厕所纸 20元40个\n"));
-        assert!(is_summarizable(LOGSEQ, "- went to mos mos coffee again\n- the latte was better\n"));
-        // A bookmark to a specific resource has a meaningful host+path.
-        assert!(is_summarizable(LOGSEQ, "- https://uwaterloo.ca/student-success/ask-immigration-consultant\n"));
-    }
-
-    #[test]
-    fn junk_summary_detection() {
-        for s in ["Empty.", "empty", "Empty string.", "Empty page.", "Empty summary.",
-                  "Summary:", "\"\"", "(\"\")", "  \"\" ", "空页面", "空字符串", "  None.  ", "n/a", "*Empty*"] {
-            assert!(is_junk_summary(s), "should be junk: {s:?}");
-        }
-        for s in ["Keurig K-Compact coffee maker, bought and refunded.",
-                  "Bank of America stock entry.",
-                  "Independent Set: an NP-complete problem.",
-                  "An empty array in Rust has zero capacity.",   // mentions "empty" but is real
-                  "无人机航拍技巧总结。"] {
-            assert!(!is_junk_summary(s), "should NOT be junk: {s:?}");
-        }
-    }
-
-    #[test]
-    fn narrative_chars_strips_markup() {
-        assert_eq!(narrative_chars(LOGSEQ, "- [[NP-complete]] problem\n"), "NP-complete problem".chars().count());
-        assert_eq!(narrative_chars(LOGSEQ, "- see [docs](https://example.com/x)\n"), "see docs".chars().count());
-        assert_eq!(narrative_chars(LOGSEQ, "- https://example.com/path\n"), "example.com/path".chars().count());
-        assert_eq!(narrative_chars(LOGSEQ, "tags:: foo\n-\n"), 0);
-        assert_eq!(narrative_chars(LOGSEQ, ""), 0);
-    }
-
-    #[test]
-    fn properties_and_frontmatter() {
+    fn properties_and_frontmatter_dont_leak_into_chunks() {
+        // End-to-end sanity check that the chunker pipeline drives preprocess
+        // correctly. Detailed preprocess unit tests live in note_intake/.
         let md = "---\ntitle: Test\n---\ntags:: foo bar\n#+BEGIN_QUERY\n{:title \"q\"}\n#+END_QUERY\n- real bullet\n";
         let chunks = chunk_note(LOGSEQ, "Test", md);
         assert_eq!(chunks.len(), 1);
         assert!(chunks[0].text.contains("real bullet"));
         assert!(!chunks[0].text.contains("tags::"));
         assert!(!chunks[0].text.contains("BEGIN_QUERY"));
-    }
-
-    #[test]
-    fn journal_template_header_is_stripped_and_children_promoted() {
-        let md = "- Journal Template\n    - real daily record\n- other top bullet\n";
-        let out = preprocess(md);
-        assert!(!out.contains("Journal Template"));
-        assert!(out.contains("- real daily record"));
-        assert!(out.contains("- other top bullet"));
-        // The child should be promoted to depth-0 (no leading whitespace).
-        let mut saw_promoted = false;
-        for line in out.lines() {
-            if line == "- real daily record" {
-                saw_promoted = true;
-            }
-        }
-        assert!(saw_promoted, "child should be dedented to depth-0: {out:?}");
-    }
-
-    #[test]
-    fn journal_template_is_case_insensitive() {
-        let out = preprocess("- journal template\n    - kept\n");
-        assert!(!out.to_lowercase().contains("journal template"));
-        assert!(out.contains("- kept"));
-    }
-
-    #[test]
-    fn journal_template_with_inline_content_is_not_touched() {
-        // Content bullet that happens to start with "Journal Template" — leave alone.
-        let md = "- Journal Template - DONE 厕所纸 20元40个\n";
-        let out = preprocess(md);
-        assert!(out.contains("Journal Template - DONE"));
-    }
-
-    #[test]
-    fn journal_template_with_no_children_just_drops() {
-        let md = "- Journal Template\n- real bullet\n";
-        let out = preprocess(md);
-        assert!(!out.contains("Journal Template"));
-        assert!(out.contains("- real bullet"));
-    }
-
-    #[test]
-    fn adv_query_with_bullet_prefix_does_not_leave_orphan() {
-        // The real-world Logseq pattern: a `- Journal Template` parent whose
-        // first child is `\t- #+BEGIN_QUERY ... #+END_QUERY` and second child
-        // is a content URL bullet. Before the ADV_QUERY anchor fix, the
-        // orphan `\t- ` prefix on the BEGIN_QUERY line merged with the next
-        // line producing `- \t- https://...` after the template unwrap.
-        let md = "- Journal Template\n\
-                  \t- #+BEGIN_QUERY\n\
-                  \t  {:title \"q\"}\n\
-                  \t  #+END_QUERY\n\
-                  \t- https://example.com/x\n\
-                  - real top bullet\n";
-        let out = preprocess(md);
-        // The query block is gone.
-        assert!(!out.contains("BEGIN_QUERY"));
-        // No double-bullet artifact on the URL line.
-        assert!(!out.contains("- - https://"), "double bullet leaked: {out:?}");
-        assert!(!out.contains("-\t- https"), "tab-merged bullet leaked: {out:?}");
-        // The URL bullet survives, dedented to depth-0.
-        assert!(out.contains("- https://example.com/x"));
-        assert!(out.contains("- real top bullet"));
-    }
-
-    #[test]
-    fn task_state_kept_scheduled_line_stripped() {
-        // Logseq emits `SCHEDULED: <date>` as a continuation line under a
-        // task-state bullet. Keep the task (it conveys state to the LLM);
-        // drop the timestamp continuation.
-        let md = "- DONE 确定旅游计划\n  SCHEDULED: <2023-10-16 Mon>\n- next bullet\n";
-        let out = preprocess(md);
-        assert!(out.contains("- DONE 确定旅游计划"), "task line stripped: {out:?}");
-        assert!(!out.contains("SCHEDULED"), "schedule line kept: {out:?}");
-        assert!(out.contains("- next bullet"));
-    }
-
-    #[test]
-    fn task_state_with_multiple_timestamp_lines() {
-        // A task bullet may have several continuation timestamps. All should go.
-        let md = "- TODO ship it\n  SCHEDULED: <2023-10-16 Mon>\n  DEADLINE: <2023-10-30 Mon>\n";
-        let out = preprocess(md);
-        assert!(out.contains("- TODO ship it"));
-        assert!(!out.contains("SCHEDULED"));
-        assert!(!out.contains("DEADLINE"));
-    }
-
-    #[test]
-    fn bullet_prefixed_property_lines_are_stripped() {
-        // Logseq emits properties attached to a bullet, e.g.
-        //     - query-table:: false
-        //         - query-table:: false (deeper indent)
-        //         - id:: 64e8ba26-...
-        // The original PROP_LINE only matched lines that started with the
-        // property name (after optional whitespace); the bullet prefix made
-        // the regex skip, so noise survived.
-        let md = "- query-table:: false\n\t- query-table:: false\n  - id:: 64e8ba26-1234\n- real bullet\n";
-        let out = preprocess(md);
-        assert!(!out.contains("query-table::"), "bullet-prefixed property survived: {out:?}");
-        assert!(!out.contains("id::"), "id:: property survived: {out:?}");
-        assert!(out.contains("- real bullet"));
-    }
-
-    #[test]
-    fn bare_scheduled_line_without_task_context_is_preserved() {
-        // User prose that happens to type "SCHEDULED: <something>" with no
-        // preceding task bullet must NOT be stripped — it's content.
-        let md = "- some note about org-mode\n- SCHEDULED: <2023-01-01> is the keyword\n";
-        let out = preprocess(md);
-        assert!(out.contains("SCHEDULED:"), "user prose got eaten: {out:?}");
-    }
-
-    #[test]
-    fn journal_template_preserves_nested_structure_after_dedent() {
-        // First child at 4 spaces, grandchild at 8 spaces → after stripping
-        // the 4-space first-child indent, grandchild keeps its remaining
-        // 4-space indent and stays a child of the promoted bullet.
-        let md = "- Journal Template\n    - parent kept\n        - grand kept\n";
-        let out = preprocess(md);
-        assert!(out.contains("- parent kept"));
-        assert!(out.contains("    - grand kept"));
     }
 
     // ---- Obsidian path ------------------------------------------------------
@@ -883,15 +499,6 @@ mod tests {
     }
 
     #[test]
-    fn obsidian_summarizable_gate_uses_prose() {
-        // Prose-only notes (no bullets) must pass the gate when they have
-        // narrative content. The Logseq path would count zero chars here.
-        assert!(is_summarizable(OBSIDIAN, "A short note about coffee."));
-        assert!(!is_summarizable(OBSIDIAN, ""));
-        assert!(!is_summarizable(OBSIDIAN, "tiny"));
-    }
-
-    #[test]
     fn obsidian_small_note_is_a_single_chunk() {
         // The Oort Cloud / Kuiper Belt / Asteroid Belt style: a few short
         // sections (image + a couple of paragraphs) that all fit under
@@ -933,9 +540,9 @@ mod tests {
     #[test]
     fn obsidian_image_only_note_is_empty() {
         // A note that's nothing but an image embed has no narrative content
-        // post-strip; it should produce no chunks (and no summary call).
+        // post-strip; it should produce no chunks. Gate behavior is tested
+        // in indexer::summarizer.
         let md = "![[diagram.svg]]\n";
         assert_eq!(chunk_note(OBSIDIAN, "Page", md).len(), 0);
-        assert!(!is_summarizable(OBSIDIAN, md));
     }
 }

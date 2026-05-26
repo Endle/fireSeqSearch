@@ -172,7 +172,7 @@ pub async fn highlight(
             chunk.text.clone()
         }
     };
-    let page_clean = crate::indexer::chunker::preprocess(&page_raw);
+    let page_clean = crate::note_intake::preprocess(&engine_arc.server_info.software, &page_raw);
     let page_clipped = clip_chars(&page_clean, PAGE_BUDGET_CHARS);
 
     // strip the chunker's "# {title}\n\n" prefix from the anchor

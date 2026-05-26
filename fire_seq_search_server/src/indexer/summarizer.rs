@@ -5,11 +5,10 @@ use std::time::Duration;
 use log::{error, info};
 use tokio::sync::mpsc;
 
-use crate::indexer::chunker::{is_junk_summary, is_summarizable, preprocess};
 use crate::indexer::store::{Store, SUMMARY_IN_PROGRESS};
 use crate::indexer::IndexerHandle;
 use crate::llm_backend::{LlmBackend, Message};
-use crate::query_engine::NotebookSoftware;
+use crate::note_intake::{narrative_chars, preprocess, NotebookSoftware};
 
 const PAGE_BUDGET_CHARS: usize = 8000;
 const QUEUE_CAPACITY: usize = 256;
@@ -200,7 +199,7 @@ impl Summarizer {
         if !is_summarizable(&self.software, &raw) {
             return Ok((String::new(), None));
         }
-        let clean = preprocess(&raw);
+        let clean = preprocess(&self.software, &raw);
         let clipped: String = clean.chars().take(PAGE_BUDGET_CHARS).collect();
 
         let prompt = build_prompt(&note.page_title, &clipped);
@@ -273,6 +272,110 @@ fn preview(s: &str, max_chars: usize) -> String {
     } else {
         let truncated: String = s.chars().take(max_chars).collect();
         format!("{}…", truncated.replace('\n', " "))
+    }
+}
+
+/// Minimum narrative-content length (in chars) below which a page is not worth
+/// summarizing. Below this floor the page body is title-echo, a single
+/// `[[wikilink]]`, an abbreviation, or a `Stub now` placeholder — content the
+/// chunk index (which embeds `# {title}\n\n{body}`) already covers, and which
+/// an LLM can only respond to with `Empty.` or by parroting the title. Either
+/// way the resulting summary embedding is noise that competes with real
+/// summaries. Heuristic, calibrated on the dev corpus; tune as needed.
+pub const SUMMARIZABLE_MIN_CHARS: usize = 16;
+
+/// Deterministic, model-independent gate for whether the summarizer should
+/// invoke the LLM on a page. Built on `note_intake::narrative_chars` —
+/// `note_intake` provides the measurement (dialect-coupled), this module owns
+/// the policy (LLM-coupled).
+pub fn is_summarizable(software: &NotebookSoftware, raw: &str) -> bool {
+    narrative_chars(software, raw) >= SUMMARIZABLE_MIN_CHARS
+}
+
+/// True for summary *text* that carries no topical content: `Empty.`, `""`,
+/// `Summary:`, `空页面`, … — what older builds got from models that ignored the
+/// (now-removed) "return the empty string" instruction for stub pages. Used to
+/// scrub such rows on startup and as a last-ditch guard on fresh summaries.
+/// Intentionally tiny; this is a safety net, not a behavioural contract.
+pub fn is_junk_summary(summary: &str) -> bool {
+    let norm: String = summary
+        .trim_matches(|c: char| {
+            matches!(c, '"' | '\'' | '(' | ')' | '.' | ':' | '*' | '-') || c.is_whitespace()
+        })
+        .to_lowercase();
+    matches!(
+        norm.as_str(),
+        "" | "empty"
+            | "empty string"
+            | "empty page"
+            | "empty summary"
+            | "summary"
+            | "n/a"
+            | "na"
+            | "none"
+            | "no content"
+            | "blank"
+            | "nothing"
+            | "空"
+            | "空页面"
+            | "空字符串"
+            | "无"
+            | "无内容"
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const LOGSEQ: &NotebookSoftware = &NotebookSoftware::Logseq;
+    const OBSIDIAN: &NotebookSoftware = &NotebookSoftware::Obsidian;
+
+    #[test]
+    fn summarizable_gate() {
+        // Empty / stub-only / properties-only → not summarizable.
+        assert!(!is_summarizable(LOGSEQ, ""));
+        assert!(!is_summarizable(LOGSEQ, "-\n"));
+        assert!(!is_summarizable(LOGSEQ, "title:: System/161\n-\n"));
+        assert!(!is_summarizable(LOGSEQ, "file:: [x.pdf](../assets/x.pdf)\nfile-path:: ../assets/x.pdf\n-\n"));
+        // Title-echo / single wikilink / placeholder → not summarizable.
+        assert!(!is_summarizable(LOGSEQ, "- Bank of America\n-\n"));        // 15 chars
+        assert!(!is_summarizable(LOGSEQ, "- [[I DONT KNOW]]\n"));           // 11 chars
+        assert!(!is_summarizable(LOGSEQ, "- Stub now\n-\n"));               // 8 chars
+        assert!(!is_summarizable(LOGSEQ, "- Met\n- M\n"));                  // 6 chars
+        assert!(!is_summarizable(LOGSEQ, "- https://x.io\n-\n"));           // bare host, 4 chars
+        // Real, if brief, content → summarizable.
+        assert!(is_summarizable(LOGSEQ, "- A [[NP-complete]] problem\n-\n"));       // "A NP-complete problem"
+        assert!(is_summarizable(LOGSEQ, "- Journal Template - DONE 厕所纸 20元40个\n"));
+        assert!(is_summarizable(LOGSEQ, "- went to mos mos coffee again\n- the latte was better\n"));
+        // A bookmark to a specific resource has a meaningful host+path.
+        assert!(is_summarizable(LOGSEQ, "- https://uwaterloo.ca/student-success/ask-immigration-consultant\n"));
+    }
+
+    #[test]
+    fn obsidian_summarizable_gate_uses_prose() {
+        // Prose-only notes (no bullets) must pass the gate when they have
+        // narrative content. The Logseq path would count zero chars here.
+        assert!(is_summarizable(OBSIDIAN, "A short note about coffee."));
+        assert!(!is_summarizable(OBSIDIAN, ""));
+        assert!(!is_summarizable(OBSIDIAN, "tiny"));
+        // An image-only note has no narrative content post-strip.
+        assert!(!is_summarizable(OBSIDIAN, "![[diagram.svg]]\n"));
+    }
+
+    #[test]
+    fn junk_summary_detection() {
+        for s in ["Empty.", "empty", "Empty string.", "Empty page.", "Empty summary.",
+                  "Summary:", "\"\"", "(\"\")", "  \"\" ", "空页面", "空字符串", "  None.  ", "n/a", "*Empty*"] {
+            assert!(is_junk_summary(s), "should be junk: {s:?}");
+        }
+        for s in ["Keurig K-Compact coffee maker, bought and refunded.",
+                  "Bank of America stock entry.",
+                  "Independent Set: an NP-complete problem.",
+                  "An empty array in Rust has zero capacity.",   // mentions "empty" but is real
+                  "无人机航拍技巧总结。"] {
+            assert!(!is_junk_summary(s), "should NOT be junk: {s:?}");
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 pub mod post_query;
-pub mod markdown_parser;
 pub mod language_tools;
 pub mod http_client;
+pub mod note_intake;
 pub mod query_engine;
 pub mod word_frequency;
 pub mod llm_backend;
@@ -10,7 +10,7 @@ pub mod indexer;
 
 use log::debug;
 use crate::query_engine::ServerInformation;
-use crate::query_engine::NotebookSoftware::Logseq;
+use crate::note_intake::NotebookSoftware::Logseq;
 
 
 #[macro_use]

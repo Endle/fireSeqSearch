@@ -32,7 +32,7 @@ pub fn generate_obsidian_uri(file_path: &str, server_info: &ServerInformation) -
 mod tests {
     use super::*;
     use crate::generate_server_info_for_test;
-    use crate::query_engine::NotebookSoftware;
+    use crate::note_intake::NotebookSoftware;
 
     fn server_info(vault: &str) -> ServerInformation {
         let mut s = generate_server_info_for_test();
