@@ -71,8 +71,12 @@ async fn spawn(
         c.arg(&model_path)
             .arg("--server")
             .arg("--port")
-            .arg(port.to_string())
-            .arg("--nobrowser");
+            .arg(port.to_string());
+        // NB: no --nobrowser. The pinned bge-m3 llamafile is built on a newer
+        // llama.cpp server that rejects that flag ("error: invalid argument:
+        // --nobrowser") and exits immediately, which surfaced only as a 60s
+        // health-check timeout. The newer server doesn't auto-open a browser
+        // in --server mode, so the flag is unnecessary anyway.
         if is_embedding {
             // bge-m3 supports up to 8K-token inputs; raise the physical and
             // logical batch sizes so a single chunk can be embedded in one

@@ -50,7 +50,8 @@ pub async fn ensure_bge_m3() -> Result<PathBuf, LlmError> {
     if dest.exists() {
         match sha256_file(&dest) {
             Ok(h) if h == BGE_M3_SHA256 => {
-                info!("bge-m3 llamafile present and verified at {}", dest.display());
+                info!("bge-m3 llamafile sha256 matches");
+                info!("bge-m3 llamafile ready at {}", dest.display());
                 return Ok(dest);
             }
             Ok(h) => warn!(
@@ -83,6 +84,7 @@ pub async fn ensure_bge_m3() -> Result<PathBuf, LlmError> {
             hash, BGE_M3_SHA256
         )));
     }
+    info!("bge-m3 llamafile sha256 matches");
 
     // llamafile is an executable APE binary. We invoke it via `sh` in the
     // spawn layer (which works regardless), but set +x anyway so a future
