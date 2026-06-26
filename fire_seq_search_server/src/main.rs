@@ -48,8 +48,12 @@ struct Cli {
     #[arg(long)]
     chat_endpoint: Option<String>,
 
-    #[arg(long, default_value = "~/llm/bge-m3-Q4_K_M.gguf")]
-    embed_model: PathBuf,
+    /// Path to the embedding model. Omit (the default) to auto-download the
+    /// pinned bge-m3 llamafile into `~/.cache/fire_seq_search` and use it —
+    /// zero-config embedding. Pass an explicit path to use your own GGUF/
+    /// llamafile instead. Ignored when `--embed-endpoint` is set.
+    #[arg(long)]
+    embed_model: Option<PathBuf>,
 
     #[arg(long, default_value = "~/llm/Qwen3.5-9B-UD-Q4_K_XL.gguf")]
     chat_model: PathBuf,
@@ -113,7 +117,13 @@ async fn main() {
 
     info!("main thread running");
     let matches = Cli::parse();
-    let llm_cfg = build_llm_config(&matches);
+    let llm_cfg = match build_llm_config(&matches).await {
+        Ok(c) => c,
+        Err(e) => {
+            error!("LLM config failed: {}", e);
+            std::process::exit(1);
+        }
+    };
     let server_info: ServerInformation = build_server_info(&matches);
 
     let notebook_name = server_info.notebook_name.clone();
@@ -200,14 +210,23 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-fn build_llm_config(args: &Cli) -> LlmBackendConfig {
+async fn build_llm_config(args: &Cli) -> Result<LlmBackendConfig, fire_seq_search_server::llm_backend::LlmError> {
     let embed = match &args.embed_endpoint {
         Some(url) => EndpointSource::External(url.clone()),
-        None => EndpointSource::Spawn {
-            model: args.embed_model.clone(),
-            port: args.embed_port,
-            extra_args: build_spawn_args(args.embed_gpu_layers, &args.embed_extra_args),
-        },
+        None => {
+            // No explicit --embed-model → auto-fetch the pinned bge-m3
+            // llamafile so embedding is zero-config. An explicit path is
+            // used verbatim (BYO GGUF/llamafile).
+            let model = match &args.embed_model {
+                Some(p) => p.clone(),
+                None => fire_seq_search_server::llm_backend::model_fetch::ensure_bge_m3().await?,
+            };
+            EndpointSource::Spawn {
+                model,
+                port: args.embed_port,
+                extra_args: build_spawn_args(args.embed_gpu_layers, &args.embed_extra_args),
+            }
+        }
     };
     let chat = match &args.chat_endpoint {
         Some(url) => EndpointSource::External(url.clone()),
@@ -217,13 +236,13 @@ fn build_llm_config(args: &Cli) -> LlmBackendConfig {
             extra_args: build_spawn_args(args.chat_gpu_layers, &args.chat_extra_args),
         },
     };
-    LlmBackendConfig {
+    Ok(LlmBackendConfig {
         embed,
         chat,
         embed_model_name: args.embed_model_name.clone(),
         chat_model_name: args.chat_model_name.clone(),
         llama_server_bin: args.llama_server_bin.clone(),
-    }
+    })
 }
 
 fn split_extra_args(s: &str) -> Vec<String> {

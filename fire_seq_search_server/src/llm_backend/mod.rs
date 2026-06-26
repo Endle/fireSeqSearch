@@ -1,3 +1,4 @@
+pub mod model_fetch;
 pub mod process;
 
 use std::path::PathBuf;

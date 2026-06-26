@@ -74,6 +74,12 @@ glance.
 - **Backend:** subprocess `llama-server` by default; `--embed-endpoint` /
   `--chat-endpoint` point at a pre-running server (Ollama, remote llama) as
   a first-class alternative.
+- **Embed model is zero-config:** with no `--embed-model` and no
+  `--embed-endpoint`, the server auto-downloads a pinned `bge-m3` llamafile
+  (URL + SHA-256 in `llm_backend/model_fetch.rs`) into
+  `~/.cache/fire_seq_search` and spawns it. The `.llamafile` extension is what
+  switches `process.rs` into llamafile mode (no `--model` arg). An explicit
+  `--embed-model PATH` overrides; bump all three pin constants together.
 - **One chat backend, shared between summarizer and `/ask`.** Deliberate —
   one process to warm, one set of args to tune. If quality demands more, the
   lever is `--chat-endpoint` pointed at a bigger server, which upgrades both
