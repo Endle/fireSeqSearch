@@ -67,6 +67,10 @@ thiserror = "1"
 # Indexer (phase 2)
 rusqlite = { version = "0.31", features = ["bundled"] }
 blake3 = "1"
+# SHA-256 for verifying the pinned auto-downloaded bge-m3 llamafile. (Note
+# GitHub Releases publishes asset digests as SHA-256, hence sha2 here rather
+# than reusing blake3.)
+sha2 = "0.10"
 walkdir = "2"
 
 [dev-dependencies]

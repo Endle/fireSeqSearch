@@ -35,17 +35,22 @@ until the LLM backend answers.
 ### 1. Local LLM backend
 
 The server talks to an OpenAI-compatible HTTP backend for embeddings and
-chat. The embedding model is **`bge-m3`** (Q4_K_M GGUF, 1024-dim, ~700 MB) —
-chosen and pinned for retrieval quality. Any reasonable instruct-tuned chat
-model works.
+chat. The embedding model is **`bge-m3`** (1024-dim, multilingual) — chosen
+and pinned for retrieval quality. Any reasonable instruct-tuned chat model
+works.
 
-Download both GGUFs and drop them in `~/llm/` — that's where the server
-looks by default:
+**Embedding is zero-config.** On first run the server auto-downloads a pinned,
+self-contained `bge-m3` llamafile (~723 MB) into `~/.cache/fire_seq_search`
+(verified by SHA-256) and launches it for you. There's nothing to install for
+embeddings — the only model you choose is the chat model.
 
-- `~/llm/bge-m3-Q4_K_M.gguf` (embedding)
+Drop the chat GGUF in `~/llm/` — that's where the server looks by default:
+
 - `~/llm/Qwen3.5-9B-UD-Q4_K_XL.gguf` (chat)
 
-Override with `--embed-model` / `--chat-model` if you keep them elsewhere.
+Override the chat model with `--chat-model` if you keep it elsewhere. To use
+your own embedding model instead of the auto-downloaded one, pass
+`--embed-model /path/to/model` (GGUF or llamafile).
 
 By default the server spawns its own `llama-server`; see
 [`build_llama_server.sh`](build_llama_server.sh) and

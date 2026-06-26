@@ -21,6 +21,7 @@ ignore = [
     { id = "RUSTSEC-2025-0056", reason = "adler unmaintained: transitive via miniz_oxide" },
     { id = "RUSTSEC-2025-0134", reason = "rustls-pemfile unmaintained: transitive via reqwest" },
     { id = "RUSTSEC-2026-0007", reason = "bytes BytesMut overflow: transitive via hyper/reqwest" },
+    { id = "RUSTSEC-2026-0187", reason = "lopdf stack overflow on deeply nested PDFs: transitive via pdf-extract" },
 ]
 
 
