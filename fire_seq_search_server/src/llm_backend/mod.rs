@@ -33,6 +33,11 @@ pub enum EndpointSource {
     Spawn {
         model: PathBuf,
         port: u16,
+        /// GPU layers to offload (`-ngl`). Reinterpreted as a fallback policy by
+        /// the spawn layer: `> 0` means "try GPU, fall back to CPU if the backend
+        /// fails to come up" (the default `99`); `0` means "force CPU, skip the
+        /// doomed GPU attempt". See `process::spawn`.
+        gpu_layers: u32,
         extra_args: Vec<String>,
     },
 }

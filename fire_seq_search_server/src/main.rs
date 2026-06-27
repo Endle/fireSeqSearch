@@ -224,7 +224,8 @@ async fn build_llm_config(args: &Cli) -> Result<LlmBackendConfig, fire_seq_searc
             EndpointSource::Spawn {
                 model,
                 port: args.embed_port,
-                extra_args: build_spawn_args(args.embed_gpu_layers, &args.embed_extra_args),
+                gpu_layers: args.embed_gpu_layers,
+                extra_args: split_extra_args(&args.embed_extra_args),
             }
         }
     };
@@ -233,7 +234,8 @@ async fn build_llm_config(args: &Cli) -> Result<LlmBackendConfig, fire_seq_searc
         None => EndpointSource::Spawn {
             model: args.chat_model.clone(),
             port: args.chat_port,
-            extra_args: build_spawn_args(args.chat_gpu_layers, &args.chat_extra_args),
+            gpu_layers: args.chat_gpu_layers,
+            extra_args: split_extra_args(&args.chat_extra_args),
         },
     };
     Ok(LlmBackendConfig {
@@ -258,16 +260,6 @@ fn split_extra_args(s: &str) -> Vec<String> {
             s.split_whitespace().map(|t| t.to_owned()).collect()
         }
     }
-}
-
-fn build_spawn_args(gpu_layers: u32, extra: &str) -> Vec<String> {
-    let mut args = Vec::new();
-    if gpu_layers > 0 {
-        args.push("-ngl".to_string());
-        args.push(gpu_layers.to_string());
-    }
-    args.extend(split_extra_args(extra));
-    args
 }
 
 fn resolve_db_path(db_path_arg: &Option<String>, notebook_name: &str) -> PathBuf {
