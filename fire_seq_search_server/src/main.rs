@@ -330,3 +330,56 @@ fn build_server_info(args: &Cli) -> ServerInformation {
         capabilities: vec!["query".to_string(), "ask".to_string()],
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn split_extra_args_empty_is_no_args() {
+        // The default for --{embed,chat}-extra-args; must not yield a stray "".
+        assert!(split_extra_args("").is_empty());
+        assert!(split_extra_args("   ").is_empty());
+    }
+
+    #[test]
+    fn split_extra_args_plain_whitespace() {
+        assert_eq!(
+            split_extra_args("-ngl 0 --jinja"),
+            vec!["-ngl", "0", "--jinja"]
+        );
+    }
+
+    #[test]
+    fn split_extra_args_preserves_quoted_value() {
+        // The whole reason for shell-words: an embedded space inside quotes must
+        // stay one argument, not split into two.
+        assert_eq!(
+            split_extra_args(r#"-c "16 384" --foo"#),
+            vec!["-c", "16 384", "--foo"]
+        );
+    }
+
+    #[test]
+    fn split_extra_args_unbalanced_quote_falls_back() {
+        // Unbalanced quotes are a parse error; we fall back to whitespace split
+        // rather than dropping the args entirely.
+        assert_eq!(split_extra_args(r#"-a "oops"#), vec!["-a", "\"oops"]);
+    }
+
+    #[test]
+    fn resolve_db_path_explicit_wins() {
+        let p = resolve_db_path(&Some("/var/data/notes.sqlite".to_string()), "ignored");
+        assert_eq!(p, PathBuf::from("/var/data/notes.sqlite"));
+    }
+
+    #[test]
+    fn resolve_db_path_default_uses_cache_and_name() {
+        let p = resolve_db_path(&None, "myvault");
+        let s = p.to_string_lossy();
+        // Default lives under the shared cache dir and is keyed by notebook name.
+        assert!(s.ends_with("/.cache/fire_seq_search/myvault.sqlite"), "got {}", s);
+        // tilde must be expanded, never passed through literally to SQLite.
+        assert!(!s.contains('~'), "tilde not expanded: {}", s);
+    }
+}

@@ -469,6 +469,38 @@ mod tests {
     }
 
     #[test]
+    fn stream_request_carries_stream_flag_and_conditional_kwargs() {
+        // chat_stream builds a *separate* struct from chat(); guard it too so the
+        // streaming path can't regress the flavor handling independently.
+        let with = StreamChatRequest {
+            model: "default",
+            messages: vec![],
+            stream: true,
+            chat_template_kwargs: Some(NO_THINK),
+        };
+        let s = serde_json::to_string(&with).unwrap();
+        assert!(s.contains(r#""stream":true"#));
+        assert!(s.contains(r#""chat_template_kwargs":{"enable_thinking":false}"#));
+
+        let without = StreamChatRequest {
+            model: "default",
+            messages: vec![],
+            stream: true,
+            chat_template_kwargs: None,
+        };
+        let s = serde_json::to_string(&without).unwrap();
+        assert!(s.contains(r#""stream":true"#));
+        assert!(!s.contains("chat_template_kwargs"));
+    }
+
+    #[test]
+    fn flavor_default_is_llama_server() {
+        // Load-bearing: the CLI default, spawned backends, and remote embed all
+        // rely on LlamaServer being the default flavor.
+        assert_eq!(LlmFlavor::default(), LlmFlavor::LlamaServer);
+    }
+
+    #[test]
     fn embed_request_serializes() {
         let inputs = vec!["a".to_string(), "b".to_string()];
         let req = EmbedRequest {
