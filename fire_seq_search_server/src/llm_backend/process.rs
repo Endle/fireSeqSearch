@@ -1,9 +1,9 @@
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use log::info;
+use log::{info, warn};
 use shellexpand::tilde;
 
 use super::{EndpointHandle, EndpointSource, LlmError};
@@ -14,13 +14,32 @@ pub(crate) async fn resolve_endpoint(
     is_embedding: bool,
 ) -> Result<EndpointHandle, LlmError> {
     match source {
-        EndpointSource::External(url) => {
-            check_health(&url, Duration::from_secs(5)).await?;
-            Ok(EndpointHandle { url, child: None })
+        EndpointSource::External { url, flavor, api_key } => {
+            if flavor.has_health_endpoint() {
+                check_health(&url, Duration::from_secs(5)).await?;
+            } else {
+                let role = if is_embedding { "embed" } else { "chat" };
+                info!(
+                    "external {} backend at {} ({:?}); skipping /health probe (flavor has none)",
+                    role, url, flavor
+                );
+            }
+            Ok(EndpointHandle { url, child: None, flavor, api_key })
         }
-        EndpointSource::Spawn { model, port, extra_args } => {
-            spawn(llama_server_bin, &model, port, &extra_args, is_embedding).await
+        EndpointSource::Spawn { model, port, gpu_layers, extra_args } => {
+            spawn(llama_server_bin, &model, port, gpu_layers, &extra_args, is_embedding).await
         }
+    }
+}
+
+/// Decide the `-ngl` values to try, in order. A non-zero `gpu_layers` (the
+/// default `99`) means "attempt GPU, then fall back to CPU"; `0` means the user
+/// forced CPU, so skip the doomed GPU attempt entirely.
+fn spawn_attempts(gpu_layers: u32) -> Vec<u32> {
+    if gpu_layers > 0 {
+        vec![gpu_layers, 0]
+    } else {
+        vec![0]
     }
 }
 
@@ -28,6 +47,7 @@ async fn spawn(
     llama_server_bin: &Path,
     model: &Path,
     port: u16,
+    gpu_layers: u32,
     extra_args: &[String],
     is_embedding: bool,
 ) -> Result<EndpointHandle, LlmError> {
@@ -57,6 +77,104 @@ async fn spawn(
         .to_string_lossy()
         .into_owned();
 
+    // GPU→CPU fallback: try each `-ngl` value in turn. llamafile's own fallback
+    // only covers "no GPU present"; the painful case — GPU present but the Vulkan/
+    // ROCm backend won't initialize — errors out instead, so we own the retry
+    // here. try_spawn_once kills+reaps a failed child before returning, so the
+    // port is free to rebind on the CPU attempt (otherwise EADDRINUSE).
+    let attempts = spawn_attempts(gpu_layers);
+    let last = attempts.len() - 1;
+    for (i, ngl) in attempts.iter().enumerate() {
+        match try_spawn_once(
+            llama_server_bin,
+            &model_path,
+            port,
+            *ngl,
+            extra_args,
+            is_embedding,
+            role,
+            &stdout_path,
+            &stderr_path,
+        )
+        .await
+        {
+            Ok(handle) => {
+                info!("{} backend ready at {} (-ngl {})", role, handle.url, ngl);
+                return Ok(handle);
+            }
+            Err(e) if i < last => {
+                warn!(
+                    "{} backend failed to start with -ngl {} ({}); falling back to CPU (-ngl 0)",
+                    role, ngl, e
+                );
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    unreachable!("spawn_attempts always yields at least one attempt")
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn try_spawn_once(
+    llama_server_bin: &Path,
+    model_path: &Path,
+    port: u16,
+    gpu_layers: u32,
+    extra_args: &[String],
+    is_embedding: bool,
+    role: &str,
+    stdout_path: &str,
+    stderr_path: &str,
+) -> Result<EndpointHandle, LlmError> {
+    let mut cmd = build_command(
+        llama_server_bin,
+        model_path,
+        port,
+        gpu_layers,
+        extra_args,
+        is_embedding,
+    );
+
+    let stdout = File::create(stdout_path)
+        .map_err(|e| LlmError::Spawn(format!("create {}: {}", stdout_path, e)))?;
+    let stderr = File::create(stderr_path)
+        .map_err(|e| LlmError::Spawn(format!("create {}: {}", stderr_path, e)))?;
+    cmd.stdout(Stdio::from(stdout)).stderr(Stdio::from(stderr));
+
+    info!("spawning {} backend on port {}: {:?}", role, port, cmd);
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| LlmError::Spawn(format!("spawn {} backend: {}", role, e)))?;
+
+    let url = format!("http://127.0.0.1:{}", port);
+    match check_health_with_child(&url, Duration::from_secs(60), &mut child).await {
+        // A spawned local backend is always llama-server (or our llamafile);
+        // never needs an API key.
+        Ok(()) => Ok(EndpointHandle {
+            url,
+            child: Some(child),
+            flavor: super::LlmFlavor::LlamaServer,
+            api_key: None,
+        }),
+        Err(e) => {
+            // Kill + reap before the caller rebinds the port on the next attempt.
+            // (If the child already exited on its own, kill is a no-op and wait
+            // just reaps the zombie.)
+            let _ = child.kill();
+            let _ = child.wait();
+            Err(e)
+        }
+    }
+}
+
+fn build_command(
+    llama_server_bin: &Path,
+    model_path: &Path,
+    port: u16,
+    gpu_layers: u32,
+    extra_args: &[String],
+    is_embedding: bool,
+) -> Command {
     let is_llamafile = model_path
         .extension()
         .and_then(|s| s.to_str())
@@ -68,7 +186,7 @@ async fn spawn(
         // to exec it directly ("Exec format error") unless binfmt_misc is set up,
         // so we hand it to /bin/sh — the file's shell prelude bootstraps APE.
         let mut c = Command::new("sh");
-        c.arg(&model_path)
+        c.arg(model_path)
             .arg("--server")
             .arg("--port")
             .arg(port.to_string());
@@ -109,7 +227,7 @@ async fn spawn(
         c.arg("--port")
             .arg(port.to_string())
             .arg("--model")
-            .arg(&model_path);
+            .arg(model_path);
         if is_embedding {
             // See note above re: -ub / -b sizing for embedding backends.
             c.arg("--embedding")
@@ -126,26 +244,14 @@ async fn spawn(
         c
     };
 
+    // -ngl belongs to this attempt's fallback policy, not the user's extra_args,
+    // so it goes first; a user who crams `-ngl` into extra_args still wins (later
+    // arg takes precedence in llama.cpp).
+    cmd.arg("-ngl").arg(gpu_layers.to_string());
     for arg in extra_args {
         cmd.arg(arg);
     }
-
-    let stdout = File::create(&stdout_path)
-        .map_err(|e| LlmError::Spawn(format!("create {}: {}", stdout_path, e)))?;
-    let stderr = File::create(&stderr_path)
-        .map_err(|e| LlmError::Spawn(format!("create {}: {}", stderr_path, e)))?;
-    cmd.stdout(Stdio::from(stdout)).stderr(Stdio::from(stderr));
-
-    info!("spawning {} backend on port {}: {:?}", role, port, cmd);
-    let child = cmd
-        .spawn()
-        .map_err(|e| LlmError::Spawn(format!("spawn {} backend: {}", role, e)))?;
-
-    let url = format!("http://127.0.0.1:{}", port);
-    check_health(&url, Duration::from_secs(60)).await?;
-    info!("{} backend ready at {}", role, url);
-
-    Ok(EndpointHandle { url, child: Some(child) })
+    cmd
 }
 
 async fn check_health(url: &str, timeout: Duration) -> Result<(), LlmError> {
@@ -169,5 +275,64 @@ async fn check_health(url: &str, timeout: Duration) -> Result<(), LlmError> {
                 tokio::time::sleep(Duration::from_secs(1)).await;
             }
         }
+    }
+}
+
+/// Health-check loop that also watches for the child exiting early. A GPU backend
+/// that can't initialize its driver typically dies within a second or two; polling
+/// `try_wait` lets us fail (and fall back to CPU) immediately instead of burning
+/// the full 60s timeout. The timeout remains the backstop for a child that hangs
+/// alive without ever becoming healthy — we don't fall back merely because GPU
+/// warmup is slow.
+async fn check_health_with_child(
+    url: &str,
+    timeout: Duration,
+    child: &mut Child,
+) -> Result<(), LlmError> {
+    let health_url = format!("{}/health", url);
+    let deadline = Instant::now() + timeout;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(2))
+        .build()
+        .map_err(|e| LlmError::Config(e.to_string()))?;
+
+    loop {
+        // Early-exit is the reliable fallback trigger; check it before the probe.
+        if let Ok(Some(status)) = child.try_wait() {
+            return Err(LlmError::Spawn(format!(
+                "{} exited early before becoming healthy ({})",
+                url, status
+            )));
+        }
+        match client.get(&health_url).send().await {
+            Ok(resp) if resp.status().is_success() => return Ok(()),
+            _ => {
+                if Instant::now() >= deadline {
+                    return Err(LlmError::HealthCheck(format!(
+                        "{} not responsive within {:?}",
+                        url, timeout
+                    )));
+                }
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn attempts_try_gpu_then_cpu() {
+        // Default policy: attempt the requested GPU layers, then CPU.
+        assert_eq!(spawn_attempts(99), vec![99, 0]);
+        assert_eq!(spawn_attempts(33), vec![33, 0]);
+    }
+
+    #[test]
+    fn attempts_force_cpu_skips_gpu() {
+        // `0` is the escape hatch: skip the doomed GPU attempt entirely.
+        assert_eq!(spawn_attempts(0), vec![0]);
     }
 }
