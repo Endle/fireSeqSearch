@@ -28,8 +28,48 @@ pub enum LlmError {
     Config(String),
 }
 
+/// Which OpenAI-compatible server an `External` endpoint actually is. They all
+/// speak `/v1/chat/completions`, but differ in the edges: only llama-server
+/// exposes `/health` for our readiness probe and understands the
+/// `chat_template_kwargs.enable_thinking` control; Ollama/OpenAI reject unknown
+/// request fields and (for OpenAI) need a Bearer key. Embeddings stay local on
+/// bge-m3 regardless — this only shapes the chat path.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, clap::ValueEnum)]
+pub enum LlmFlavor {
+    /// Local llama.cpp `llama-server` (or our bundled llamafile).
+    #[default]
+    #[value(name = "llama-server")]
+    LlamaServer,
+    /// Ollama's OpenAI-compatible endpoint.
+    #[value(name = "ollama")]
+    Ollama,
+    /// A remote OpenAI-compatible API (OpenAI and work-alikes).
+    #[value(name = "openai")]
+    OpenAi,
+}
+
+impl LlmFlavor {
+    /// Only llama-server exposes a `/health` endpoint we can poll for readiness.
+    /// For the others we skip the probe and let the first real request surface
+    /// any error.
+    fn has_health_endpoint(self) -> bool {
+        matches!(self, LlmFlavor::LlamaServer)
+    }
+
+    /// Only llama-server (with `--jinja`) understands `enable_thinking`. Sending
+    /// it to Ollama/OpenAI risks a 400 on unknown fields, so omit it there.
+    fn supports_enable_thinking(self) -> bool {
+        matches!(self, LlmFlavor::LlamaServer)
+    }
+}
+
 pub enum EndpointSource {
-    External(String),
+    External {
+        url: String,
+        flavor: LlmFlavor,
+        /// Optional Bearer token, attached to every request when present.
+        api_key: Option<String>,
+    },
     Spawn {
         model: PathBuf,
         port: u16,
@@ -53,6 +93,8 @@ pub struct LlmBackendConfig {
 pub(crate) struct EndpointHandle {
     pub url: String,
     pub child: Option<std::process::Child>,
+    pub flavor: LlmFlavor,
+    pub api_key: Option<String>,
 }
 
 pub struct LlmBackend {
@@ -83,7 +125,9 @@ struct EmbedDatum {
 struct ChatRequest<'a> {
     model: &'a str,
     messages: Vec<Message>,
-    chat_template_kwargs: ChatTemplateKwargs,
+    // Omitted entirely for non-llama-server flavors, which may 400 on the field.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    chat_template_kwargs: Option<ChatTemplateKwargs>,
 }
 
 #[derive(Deserialize)]
@@ -101,7 +145,9 @@ struct StreamChatRequest<'a> {
     model: &'a str,
     messages: Vec<Message>,
     stream: bool,
-    chat_template_kwargs: ChatTemplateKwargs,
+    // Omitted entirely for non-llama-server flavors, which may 400 on the field.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    chat_template_kwargs: Option<ChatTemplateKwargs>,
 }
 
 // Disables the Qwen3-family thinking trace via the jinja chat template.
@@ -159,7 +205,11 @@ impl LlmBackend {
             model: &self.embed_model_name,
             input: texts,
         };
-        let resp = self.client.post(&url).json(&req).send().await?;
+        let mut rb = self.client.post(&url).json(&req);
+        if let Some(key) = &self.embed.api_key {
+            rb = rb.bearer_auth(key);
+        }
+        let resp = rb.send().await?;
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
@@ -177,18 +227,20 @@ impl LlmBackend {
         let req = ChatRequest {
             model: &self.chat_model_name,
             messages,
-            chat_template_kwargs: NO_THINK,
+            chat_template_kwargs: self.chat_template_kwargs(),
         };
-        let resp = self
+        let mut rb = self
             .client
             .post(&url)
             // Override the client-wide 60s timeout: summarizing a long page on
             // CPU/limited-GPU can take longer than that. Same rationale as
             // chat_stream below.
             .timeout(Duration::from_secs(600))
-            .json(&req)
-            .send()
-            .await?;
+            .json(&req);
+        if let Some(key) = &self.chat.api_key {
+            rb = rb.bearer_auth(key);
+        }
+        let resp = rb.send().await?;
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
@@ -220,18 +272,20 @@ impl LlmBackend {
             model: &self.chat_model_name,
             messages,
             stream: true,
-            chat_template_kwargs: NO_THINK,
+            chat_template_kwargs: self.chat_template_kwargs(),
         };
-        let resp = self
+        let mut rb = self
             .client
             .post(&url)
             // Override the client-wide 60s timeout: a streamed answer can take
             // longer than that to finish on CPU, and the timeout covers the
             // whole response body.
             .timeout(Duration::from_secs(600))
-            .json(&req)
-            .send()
-            .await?;
+            .json(&req);
+        if let Some(key) = &self.chat.api_key {
+            rb = rb.bearer_auth(key);
+        }
+        let resp = rb.send().await?;
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
@@ -286,6 +340,17 @@ impl LlmBackend {
             }
         });
         Ok(rx)
+    }
+
+    /// The `enable_thinking=false` kwarg, but only for chat flavors that accept
+    /// it (llama-server). For Ollama/OpenAI we send nothing rather than risk a
+    /// 400 on an unknown field.
+    fn chat_template_kwargs(&self) -> Option<ChatTemplateKwargs> {
+        if self.chat.flavor.supports_enable_thinking() {
+            Some(NO_THINK)
+        } else {
+            None
+        }
     }
 
     pub fn child_pids(&self) -> Vec<u32> {
@@ -367,6 +432,40 @@ mod tests {
         let input = "<think>still thinking when stream cut";
         let out = strip_think_artifact(input);
         assert_eq!(out, input);
+    }
+
+    #[test]
+    fn flavor_capabilities() {
+        // llama-server is the only one we probe or send enable_thinking to.
+        assert!(LlmFlavor::LlamaServer.has_health_endpoint());
+        assert!(LlmFlavor::LlamaServer.supports_enable_thinking());
+        for f in [LlmFlavor::Ollama, LlmFlavor::OpenAi] {
+            assert!(!f.has_health_endpoint());
+            assert!(!f.supports_enable_thinking());
+        }
+    }
+
+    #[test]
+    fn chat_request_includes_kwargs_when_some() {
+        let req = ChatRequest {
+            model: "default",
+            messages: vec![],
+            chat_template_kwargs: Some(NO_THINK),
+        };
+        let s = serde_json::to_string(&req).unwrap();
+        assert!(s.contains(r#""chat_template_kwargs":{"enable_thinking":false}"#));
+    }
+
+    #[test]
+    fn chat_request_omits_kwargs_when_none() {
+        // Ollama/OpenAI path: the field must not appear at all, not as null.
+        let req = ChatRequest {
+            model: "default",
+            messages: vec![],
+            chat_template_kwargs: None,
+        };
+        let s = serde_json::to_string(&req).unwrap();
+        assert!(!s.contains("chat_template_kwargs"));
     }
 
     #[test]

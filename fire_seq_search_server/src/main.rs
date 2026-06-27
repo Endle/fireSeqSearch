@@ -8,7 +8,7 @@ use log::{error, info};
 use fire_seq_search_server::http_client::{ask, endpoints};
 use fire_seq_search_server::indexer::{Indexer, IndexerHandle, Store};
 use fire_seq_search_server::llm_backend::{
-    EndpointSource, LlmBackend, LlmBackendConfig,
+    EndpointSource, LlmBackend, LlmBackendConfig, LlmFlavor,
 };
 use fire_seq_search_server::app_state::AppState;
 use fire_seq_search_server::config::ServerInformation;
@@ -47,6 +47,20 @@ struct Cli {
 
     #[arg(long)]
     chat_endpoint: Option<String>,
+
+    /// Which OpenAI-compatible server `--chat-endpoint` points at. `llama-server`
+    /// (default) gets a `/health` readiness probe and the `enable_thinking`
+    /// kwarg; `ollama`/`openai` skip both (they 400 on the unknown field).
+    /// Ignored when no `--chat-endpoint` is set (a spawned backend is always
+    /// llama-server).
+    #[arg(long, value_enum, default_value_t = LlmFlavor::LlamaServer)]
+    chat_flavor: LlmFlavor,
+
+    /// Bearer token for `--chat-endpoint` (e.g. an OpenAI API key). Falls back to
+    /// the `FIRE_SEQ_CHAT_API_KEY` env var, which is preferred so the key doesn't
+    /// land in your shell history or the process list.
+    #[arg(long)]
+    chat_api_key: Option<String>,
 
     /// Path to the embedding model. Omit (the default) to auto-download the
     /// pinned bge-m3 llamafile into `~/.cache/fire_seq_search` and use it —
@@ -212,7 +226,13 @@ async fn main() {
 
 async fn build_llm_config(args: &Cli) -> Result<LlmBackendConfig, fire_seq_search_server::llm_backend::LlmError> {
     let embed = match &args.embed_endpoint {
-        Some(url) => EndpointSource::External(url.clone()),
+        // Embeddings stay local on bge-m3 (1024-dim, locked) — a remote embed
+        // endpoint is assumed to be a plain llama-server, not Ollama/OpenAI.
+        Some(url) => EndpointSource::External {
+            url: url.clone(),
+            flavor: LlmFlavor::LlamaServer,
+            api_key: None,
+        },
         None => {
             // No explicit --embed-model → auto-fetch the pinned bge-m3
             // llamafile so embedding is zero-config. An explicit path is
@@ -230,7 +250,16 @@ async fn build_llm_config(args: &Cli) -> Result<LlmBackendConfig, fire_seq_searc
         }
     };
     let chat = match &args.chat_endpoint {
-        Some(url) => EndpointSource::External(url.clone()),
+        Some(url) => EndpointSource::External {
+            url: url.clone(),
+            flavor: args.chat_flavor,
+            // CLI flag wins; otherwise fall back to the env var (preferred — keeps
+            // the key out of the process list).
+            api_key: args
+                .chat_api_key
+                .clone()
+                .or_else(|| std::env::var("FIRE_SEQ_CHAT_API_KEY").ok()),
+        },
         None => EndpointSource::Spawn {
             model: args.chat_model.clone(),
             port: args.chat_port,
