@@ -1,0 +1,85 @@
+name: LLM Backend Integration
+
+# Boots a real OpenAI-compatible server (Ollama) with tiny models and runs the
+# live integration test in tests/llm_backend_live.rs against it — embedding,
+# chat, streaming chat, and the LlmFlavor::Ollama shim. The plain Rust CI only
+# runs the unit tests (the live test self-skips without FIRE_SEQ_LIVE_OLLAMA);
+# this workflow is the one place the wire format is checked against a real server.
+
+on:
+  push:
+    branches: [ master, backend_llm ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTC_WRAPPER: "sccache"
+  SCCACHE_GHA_ENABLED: "true"
+
+jobs:
+  ollama-live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.8
+
+      - name: Get Date
+        id: get-date
+        run: echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/registry
+          key: rust-${{ runner.os }}-${{ hashFiles('**/Cargo.toml') }}-${{ steps.get-date.outputs.date }}-llm
+          restore-keys: |
+            rust-${{ runner.os }}-${{ hashFiles('**/Cargo.toml') }}-
+            rust-${{ runner.os }}
+
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Start Ollama and wait for readiness
+        run: |
+          ollama serve &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:11434/api/version >/dev/null; then
+              echo "Ollama is up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "Ollama did not start within 30s" >&2
+          exit 1
+
+      - name: Pull tiny models
+        run: |
+          # Small on purpose: ~400MB chat + ~45MB embed keeps CI fast. The test
+          # checks plumbing, not answer quality, so model size is irrelevant.
+          ollama pull qwen2.5:0.5b
+          ollama pull all-minilm
+
+      - name: Run live LLM backend integration test
+        env:
+          FIRE_SEQ_LIVE_OLLAMA: http://localhost:11434
+          FIRE_SEQ_LIVE_CHAT_MODEL: qwen2.5:0.5b
+          FIRE_SEQ_LIVE_EMBED_MODEL: all-minilm
+        run: |
+          cd fire_seq_search_server
+          cargo test --test llm_backend_live -- --nocapture
+
+      - name: Run sccache stat for check
+        shell: bash
+        run: ${SCCACHE_PATH} --show-stats
