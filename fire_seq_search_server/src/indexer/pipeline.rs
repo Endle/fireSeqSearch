@@ -254,13 +254,57 @@ impl Indexer {
     }
 }
 
+/// Group a note's chunks into `/v1/embeddings` requests that each stay under
+/// the embed server's `-b/-c 8192` window. We batch by an estimated token
+/// budget rather than a flat count: at `CAP_TOKENS = 600`, a flat batch of 32
+/// is ~19K tokens (2.3x over the window) and the backend drops the connection
+/// mid-request. CJK makes it far worse — `chunker::approx_tokens` divides char
+/// count by 4 (an English heuristic) while bge-m3 tokenizes Chinese at ~1
+/// token/char, so a "600-token" Chinese chunk is really ~2400. `embed_token_
+/// estimate` is the CJK-aware upper bound used for the budget; the chunker's
+/// own estimate is intentionally left alone so chunk boundaries don't change.
 async fn embed_chunks(backend: &LlmBackend, texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
+    // Headroom under the 8192 window; a single chunk (<= CAP_TOKENS, <= ~2400
+    // real CJK tokens) always fits even when it has to go out alone.
+    const BATCH_TOKEN_BUDGET: usize = 7000;
+    const MAX_BATCH: usize = 32;
+
     let mut out = Vec::with_capacity(texts.len());
-    for batch in texts.chunks(32) {
-        let embeddings = backend.embed(batch).await.map_err(|e| e.to_string())?;
+    let mut start = 0;
+    let mut batch_tokens = 0;
+    for i in 0..texts.len() {
+        let t_tokens = embed_token_estimate(&texts[i]);
+        if i > start && (batch_tokens + t_tokens > BATCH_TOKEN_BUDGET || i - start >= MAX_BATCH) {
+            let embeddings = backend.embed(&texts[start..i]).await.map_err(|e| e.to_string())?;
+            out.extend(embeddings);
+            start = i;
+            batch_tokens = 0;
+        }
+        batch_tokens += t_tokens;
+    }
+    if start < texts.len() {
+        let embeddings = backend.embed(&texts[start..]).await.map_err(|e| e.to_string())?;
         out.extend(embeddings);
     }
     Ok(out)
+}
+
+/// Upper-bound token estimate for the embed batch budget. CJK codepoints cost
+/// ~1 token each under bge-m3's tokenizer; everything else ~0.25 (the same /4
+/// heuristic the chunker uses for Latin text).
+fn embed_token_estimate(s: &str) -> usize {
+    let (mut cjk, mut other) = (0usize, 0usize);
+    for c in s.chars() {
+        if matches!(
+            c as u32,
+            0x3000..=0x9FFF | 0xF900..=0xFAFF | 0x20000..=0x2FA1F
+        ) {
+            cjk += 1;
+        } else {
+            other += 1;
+        }
+    }
+    cjk + other / 4
 }
 
 /// Write a side-by-side inspection file for one indexed note: the raw input,
@@ -446,5 +490,24 @@ mod tests {
                 .collect();
         got.sort();
         assert_eq!(got, vec!["journals/2024_01_01.md", "pages/Foo.md"]);
+    }
+
+    #[test]
+    fn embed_token_estimate_counts_cjk_at_one_per_char() {
+        // English: ~4 chars/token. "hello world" = 11 chars -> 2.
+        assert_eq!(embed_token_estimate("hello world"), 11 / 4);
+        // CJK: ~1 token/char. 4 hanzi -> 4, not 1.
+        assert_eq!(embed_token_estimate("马伯庸索"), 4);
+        // Mixed: hanzi counted whole, latin /4.
+        assert_eq!(embed_token_estimate("索多玛 abcd"), 3 + (1 + 4) / 4);
+    }
+
+    #[test]
+    fn embed_token_estimate_keeps_cjk_chunks_under_window() {
+        // A CAP_TOKENS=600 chunk is <= ~2400 chars. Even all-CJK at 1 tok/char
+        // that is well under the embed server's 8192 window, so a single chunk
+        // never overflows on its own — only flat 32-chunk batches did.
+        let chunk: String = "测".repeat(2400);
+        assert!(embed_token_estimate(&chunk) < 8192);
     }
 }
