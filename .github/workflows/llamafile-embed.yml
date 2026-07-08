@@ -11,13 +11,19 @@ name: Llamafile Embed (zero-config)
 
 on:
   push:
-    branches: [ master, backend_llm ]
-  pull_request:
     branches: [ master ]
+  pull_request:
   workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
+
+concurrency:
+  # Supersede stale runs on PRs and feature branches, but never cancel master:
+  # github.run_id is unique per run, so every default-branch commit gets its own
+  # group and completes independently.
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_id || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   llamafile-embed:
