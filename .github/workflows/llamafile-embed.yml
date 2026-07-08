@@ -1,0 +1,77 @@
+name: Llamafile Embed (zero-config)
+
+# Exercises the zero-config embedding path end-to-end: auto-download the pinned
+# bge-m3 llamafile, spawn it, and confirm it serves 1024-dim embeddings over
+# /v1/embeddings. This is the only workflow that proves the *published* artifact
+# boots and embeds on a clean machine — a bad pin, a rejected llama.cpp arg, or a
+# dim change fails here even though every unit test passes.
+#
+# The test (tests/llamafile_embed_live.rs) self-skips unless FIRE_SEQ_LIVE_LLAMAFILE
+# is set, so the plain Rust CI never pulls the 723 MB file; only this job does.
+
+on:
+  push:
+    branches: [ master, backend_llm ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTC_WRAPPER: "sccache"
+  SCCACHE_GHA_ENABLED: "true"
+
+jobs:
+  llamafile-embed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.8
+
+      - name: Get Date
+        id: get-date
+        run: echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/registry
+          key: rust-${{ runner.os }}-${{ hashFiles('**/Cargo.toml') }}-${{ steps.get-date.outputs.date }}-llamafile
+          restore-keys: |
+            rust-${{ runner.os }}-${{ hashFiles('**/Cargo.toml') }}-
+            rust-${{ runner.os }}
+
+      # Cache the ~723 MB llamafile itself, keyed on the pin file. When the pin
+      # bumps (URL/SHA-256 in model_fetch.rs change), the key changes and the new
+      # artifact is re-fetched; otherwise it's restored and ensure_bge_m3()'s
+      # SHA-256 check short-circuits the download.
+      - name: Cache bge-m3 llamafile
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/fire_seq_search
+          key: bge-m3-llamafile-${{ hashFiles('fire_seq_search_server/src/llm_backend/model_fetch.rs') }}
+
+      - name: Run llamafile embed integration test
+        env:
+          FIRE_SEQ_LIVE_LLAMAFILE: "1"
+        run: |
+          cd fire_seq_search_server
+          # --nocapture surfaces the "fetching …" / boot logs; single test, so the
+          # long CPU embed doesn't race anything.
+          cargo test --test llamafile_embed_live -- --nocapture
+
+      - name: Run sccache stat for check
+        shell: bash
+        run: ${SCCACHE_PATH} --show-stats
