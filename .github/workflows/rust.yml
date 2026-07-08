@@ -9,8 +9,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTC_WRAPPER: "sccache"
-  SCCACHE_GHA_ENABLED: "true"
 
 jobs:
   build:
@@ -23,31 +21,12 @@ jobs:
         rust: [stable]
     steps:
       - uses: actions/checkout@v4
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.8
       - name: Install Rust ${{ matrix.rust }}
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
         with:
-          toolchain: ${{ matrix.rust }}
-          profile: minimal
-          override: true
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.8
-      - name: Get Date
-        id: get-date
-        run: |
-          echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
-        shell: bash
-      - name: Cache cargo registry
-        uses: actions/cache@v3
-        continue-on-error: false
-        with:
-          path: |
-            ~/.cargo/registry
-          key: rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-${{ steps.get-date.outputs.date }}-build
-          restore-keys: |
-            rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-
-            rust-${{ runner.os }}
+          workspaces: fire_seq_search_server
 # Real tests starts here
       - name: Check version
         run: rustup --version && rustc --version && cargo --version
@@ -58,56 +37,36 @@ jobs:
       - name: Build
         run: |
           cd fire_seq_search_server
-          cargo build --verbose
+          cargo build --locked --verbose
       - name: Run tests
         run: |
           cd fire_seq_search_server
-          cargo test --verbose
+          cargo test --locked --verbose
       - name: Install
         run: |
           cd fire_seq_search_server
-          cargo install --path .
+          cargo install --locked --path .
       - name: Package
         run: |
           cd fire_seq_search_server
-          cargo package --verbose
-      - name: Run sccache stat for check
-        shell: bash
-        run: ${SCCACHE_PATH} --show-stats
+          cargo package --locked --verbose
 
 
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Install Rust stable
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
         with:
-          toolchain: stable
-          profile: minimal
-          override: true
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.8
-      - name: Get Date
-        id: get-date
-        run: |
-          echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
-        shell: bash
-      - name: Cache cargo registry
-        uses: actions/cache@v3
-        continue-on-error: false
-        with:
-          path: |
-            ~/.cargo/registry
-          key: rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-${{ steps.get-date.outputs.date }}-build
-          restore-keys: |
-            rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-
-            rust-${{ runner.os }}
+          workspaces: fire_seq_search_server
       - name: Build
         run: |
           cd fire_seq_search_server
-          cargo build --verbose
+          cargo build --locked --verbose
       - name: Save Artifact
         run: |
           mkdir builds
@@ -117,8 +76,3 @@ jobs:
         with:
           name: logseq-${{ runner.os }}-builds
           path: builds
-      - name: Run sccache stat for check
-        shell: bash
-        run: ${SCCACHE_PATH} --show-stats
-
-

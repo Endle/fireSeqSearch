@@ -3,50 +3,30 @@ on: [push, pull_request]
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTC_WRAPPER: "sccache"
-  SCCACHE_GHA_ENABLED: "true"
 
 jobs:
   cargo-deny:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    # Prebuilt binary from GitHub Releases — no `cargo install` compile, no
+    # crates.io traffic. `arguments: ""` overrides the action's `--all-features`
+    # default so this stays behaviour-identical to the old bare `cargo deny check`.
+    - name: cargo deny (licenses + advisories)
+      uses: EmbarkStudios/cargo-deny-action@v2
+      with:
+        manifest-path: fire_seq_search_server/Cargo.toml
+        command: check licenses advisories
+        arguments: ""
     - name: Install Rust
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@stable
       with:
-          toolchain: stable
-          profile: minimal
-          override: true
-    - name: Run sccache-cache
-      uses: mozilla-actions/sccache-action@v0.0.8
-    - name: Get Date
-      id: get-date
-      run: |
-        echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
-      shell: bash
-    - name: Cache cargo registry
-      uses: actions/cache@v3
-      continue-on-error: false
+        components: clippy
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
       with:
-        path: |
-          ~/.cargo/registry
-        key: rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-${{ steps.get-date.outputs.date }}-qc
-        restore-keys: |
-          rust-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.toml') }}-
-          rust-${{ runner.os }}
-    - name: Install cargo deny
-      run: |
-          cargo install --locked cargo-deny
-    - name: cargo deny license
-      run: |
-          cd fire_seq_search_server
-          cargo deny check licenses
-    - name: cargo deny advisories
-      run: |
-          cd fire_seq_search_server
-          cargo deny check advisories          
+        workspaces: fire_seq_search_server
     - name: clippy
       run: |
           cd fire_seq_search_server
-          rustup component add clippy
-          cargo clippy
+          cargo clippy --locked
