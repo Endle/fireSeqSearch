@@ -11,54 +11,50 @@ name: Llamafile Embed (zero-config)
 
 on:
   push:
-    branches: [ master, backend_llm ]
-  pull_request:
     branches: [ master ]
+  pull_request:
   workflow_dispatch:
+
+# Least privilege: nothing here writes to the repo, and checkout persists the
+# token into .git/config. Declaring any block sets unlisted scopes to `none`.
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTC_WRAPPER: "sccache"
-  SCCACHE_GHA_ENABLED: "true"
+
+concurrency:
+  # Supersede stale runs on PRs and feature branches, but never cancel master:
+  # github.run_id is unique per run, so every default-branch commit gets its own
+  # group and completes independently.
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_id || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   llamafile-embed:
-    runs-on: ubuntu-latest
+    name: llamafile-embed (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
         with:
-          toolchain: stable
-          profile: minimal
-          override: true
-
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.8
-
-      - name: Get Date
-        id: get-date
-        run: echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - name: Cache cargo registry
-        uses: actions/cache@v3
-        continue-on-error: false
-        with:
-          path: |
-            ~/.cargo/registry
-          key: rust-${{ runner.os }}-${{ hashFiles('**/Cargo.toml') }}-${{ steps.get-date.outputs.date }}-llamafile
-          restore-keys: |
-            rust-${{ runner.os }}-${{ hashFiles('**/Cargo.toml') }}-
-            rust-${{ runner.os }}
+          workspaces: fire_seq_search_server
 
       # Cache the ~723 MB llamafile itself, keyed on the pin file. When the pin
       # bumps (URL/SHA-256 in model_fetch.rs change), the key changes and the new
       # artifact is re-fetched; otherwise it's restored and ensure_bge_m3()'s
       # SHA-256 check short-circuits the download.
       - name: Cache bge-m3 llamafile
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/fire_seq_search
           key: bge-m3-llamafile-${{ hashFiles('fire_seq_search_server/src/llm_backend/model_fetch.rs') }}
@@ -70,8 +66,4 @@ jobs:
           cd fire_seq_search_server
           # --nocapture surfaces the "fetching …" / boot logs; single test, so the
           # long CPU embed doesn't race anything.
-          cargo test --test llamafile_embed_live -- --nocapture
-
-      - name: Run sccache stat for check
-        shell: bash
-        run: ${SCCACHE_PATH} --show-stats
+          cargo test --locked --test llamafile_embed_live -- --nocapture

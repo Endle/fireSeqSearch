@@ -8,49 +8,53 @@ name: LLM Backend Integration
 
 on:
   push:
-    branches: [ master, backend_llm ]
-  pull_request:
     branches: [ master ]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege: nothing here writes to the repo, and checkout persists the
+# token into .git/config. Declaring any block sets unlisted scopes to `none`.
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTC_WRAPPER: "sccache"
-  SCCACHE_GHA_ENABLED: "true"
+
+concurrency:
+  # Supersede stale runs on PRs and feature branches, but never cancel master:
+  # github.run_id is unique per run, so every default-branch commit gets its own
+  # group and completes independently.
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_id || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   ollama-live:
-    runs-on: ubuntu-latest
+    name: ollama-live (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
         with:
-          toolchain: stable
-          profile: minimal
-          override: true
+          workspaces: fire_seq_search_server
 
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.8
-
-      - name: Get Date
-        id: get-date
-        run: echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - name: Cache cargo registry
-        uses: actions/cache@v3
-        continue-on-error: false
-        with:
-          path: |
-            ~/.cargo/registry
-          key: rust-${{ runner.os }}-${{ hashFiles('**/Cargo.toml') }}-${{ steps.get-date.outputs.date }}-llm
-          restore-keys: |
-            rust-${{ runner.os }}-${{ hashFiles('**/Cargo.toml') }}-
-            rust-${{ runner.os }}
-
-      - name: Install Ollama
+      # Linux: the official install script. macOS: Homebrew (preinstalled on the
+      # runner) — the install.sh script is Linux-only and ships no darwin build.
+      - name: Install Ollama (Linux)
+        if: runner.os == 'Linux'
         run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Install Ollama (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ollama
 
       - name: Start Ollama and wait for readiness
         run: |
@@ -78,8 +82,4 @@ jobs:
           FIRE_SEQ_LIVE_EMBED_MODEL: all-minilm
         run: |
           cd fire_seq_search_server
-          cargo test --test llm_backend_live -- --nocapture
-
-      - name: Run sccache stat for check
-        shell: bash
-        run: ${SCCACHE_PATH} --show-stats
+          cargo test --locked --test llm_backend_live -- --nocapture
