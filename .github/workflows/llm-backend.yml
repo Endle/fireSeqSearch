@@ -29,7 +29,12 @@ concurrency:
 
 jobs:
   ollama-live:
-    runs-on: ubuntu-latest
+    name: ollama-live (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
     steps:
       - uses: actions/checkout@v4
 
@@ -41,8 +46,15 @@ jobs:
         with:
           workspaces: fire_seq_search_server
 
-      - name: Install Ollama
+      # Linux: the official install script. macOS: Homebrew (preinstalled on the
+      # runner) — the install.sh script is Linux-only and ships no darwin build.
+      - name: Install Ollama (Linux)
+        if: runner.os == 'Linux'
         run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Install Ollama (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ollama
 
       - name: Start Ollama and wait for readiness
         run: |
