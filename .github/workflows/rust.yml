@@ -7,6 +7,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Least privilege: nothing here writes to the repo, and checkout persists the
+# token into .git/config. Declaring any block sets unlisted scopes to `none`.
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
