@@ -92,7 +92,9 @@ struct Cli {
     /// Path to the embedding model. Omit (the default) to auto-download the
     /// pinned bge-m3 llamafile into `~/.cache/fire_seq_search` and use it —
     /// zero-config embedding. Pass an explicit path to use your own GGUF/
-    /// llamafile instead. Ignored when `--embed-endpoint` is set.
+    /// llamafile instead. Ignored when `--embed-endpoint` is set. May be
+    /// removed in favour of a llamafile-only embed backend (undecided; see
+    /// `build_llm_config`).
     #[arg(long, help_heading = "Embedding")]
     embed_model: Option<PathBuf>,
 
@@ -323,6 +325,13 @@ async fn build_llm_config(args: &Cli) -> Result<LlmBackendConfig, fire_seq_searc
             // No explicit --embed-model → auto-fetch the pinned bge-m3
             // llamafile so embedding is zero-config. An explicit path is
             // used verbatim (BYO GGUF/llamafile).
+            //
+            // UNDECIDED: we may enforce a llamafile-only embedding backend and
+            // remove `--embed-model` (the BYO GGUF/llamafile override) — bge-m3's
+            // 1024-dim output is already locked, so collapsing to one packaging
+            // would shrink the support surface (and the GGUF path is the only
+            // reason embedding ever touches `--llama-server-bin`). No decision
+            // made yet; both paths stay for now.
             let model = match &args.embed_model {
                 Some(p) => p.clone(),
                 None => fire_seq_search_server::llm_backend::model_fetch::ensure_bge_m3().await?,
