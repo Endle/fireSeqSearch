@@ -1,6 +1,6 @@
 //! Live integration test for the LLM backend against a real OpenAI-compatible
 //! server (Ollama in CI). It exercises the actual HTTP paths — embedding, chat,
-//! and streaming chat — plus the `LlmFlavor::Ollama` shim (no `/health` probe,
+//! and streaming chat — plus the `LlmFlavour::Ollama` shim (no `/health` probe,
 //! no `enable_thinking` field). Unit tests cover the pure logic; this is the
 //! only place the request/response wire format is checked against a real server.
 //!
@@ -10,7 +10,7 @@
 //! The dedicated `llm-backend.yml` workflow sets the env and pulls tiny models.
 
 use fire_seq_search_server::llm_backend::{
-    EndpointSource, LlmBackend, LlmBackendConfig, LlmFlavor, Message,
+    EndpointSource, LlmBackend, LlmBackendConfig, LlmFlavour, Message,
 };
 use std::path::PathBuf;
 
@@ -31,17 +31,17 @@ fn embed_model() -> String {
 }
 
 /// Build a backend with both roles pointed at the same Ollama server, using the
-/// Ollama flavor so the health probe is skipped and `enable_thinking` is omitted.
+/// Ollama flavour so the health probe is skipped and `enable_thinking` is omitted.
 async fn launch(url: &str) -> LlmBackend {
     let cfg = LlmBackendConfig {
         embed: EndpointSource::External {
             url: url.to_string(),
-            flavor: LlmFlavor::Ollama,
+            flavour: LlmFlavour::Ollama,
             api_key: None,
         },
         chat: EndpointSource::External {
             url: url.to_string(),
-            flavor: LlmFlavor::Ollama,
+            flavour: LlmFlavour::Ollama,
             api_key: None,
         },
         embed_model_name: embed_model(),

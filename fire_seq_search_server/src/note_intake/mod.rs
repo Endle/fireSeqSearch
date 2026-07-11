@@ -27,7 +27,7 @@ pub enum NotebookSoftware {
 /// downstream stages (chunker, summarizer prompt) can consume directly.
 ///
 /// Runs a small shared pass (frontmatter, image embeds — both dialects use
-/// them) and then dispatches to the per-flavor strip function. Adding a new
+/// them) and then dispatches to the per-flavour strip function. Adding a new
 /// dialect rule belongs in the matching submodule, not here.
 pub fn preprocess(software: &NotebookSoftware, raw: &str) -> String {
     let s = shared_strip(raw);
@@ -85,7 +85,7 @@ pub(crate) fn strip_markup(s: &str) -> String {
 
 /// Pass shared between dialects: YAML frontmatter and image embeds. Both
 /// Logseq and Obsidian files can carry these, so handling them once before
-/// the per-flavor strip avoids duplication.
+/// the per-flavour strip avoids duplication.
 fn shared_strip(raw: &str) -> String {
     lazy_static! {
         static ref FRONTMATTER: Regex = Regex::new(r"(?s)\A---\n.*?\n---\n?").unwrap();

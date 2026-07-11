@@ -8,7 +8,7 @@ use log::{error, info};
 use fire_seq_search_server::http_client::{ask, endpoints};
 use fire_seq_search_server::indexer::{Indexer, IndexerHandle, Store};
 use fire_seq_search_server::llm_backend::{
-    EndpointSource, LlmBackend, LlmBackendConfig, LlmFlavor,
+    EndpointSource, LlmBackend, LlmBackendConfig, LlmFlavour,
 };
 use fire_seq_search_server::app_state::AppState;
 use fire_seq_search_server::config::ServerInformation;
@@ -53,8 +53,8 @@ struct Cli {
     /// kwarg; `ollama`/`openai` skip both (they 400 on the unknown field).
     /// Ignored when no `--chat-endpoint` is set (a spawned backend is always
     /// llama-server).
-    #[arg(long, value_enum, default_value_t = LlmFlavor::LlamaServer)]
-    chat_flavor: LlmFlavor,
+    #[arg(long, value_enum, default_value_t = LlmFlavour::LlamaServer)]
+    chat_flavour: LlmFlavour,
 
     /// Bearer token for `--chat-endpoint` (e.g. an OpenAI API key). Falls back to
     /// the `FIRE_SEQ_CHAT_API_KEY` env var, which is preferred so the key doesn't
@@ -230,7 +230,7 @@ async fn build_llm_config(args: &Cli) -> Result<LlmBackendConfig, fire_seq_searc
         // endpoint is assumed to be a plain llama-server, not Ollama/OpenAI.
         Some(url) => EndpointSource::External {
             url: url.clone(),
-            flavor: LlmFlavor::LlamaServer,
+            flavour: LlmFlavour::LlamaServer,
             api_key: None,
         },
         None => {
@@ -252,7 +252,7 @@ async fn build_llm_config(args: &Cli) -> Result<LlmBackendConfig, fire_seq_searc
     let chat = match &args.chat_endpoint {
         Some(url) => EndpointSource::External {
             url: url.clone(),
-            flavor: args.chat_flavor,
+            flavour: args.chat_flavour,
             // CLI flag wins; otherwise fall back to the env var (preferred — keeps
             // the key out of the process list).
             api_key: args
