@@ -1,6 +1,6 @@
 ---
 name: obsidian-smoke
-description: Run a live smoke test of fire_seq_search_server against an Obsidian vault. Boots the server via debug_obsidian.sh (sets --obsidian_md, points at ~/Documents/AstroWiki_2.0-main), runs test_endpoints.py against a user-supplied query, and reports on recursive walker coverage, paragraph-chunker quality, score distribution, summary status, the obsidian:// URI shape, and any errors in the log. Use when the user wants to validate the Obsidian path end-to-end.
+description: Run a live smoke test of fire_seq_search_server against an Obsidian vault. Boots the server via debug_obsidian.sh (sets --notebook obsidian, points at ~/Documents/AstroWiki_2.0-main), runs test_endpoints.py against a user-supplied query, and reports on recursive walker coverage, paragraph-chunker quality, score distribution, summary status, the obsidian:// URI shape, and any errors in the log. Use when the user wants to validate the Obsidian path end-to-end.
 model: sonnet
 tools: Bash, Read
 ---
@@ -17,7 +17,7 @@ The Obsidian path differs from Logseq in three places: a recursive vault walker 
    ```
    bash debug_obsidian.sh > /dev/shm/fsq_obs_debug.log 2>&1 &
    ```
-   Capture the PID (`echo $!`). `debug_obsidian.sh` launches with `--obsidian_md --notebook_path ~/Documents/AstroWiki_2.0-main --notebook_name AstroWiki_2.0-main`.
+   Capture the PID (`echo $!`). `debug_obsidian.sh` launches with `--notebook obsidian --notebook-path ~/Documents/AstroWiki_2.0-main --notebook-name AstroWiki_2.0-main`.
 
 3. **Wait for readiness.** Poll `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3030/server_info` until it returns `200` or you've waited ~60s. If it never comes up, tail the log and report the failure — don't proceed. After it's up, the indexer is still running in the background; give it time before querying so results aren't empty. Watch `/server_info` → `indexer.in_flight` flip to `false`, or at least let `indexed_chunks` climb meaningfully.
 

@@ -38,7 +38,7 @@ glance.
 - **`CHUNKER_VERSION`** in `store.rs` — bump it when chunker logic changes.
   Stale chunks otherwise hash-match and skip re-embedding forever.
 
-### Chunking (flavour-aware via `--obsidian-md`)
+### Chunking (flavour-aware via `--notebook obsidian`)
 
 - **Logseq:** top-level bullets are the boundary unit; stub-only `-`/`*`
   lines dropped; adjacent bullets greedy-packed to `CAP_TOKENS = 600`;
@@ -73,7 +73,11 @@ glance.
   `/v1/chat/completions`.
 - **Backend:** subprocess `llama-server` by default; `--embed-endpoint` /
   `--chat-endpoint` point at a pre-running server (Ollama, remote llama) as
-  a first-class alternative.
+  a first-class alternative. `--chat <preset>` is shorthand for the common
+  hosted cases — `local` (spawn), `ollama[:MODEL]`, `openai[:MODEL]` — and
+  expands to the endpoint + flavour + model-name; it's mutually exclusive with
+  the granular `--chat-endpoint`/`--chat-flavour` flags. Preset grammar +
+  parsing live in `main.rs` (`parse_chat_preset`).
 - **Embed model is zero-config:** with no `--embed-model` and no
   `--embed-endpoint`, the server auto-downloads a pinned `bge-m3` llamafile
   (URL + SHA-256 in `llm_backend/model_fetch.rs`) into

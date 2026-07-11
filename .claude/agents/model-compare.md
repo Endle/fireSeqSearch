@@ -55,7 +55,7 @@ If the user supplies their own list, use it verbatim and skip the defaults.
       cd /var/home/lizhenbo/src/fireSeqSearch && \
       RUST_LOG="warn,fire_seq_search_server=info" RUST_BACKTRACE=1 \
       nohup ./fire_seq_search_server/target/debug/fire_seq_search_server \
-        --notebook_path ~/logseq --enable-journal-query \
+        --notebook-path ~/logseq --enable-journal-query \
         --chat-model <model-path> \
         > /dev/shm/fsq_modelcmp_<A|B>.log 2>&1 &
       ```
