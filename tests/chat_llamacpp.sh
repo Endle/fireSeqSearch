@@ -6,9 +6,13 @@
 # capture just the env with $(...). Backgrounds the server; writes its PID to
 # fixtures/chat_llamacpp.pid so the caller can stop it.
 #
+# The model default tracks the server's own `--chat-model` default (main.rs), so
+# the smoke exercises the chat backend users actually get rather than a
+# test-only stand-in whose quality says nothing about theirs.
+#
 # Env overrides:
-#   FSQ_CHAT_MODEL   chat GGUF path   (default: ~/llm/Qwen3-0.6B-Q4_K_M.gguf)
-#   FSQ_LLAMA_BIN    llama-server     (default: ~/src/llama.cpp/build/bin/llama-server)
+#   FSQ_CHAT_MODEL   chat GGUF path   (default: ~/llm/Qwen3.5-9B-UD-Q4_K_XL.gguf)
+#   FSQ_LLAMA_BIN    llama-server     (default: llama-server on PATH)
 #   FSQ_CHAT_PORT    port             (default: 8091)
 
 set -uo pipefail
@@ -16,8 +20,8 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FIX_DIR="$SCRIPT_DIR/fixtures"; mkdir -p "$FIX_DIR"
 
-MODEL="${FSQ_CHAT_MODEL:-$HOME/llm/Qwen3-0.6B-Q4_K_M.gguf}"
-LLAMA_BIN="${FSQ_LLAMA_BIN:-$HOME/src/llama.cpp/build/bin/llama-server}"
+MODEL="${FSQ_CHAT_MODEL:-$HOME/llm/Qwen3.5-9B-UD-Q4_K_XL.gguf}"
+LLAMA_BIN="${FSQ_LLAMA_BIN:-$(command -v llama-server || echo "$HOME/.local/bin/llama-server")}"
 PORT="${FSQ_CHAT_PORT:-8091}"
 LOG="$FIX_DIR/chat_llamacpp.log"
 PIDFILE="$FIX_DIR/chat_llamacpp.pid"

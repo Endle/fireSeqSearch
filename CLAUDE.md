@@ -93,7 +93,7 @@ glance.
   512-token ubatch rejects packed chunks with HTTP 500.
 - **GPU:** Vulkan, not ROCm. gfx1102 + ROCm 6.4 on Fedora is rough; Vulkan
   works on stock Mesa 25.3+. We build llama-server in podman/Fedora 43
-  (`Containerfile`, `build_llama_server.sh`).
+  (`scripts/Containerfile`, `scripts/build_llama_server.sh`).
 
 ### Summarization
 
@@ -149,15 +149,28 @@ glance.
 
 ## Running
 
-- **Logseq:** `bash debug_server.sh`
-- **Obsidian:** `bash debug_obsidian.sh` (points at `~/Documents/AstroWiki_2.0-main`; edit for other vaults)
+- **Logseq:** `bash tests/run_logseq.sh` (defaults to `~/logseq`; override with
+  `FIRE_SEQ_LOGSEQ_PATH`)
 - **Tests:** `cd fire_seq_search_server && cargo test --all-targets`
-- **/query smoke:** `.claude/agents/fsq-smoke.md` (Logseq, boots `debug_server.sh`
-  against `~/logseq`). Obsidian is scripted: `bash tests/run_smoke.sh [llamacpp|ollama] [query]`
-  composes a chat provisioner (`tests/chat_*.sh`, one per flavour) with the
-  flavour-agnostic `tests/obsidian_smoke.sh`, which cold-indexes the committed
-  `tests/astro-wiki-lite` fixture and asserts walker parity, URI integrity, and
-  summary health. `.claude/agents/obsidian-smoke.md` drives it and judges snippet
-  and summary *quality* — the part the script can't assert.
+- **/query smoke:** `.claude/agents/fsq-smoke.md` (Logseq, boots
+  `tests/run_logseq.sh` against `~/logseq`). Obsidian is scripted:
+  `bash tests/run_smoke.sh [llamacpp|ollama] [lite|full] [query]` composes a vault
+  provisioner (`tests/vault_*.sh`) + a chat provisioner (`tests/chat_*.sh`, one per
+  flavour) with the flavour-agnostic `tests/obsidian_smoke.sh`.
+  - **lite** — committed `tests/astro-wiki-lite` fixture (2 notes). Fast and hermetic;
+    asserts walker parity, URI integrity, summary health. Proves the plumbing only:
+    with 2 notes there is nothing to outrank, so it says nothing about ranking.
+  - **full** — the real `AstroWiki_2.0` vault (~366 notes), cloned + cached under
+    `~/.cache/fire_seq_search`, pinned to the revision `tests/astro_wiki_eval.json`
+    was tuned against. The **only** mode that can grade score priority and `/ask`
+    answers: every gold query has a near-miss neighbour in the corpus (Compton vs.
+    Inverse-Compton, Oort Cloud vs. Oort Constants). Grading runs through
+    `eval_retrieval.py --set`; a right-page-but-outranked result is a WARN, a
+    right-page-missing result is a FAIL.
+
+  `.claude/agents/obsidian-smoke.md` drives both and judges snippet and summary
+  *quality* — the part the script can't assert.
 - **/ask smoke:** `.claude/agents/ask-smoke.md`
-- **Eval regression set:** `./eval_retrieval.py`
+- **Eval regression set:** `./eval_retrieval.py` (built-in set = the author's Logseq
+  corpus; `--set FILE --base URL` runs a portable set, e.g.
+  `tests/astro_wiki_eval.json` for the Obsidian full smoke)

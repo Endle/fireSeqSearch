@@ -6,35 +6,45 @@
 # chat_llamacpp.sh or chat_ollama.sh) via env, so the same test runs against
 # any chat flavour.
 #
-# Does the deterministic work: index a small committed vault, boot the server,
-# cold-index, query, and assert walker parity, non-empty snippets, no failed
-# summaries, and that every result URI resolves to a real file (so the %2F
-# directory-prefix bug can't come back). Prints a RESULTS block (hits, for a
-# human/LLM to judge snippet & summary *quality*) and a CHECKS block, then
-# exits 0 iff every hard check passed.
+# Does the deterministic work: index a vault, boot the server, cold-index, query,
+# and assert walker parity, non-empty snippets, no failed summaries, and that
+# every result URI resolves to a real file (so the %2F directory-prefix bug can't
+# come back). Prints a RESULTS block (hits, for a human/LLM to judge snippet &
+# summary *quality*) and a CHECKS block, then exits 0 iff every hard check passed.
+#
+# VAULT-AGNOSTIC too: the corpus comes in via env from a part-0 provisioner
+# (vault_lite.sh or vault_full.sh). If that provisioner also hands over an eval
+# set (FSQ_EVAL_SET — only the full vault has one), this script additionally
+# grades *ranking* and */ask answers* against it via eval_retrieval.py. Those
+# checks are meaningless on a 2-note fixture, which is why they're conditional
+# rather than always-on.
 #
 # Required env (the chat backend — fireSeqSearch won't boot without one):
 #   CHAT_ENDPOINT     e.g. http://127.0.0.1:8091   (no trailing /v1)
 #   CHAT_FLAVOUR      llama-server | ollama | openai
 #   CHAT_MODEL_NAME   model name the endpoint serves
 #
+# Vault env (defaults to the committed lite fixture if unset):
+#   FSQ_VAULT          path to the Obsidian vault
+#   FSQ_NOTEBOOK_NAME  vault name for obsidian://open URIs
+#   FSQ_EVAL_SET       JSON gold set; empty/unset = skip the ranking + /ask grading
+#
 # Usage:  CHAT_ENDPOINT=… CHAT_FLAVOUR=… CHAT_MODEL_NAME=… bash tests/obsidian_smoke.sh [query]
-# (normally invoked by tests/run_smoke.sh, which starts the chat server first.)
+# (normally invoked by tests/run_smoke.sh, which starts the chat + vault first.)
 
 set -uo pipefail   # not -e: teardown + CHECKS must run even after a failed assertion
 
-# ---- test corpus -------------------------------------------------------------
-# Default: the tiny committed "astro-wiki-lite" vault (2 notes + a trash/ decoy),
-# so the whole workflow runs in well under a minute even with CPU-only embedding.
-# Override FSQ_VAULT with a path to run against a bigger vault — e.g. a clone of
-# https://github.com/Endle/AstroWiki_2.0 @ 9ce2e9bc374f1a128a727cc75dca183f5fadf72d
 QUERY="${1:-compton scattering}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 FIX_DIR="$SCRIPT_DIR/fixtures"
 VAULT_DIR="${FSQ_VAULT:-$SCRIPT_DIR/astro-wiki-lite}"
-DB_PATH="$FIX_DIR/smoke.sqlite"
+NOTEBOOK_NAME="${FSQ_NOTEBOOK_NAME:-$(basename "$VAULT_DIR")}"
+EVAL_SET="${FSQ_EVAL_SET:-}"
+# One DB per vault: a cold run against the lite fixture must not blow away the
+# full vault's index (which costs minutes of embedding to rebuild).
+DB_PATH="${FSQ_DB:-$FIX_DIR/smoke-$(printf '%s' "$(basename "$VAULT_DIR")" | tr -c '[:alnum:]' '_').sqlite}"
 SERVER_LOG="$FIX_DIR/server.log"
 
 BASE="http://127.0.0.1:3030"
@@ -50,8 +60,8 @@ pass()   { _check PASS "$1" "$2"; }
 warn()   { _check WARN "$1" "$2"; }
 fail()   { _check FAIL "$1" "$2"; hard_fail=1; }
 
-# Populated in step 7; pre-initialised so an early die() can print under set -u.
-hits=""; nhits=0
+# Populated in steps 7 and 8.5; pre-initialised so an early die() can print under set -u.
+hits=""; nhits=0; eval_out=""
 
 print_report() {
   echo
@@ -60,6 +70,11 @@ print_report() {
     echo "$hits" | jq -r '.[] | "• \(.title)  [score \(.score)]  \(.summary_status)\n    uri    : \(.logseq_uri)\n    snippet: \(.top_snippet)\n    summary: \(.summary // "(none)")"'
   else
     echo "(no hits captured)"
+  fi
+  if [ -n "$eval_out" ]; then
+    echo
+    echo "===== GOLD (ranking + /ask against $(basename "$EVAL_SET")) ====="
+    echo "$eval_out"
   fi
   echo
   echo "===== CHECKS ====="
@@ -96,6 +111,7 @@ done
 [ -n "${CHAT_FLAVOUR:-}" ]    || die "chat_env" "CHAT_FLAVOUR unset (llama-server|ollama|openai)"
 [ -n "${CHAT_MODEL_NAME:-}" ] || die "chat_env" "CHAT_MODEL_NAME unset"
 echo "[smoke] chat backend: $CHAT_FLAVOUR @ $CHAT_ENDPOINT (model $CHAT_MODEL_NAME)"
+echo "[smoke] vault: $VAULT_DIR (gold set: ${EVAL_SET:-none})"
 
 mkdir -p "$FIX_DIR"
 
@@ -120,7 +136,7 @@ RUST_LOG="warn,fire_seq_search_server=info" RUST_BACKTRACE=1 \
   "$REPO_ROOT/fire_seq_search_server/target/debug/fire_seq_search_server" \
     --notebook-path "$VAULT_DIR" \
     --notebook obsidian \
-    --notebook-name AstroWiki_2.0 \
+    --notebook-name "$NOTEBOOK_NAME" \
     --db-path "$DB_PATH" \
     --chat-endpoint "$CHAT_ENDPOINT" \
     --chat-flavour "$CHAT_FLAVOUR" \
@@ -142,17 +158,29 @@ fi
 pass "boot" "server up"
 
 # ---- 5. wait for the cold index ----------------------------------------------
-echo "[smoke] indexing (cold) ..."
-prev_chunks=-1; stable=0
-for _ in $(seq 1 $((INDEX_WAIT_MAX / 3)) ); do
+# Wait on in_flight, and track progress with indexed_notes — NOT indexed_chunks,
+# which the pipeline only writes when a scan *finishes* (and at hydrate). On a
+# cold scan indexed_chunks reads 0 the whole way, so treating it as a progress
+# signal makes every big vault look instantly "plateaued" and hands the query +
+# gold checks a nearly-empty index. indexed_notes increments per note.
+echo "[smoke] indexing (cold; up to ${INDEX_WAIT_MAX}s) ..."
+prev_notes=-1; stalled=0; waited=0
+while [ "$waited" -lt "$INDEX_WAIT_MAX" ]; do
   info="$(curl -s "$BASE/server_info")"
   in_flight="$(echo "$info" | jq -r '.indexer.in_flight')"
-  chunks="$(echo "$info" | jq -r '.indexer.indexed_chunks')"
+  done_notes="$(echo "$info" | jq -r '.indexer.indexed_notes')"
+  total="$(echo "$info" | jq -r '.indexer.total_notes')"
   [ "$in_flight" = "false" ] && break
-  [ "$chunks" = "$prev_chunks" ] && stable=$((stable+1)) || stable=0
-  [ "$stable" -ge 3 ] && break     # plateaued
-  prev_chunks="$chunks"
-  sleep 3
+  if [ "$done_notes" = "$prev_notes" ]; then
+    stalled=$((stalled + 1))
+    # 20 polls x 3s = 60s with no new note = genuinely stuck, not just slow.
+    [ "$stalled" -ge 20 ] && { echo "[smoke] no progress for 60s at $done_notes/$total — giving up on the wait"; break; }
+  else
+    stalled=0
+    echo "[smoke]   $done_notes/$total notes (${waited}s)"
+  fi
+  prev_notes="$done_notes"
+  sleep 3; waited=$((waited + 3))
 done
 info="$(curl -s "$BASE/server_info")"
 idx_notes="$(echo "$info"  | jq -r '.indexer.indexed_notes')"
@@ -245,13 +273,45 @@ if [ "$nhits" -ge 1 ] 2>/dev/null; then
   fi
 fi
 
+# ---- 8.5 gold set: ranking + /ask answers (full vault only) ------------------
+# The lite fixture has 2 notes, so "is the top hit the right one?" is vacuous
+# there — it's the only note that matches. On the full AstroWiki vault the gold
+# set pits each query against real near-misses (Compton vs. Inverse-Compton,
+# Oort Cloud vs. Oort Constants) and asks /ask questions with known answers, so
+# score priority and answer grounding become falsifiable. eval_retrieval.py does
+# the grading; we only translate its exit code into a check.
+if [ -n "$EVAL_SET" ] && [ "$complete" != 1 ]; then
+  # Grading a half-built index is worse than not grading: every gold query
+  # "fails" because its page simply isn't in the index yet, which reads like a
+  # ranking regression. Refuse rather than lie.
+  warn "gold" "index incomplete ($idx_notes/$found) — ranking + /ask NOT graded (raise FSQ_INDEX_WAIT)"
+elif [ -n "$EVAL_SET" ] && [ -f "$EVAL_SET" ]; then
+  echo "[smoke] grading ranking + /ask against $(basename "$EVAL_SET") ..."
+  eval_out="$(python3 "$REPO_ROOT/eval_retrieval.py" --set "$EVAL_SET" --base "$BASE" 2>&1)"
+  eval_rc=$?
+  rank_warns="$(echo "$eval_out" | grep -c '^  WARN' || true)"
+  if [ "$eval_rc" -eq 0 ] && [ "$rank_warns" -eq 0 ]; then
+    pass "gold" "$(echo "$eval_out" | grep '^total:')"
+  elif [ "$eval_rc" -eq 0 ]; then
+    warn "gold" "$(echo "$eval_out" | grep '^total:') — $rank_warns ranking slip(s), see GOLD block"
+  else
+    fail "gold" "$(echo "$eval_out" | grep '^total:') — see GOLD block"
+  fi
+elif [ -n "$EVAL_SET" ]; then
+  warn "gold" "eval set not found: $EVAL_SET"
+else
+  warn "gold" "no eval set for this vault — ranking and /ask answers NOT graded (use the full vault)"
+fi
+
 # ---- 9. log scan -------------------------------------------------------------
 if grep -q 'panic' "$SERVER_LOG"; then
   fail "log_panic" "'panic' in server log: $(grep -m1 panic "$SERVER_LOG")"
 else
   pass "log_panic" "no panics"
 fi
-errcount="$(grep -icE 'error|(HTTP )?500|input too large' "$SERVER_LOG" || true)"
+# Match log *levels*, not the word "error" anywhere: the server echoes chunk text
+# into INFO lines, and real notes say things like "2% error" or "error bars".
+errcount="$(grep -cE '\[ERROR\]|\[WARN \]|HTTP 500|input too large' "$SERVER_LOG" || true)"
 { [ "$errcount" -gt 0 ] && warn "log_errors" "$errcount error/500-ish line(s) in log (review — embed 500s are a known class)"; } \
   || pass "log_errors" "no error lines"
 
