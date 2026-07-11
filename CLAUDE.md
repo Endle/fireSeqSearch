@@ -152,6 +152,12 @@ glance.
 - **Logseq:** `bash debug_server.sh`
 - **Obsidian:** `bash debug_obsidian.sh` (points at `~/Documents/AstroWiki_2.0-main`; edit for other vaults)
 - **Tests:** `cd fire_seq_search_server && cargo test --all-targets`
-- **/query smoke:** `.claude/agents/fsq-smoke.md` (Logseq), `.claude/agents/obsidian-smoke.md` (Obsidian)
+- **/query smoke:** `.claude/agents/fsq-smoke.md` (Logseq, boots `debug_server.sh`
+  against `~/logseq`). Obsidian is scripted: `bash tests/run_smoke.sh [llamacpp|ollama] [query]`
+  composes a chat provisioner (`tests/chat_*.sh`, one per flavour) with the
+  flavour-agnostic `tests/obsidian_smoke.sh`, which cold-indexes the committed
+  `tests/astro-wiki-lite` fixture and asserts walker parity, URI integrity, and
+  summary health. `.claude/agents/obsidian-smoke.md` drives it and judges snippet
+  and summary *quality* — the part the script can't assert.
 - **/ask smoke:** `.claude/agents/ask-smoke.md`
 - **Eval regression set:** `./eval_retrieval.py`
