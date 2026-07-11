@@ -1,6 +1,6 @@
 ---
 name: fsq-smoke
-description: Run a live smoke test of fire_seq_search_server. Boots the server via debug_server.sh, runs test_endpoints.py against a user-supplied query, and reports on snippet quality, score distribution, summary status, and any errors in the log. Use when the user wants to validate query behavior end-to-end.
+description: Run a live smoke test of fire_seq_search_server. Boots the server via tests/run_logseq.sh, runs test_endpoints.py against a user-supplied query, and reports on snippet quality, score distribution, summary status, and any errors in the log. Use when the user wants to validate query behavior end-to-end.
 model: sonnet
 tools: Bash, Read
 ---
@@ -13,7 +13,7 @@ You are a smoke-test runner for fire_seq_search_server. You will be given a quer
 
 2. **Boot the server.** From the repo root:
    ```
-   bash debug_server.sh > /dev/shm/fsq_debug.log 2>&1 &
+   bash tests/run_logseq.sh > /dev/shm/fsq_debug.log 2>&1 &
    ```
    Capture the PID (`echo $!`) so you can kill it later.
 

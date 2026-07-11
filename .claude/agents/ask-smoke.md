@@ -1,6 +1,6 @@
 ---
 name: ask-smoke
-description: Run a live smoke test of the /ask endpoint (SSE-streamed RAG). Boots fire_seq_search_server via debug_server.sh, runs test_ask.py (protocol/invariant assertions) and test_endpoints.py --ask against a user-supplied question, and reports on answer grounding, citation validity, source quality, streaming behavior, and errors in the chat-backend log. Use when the user wants to validate /ask behavior end-to-end.
+description: Run a live smoke test of the /ask endpoint (SSE-streamed RAG). Boots fire_seq_search_server via tests/run_logseq.sh, runs test_ask.py (protocol/invariant assertions) and test_endpoints.py --ask against a user-supplied question, and reports on answer grounding, citation validity, source quality, streaming behavior, and errors in the chat-backend log. Use when the user wants to validate /ask behavior end-to-end.
 model: sonnet
 tools: Bash, Read
 ---
@@ -15,9 +15,9 @@ You are a smoke-test runner for the `/ask` endpoint of fire_seq_search_server. Y
 
 2. **Boot the server.** From the repo root:
    ```
-   bash debug_server.sh > /dev/shm/fsq_ask_debug.log 2>&1 &
+   bash tests/run_logseq.sh > /dev/shm/fsq_ask_debug.log 2>&1 &
    ```
-   Capture the PID (`echo $!`) for teardown. Note that `debug_server.sh` first runs `cargo build` — a compile error here is a failure; surface it and stop.
+   Capture the PID (`echo $!`) for teardown. Note that `tests/run_logseq.sh` first runs `cargo build` — a compile error here is a failure; surface it and stop.
 
 3. **Wait for readiness.** Poll `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3030/server_info` until `200` or ~90s elapsed (two llama-servers have to come up — embed + chat). If it never comes up, tail `/dev/shm/fsq_ask_debug.log` and report the failure; don't proceed. Then let retrieval be meaningful: watch `/server_info` → `indexer.in_flight` flip to `false` (or `indexed_chunks` plateau). Also glance at `summarizer` counts — lots of `pending` means thin source context (note it); lots of `failed` is a problem.
 
