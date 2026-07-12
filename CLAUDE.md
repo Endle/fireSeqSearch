@@ -131,8 +131,8 @@ glance.
   covers the use case.
 - **Server-side HTML rendering** of results. The browser extension renders.
 - **BM25 hybrid / reranker.** Bringing tantivy back doubles complexity for
-  unproven gain. Revisit only if `eval_retrieval.py` shows dense failing on
-  a class of queries.
+  unproven gain. Revisit only if `tests/eval_retrieval.py` shows dense failing
+  on a class of queries.
 - **Per-chunk LLM context blurbs** (Anthropic-style contextual retrieval).
   Page summaries cover most of the same value at a fraction of indexing cost.
 - **Late chunking** (Jina). Requires per-token hidden states that
@@ -165,12 +165,16 @@ glance.
     was tuned against. The **only** mode that can grade score priority and `/ask`
     answers: every gold query has a near-miss neighbour in the corpus (Compton vs.
     Inverse-Compton, Oort Cloud vs. Oort Constants). Grading runs through
-    `eval_retrieval.py --set`; a right-page-but-outranked result is a WARN, a
-    right-page-missing result is a FAIL.
+    `tests/eval_retrieval.py --set`; a right-page-but-outranked result is a WARN,
+    a right-page-missing result is a FAIL.
 
   `.claude/agents/obsidian-smoke.md` drives both and judges snippet and summary
   *quality* — the part the script can't assert.
 - **/ask smoke:** `.claude/agents/ask-smoke.md`
-- **Eval regression set:** `./eval_retrieval.py` (built-in set = the author's Logseq
-  corpus; `--set FILE --base URL` runs a portable set, e.g.
+- **Eval regression set:** `tests/eval_retrieval.py` (built-in set = the author's
+  Logseq corpus; `--set FILE --base URL` runs a portable set, e.g.
   `tests/astro_wiki_eval.json` for the Obsidian full smoke)
+- **Manual HTTP clients** (both take a live server on `127.0.0.1:3030`):
+  `tests/test_endpoints.py <query>` renders `/query` hits, `--ask <q>` traces the
+  `/ask` SSE stream; `tests/test_ask.py [<q>]` asserts the `/ask` wire contract
+  and server-side invariants, exiting non-zero on any failure.

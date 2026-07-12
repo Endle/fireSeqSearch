@@ -144,7 +144,7 @@ struct Cli {
     /// 0.03–0.05 band (vs ≥0.50 typical on Logseq) — the floor is too low
     /// on the Obsidian path. Right fix is probably a per-software default
     /// or a relative cutoff (must beat corpus mean by a margin). Hold until
-    /// eval_retrieval.py has Obsidian queries to measure against.
+    /// tests/eval_retrieval.py has Obsidian queries to measure against.
     #[arg(long, default_value_t = 0.35, help_heading = "Server & tuning")]
     min_score: f32,
 }

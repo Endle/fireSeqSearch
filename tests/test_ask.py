@@ -4,7 +4,8 @@
 Runs against a live fire_seq_search_server (default 127.0.0.1:3030) and
 asserts the SSE wire contract and the server-side guarantees, rather than
 the *content* of answers (which is model-dependent and lives in
-eval_retrieval.py's ASK_SET). Exits non-zero if any check fails.
+eval_retrieval.py's ASK_SET, alongside this file). Exits non-zero if any
+check fails.
 
 Checked:
   - event ordering: meta first, then delta*, then exactly one done; no error
@@ -18,8 +19,8 @@ Checked:
   - an empty/blank question yields a single `error` event and nothing else
   - only known event names appear
 
-Usage: ./test_ask.py            # uses GROUNDED_QUESTION below
-       ./test_ask.py "<q>"      # also runs the grounded checks on <q>
+Usage: tests/test_ask.py            # uses GROUNDED_QUESTION below
+       tests/test_ask.py "<q>"      # also runs the grounded checks on <q>
 """
 import json
 import sys

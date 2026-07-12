@@ -287,7 +287,7 @@ if [ -n "$EVAL_SET" ] && [ "$complete" != 1 ]; then
   warn "gold" "index incomplete ($idx_notes/$found) — ranking + /ask NOT graded (raise FSQ_INDEX_WAIT)"
 elif [ -n "$EVAL_SET" ] && [ -f "$EVAL_SET" ]; then
   echo "[smoke] grading ranking + /ask against $(basename "$EVAL_SET") ..."
-  eval_out="$(python3 "$REPO_ROOT/eval_retrieval.py" --set "$EVAL_SET" --base "$BASE" 2>&1)"
+  eval_out="$(python3 "$SCRIPT_DIR/eval_retrieval.py" --set "$EVAL_SET" --base "$BASE" 2>&1)"
   eval_rc=$?
   rank_warns="$(echo "$eval_out" | grep -c '^  WARN' || true)"
   if [ "$eval_rc" -eq 0 ] && [ "$rank_warns" -eq 0 ]; then
