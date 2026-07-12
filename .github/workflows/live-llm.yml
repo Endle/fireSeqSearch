@@ -1,0 +1,128 @@
+name: Live LLM Backends
+
+# Both jobs here boot a *real* LLM server and run an integration test against it.
+# The tests self-skip unless their env var is set, so the plain Rust CI never
+# pulls a model; only this workflow does. Kept separate from ci.yml because these
+# jobs are network-heavy (hundreds of MB) and may want gating or scheduling
+# independently of the fast path.
+#
+#   llamafile-embed — the zero-config embedding path: auto-download the pinned
+#     bge-m3 llamafile, spawn it, confirm it serves 1024-dim embeddings over
+#     /v1/embeddings. The only workflow that proves the *published* artifact boots
+#     and embeds on a clean machine — a bad pin, a rejected llama.cpp arg, or a dim
+#     change fails here even though every unit test passes.
+#   ollama-live — the OpenAI-compat wire format (embedding, chat, streaming chat,
+#     the LlmFlavor::Ollama shim) against a real Ollama server.
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege: nothing here writes to the repo, and checkout persists the
+# token into .git/config. Declaring any block sets unlisted scopes to `none`.
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+concurrency:
+  # Supersede stale runs on PRs and feature branches, but never cancel master:
+  # github.run_id is unique per run, so every default-branch commit gets its own
+  # group and completes independently.
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_id || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  llamafile-embed:
+    name: llamafile-embed (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fire_seq_search_server
+
+      # Cache the ~723 MB llamafile itself, keyed on the pin file. When the pin
+      # bumps (URL/SHA-256 in model_fetch.rs change), the key changes and the new
+      # artifact is re-fetched; otherwise it's restored and ensure_bge_m3()'s
+      # SHA-256 check short-circuits the download.
+      - name: Cache bge-m3 llamafile
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/fire_seq_search
+          key: bge-m3-llamafile-${{ hashFiles('fire_seq_search_server/src/llm_backend/model_fetch.rs') }}
+
+      - name: Run llamafile embed integration test
+        env:
+          FIRE_SEQ_LIVE_LLAMAFILE: "1"
+        working-directory: fire_seq_search_server
+        # --nocapture surfaces the "fetching …" / boot logs; single test, so the
+        # long CPU embed doesn't race anything.
+        run: cargo test --locked --test llamafile_embed_live -- --nocapture
+
+  ollama-live:
+    name: ollama-live (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fire_seq_search_server
+
+      # Linux: the official install script. macOS: Homebrew (preinstalled on the
+      # runner) — the install.sh script is Linux-only and ships no darwin build.
+      - name: Install Ollama (Linux)
+        if: runner.os == 'Linux'
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Install Ollama (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ollama
+
+      - name: Start Ollama and wait for readiness
+        run: |
+          ollama serve &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:11434/api/version >/dev/null; then
+              echo "Ollama is up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "Ollama did not start within 30s" >&2
+          exit 1
+
+      - name: Pull tiny models
+        run: |
+          # Small on purpose: ~400MB chat + ~45MB embed keeps CI fast. The test
+          # checks plumbing, not answer quality, so model size is irrelevant.
+          ollama pull qwen2.5:0.5b
+          ollama pull all-minilm
+
+      - name: Run live LLM backend integration test
+        env:
+          FIRE_SEQ_LIVE_OLLAMA: http://localhost:11434
+          FIRE_SEQ_LIVE_CHAT_MODEL: qwen2.5:0.5b
+          FIRE_SEQ_LIVE_EMBED_MODEL: all-minilm
+        working-directory: fire_seq_search_server
+        run: cargo test --locked --test llm_backend_live -- --nocapture

@@ -63,7 +63,8 @@ step.
 
 Install Rust: <https://doc.rust-lang.org/cargo/getting-started/installation.html>
 
-Min Rust version: see [`.github/workflows/rust.yml`](.github/workflows/rust.yml).
+Built and tested against current Rust stable; see
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ```
 git clone https://github.com/Endle/fireSeqSearch
