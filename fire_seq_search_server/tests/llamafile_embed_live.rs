@@ -15,7 +15,7 @@
 //! sets the env and caches the download.
 
 use fire_seq_search_server::llm_backend::{
-    model_fetch, EndpointSource, LlmBackend, LlmBackendConfig, LlmFlavor,
+    model_fetch, EndpointSource, LlmBackend, LlmBackendConfig, LlmFlavour,
 };
 use std::path::PathBuf;
 
@@ -63,7 +63,7 @@ async fn downloaded_llamafile_embeds_at_expected_dim() {
     );
 
     // 2. Spawn *only* the embed backend from that llamafile. Chat is a dummy
-    //    External+Ollama endpoint: that flavor skips the /health probe, so launch
+    //    External+Ollama endpoint: that flavour skips the /health probe, so launch
     //    never touches it, and the test never calls chat(). `-ngl 0` forces CPU —
     //    CI has no GPU, and it skips the doomed GPU attempt + fallback wait.
     let cfg = LlmBackendConfig {
@@ -75,7 +75,7 @@ async fn downloaded_llamafile_embeds_at_expected_dim() {
         },
         chat: EndpointSource::External {
             url: "http://127.0.0.1:1".to_string(),
-            flavor: LlmFlavor::Ollama,
+            flavour: LlmFlavour::Ollama,
             api_key: None,
         },
         embed_model_name: "default".to_string(),

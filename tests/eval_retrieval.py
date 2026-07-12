@@ -4,7 +4,8 @@
 Two checks, both run against a live server:
 
 1. Retrieval — hits /query for each (query, expected_titles) pair and
-   checks whether any expected page title appears in the top-K results.
+   checks whether any expected page title appears in the top-K results,
+   and (if the entry names a `max_rank`) whether it appears that high.
 2. /ask grounding — POSTs each question to /ask, reads the `meta` event,
    and checks that an expected source page was retrieved AND that the
    `done` event reports `answered: true` with no invalid citations.
@@ -13,7 +14,21 @@ Designed to be re-run after every change so regressions are visible
 instead of vibes-based. Edit EVAL_SET / ASK_SET with queries you
 remember the answers to; each value is a list of acceptable page titles
 (any match counts as a pass).
+
+The built-in sets below are the author's Logseq corpus. `--set FILE`
+loads a portable set instead — that's how the Obsidian smoke test grades
+ranking against the AstroWiki vault (tests/astro_wiki_eval.json):
+
+    {"top_k": 5,
+     "retrieval": {"oort cloud": {"expect": ["Oort Cloud"], "max_rank": 1},
+                   "loose query": ["Any Of", "These Titles"]},
+     "ask":       {"what is X?": ["X"]}}
+
+A retrieval entry may be a bare list (in top-K anywhere = pass) or an
+object with `max_rank` — landing inside top-K but below `max_rank` is a
+WARN, not a failure: it's a ranking slip worth seeing, not a broken index.
 """
+import argparse
 import json
 import sys
 import urllib.parse
@@ -101,10 +116,18 @@ def fetch_ask(question):
     return titles, done
 
 
+def parse_entry(value):
+    """Normalise a retrieval entry to (expected_titles, max_rank)."""
+    if isinstance(value, dict):
+        return value["expect"], value.get("max_rank", TOP_K)
+    return value, TOP_K
+
+
 def run_retrieval_eval():
-    passed = failed = 0
+    passed = failed = warned = 0
     print(f"retrieval: {len(EVAL_SET)} queries against {BASE} (top-{TOP_K})\n")
-    for query, expected in EVAL_SET.items():
+    for query, value in EVAL_SET.items():
+        expected, max_rank = parse_entry(value)
         try:
             hits = fetch_query(query)
         except Exception as e:
@@ -119,18 +142,25 @@ def run_retrieval_eval():
         match_idx = next(
             (i for i, t in enumerate(top_titles) if t in expected), None
         )
-        if match_idx is not None:
-            h = hits[match_idx]
-            print(
-                f"  PASS   {query!r}: {h['title']!r} at rank {match_idx + 1} "
-                f"(score {h['score']:.3f})"
-            )
-            passed += 1
-        else:
+        if match_idx is None:
             print(f"  FAIL   {query!r}: expected one of {expected}")
             print(f"          top-{TOP_K}: {top_titles}")
             failed += 1
-    print(f"\nretrieval: {passed}/{passed + failed} passed\n")
+            continue
+        h, rank = hits[match_idx], match_idx + 1
+        where = f"{h['title']!r} at rank {rank} (score {h['score']:.3f})"
+        if rank <= max_rank:
+            print(f"  PASS   {query!r}: {where}")
+            passed += 1
+        else:
+            # Retrieved, but something else outranked it — a ranking slip.
+            # Report the pages that beat it; that's the actionable part.
+            print(f"  WARN   {query!r}: {where}, expected rank <= {max_rank}")
+            print(f"          outranked by: {top_titles[:rank - 1]}")
+            warned += 1
+            passed += 1
+    print(f"\nretrieval: {passed}/{passed + failed} passed"
+          f"{f' ({warned} rank warn)' if warned else ''}\n")
     return passed, failed
 
 
@@ -167,9 +197,32 @@ def run_ask_eval():
     return passed, failed
 
 
+def load_set(path):
+    """Replace the built-in Logseq sets with a portable one from JSON."""
+    global EVAL_SET, ASK_SET, TOP_K
+    with open(path) as f:
+        spec = json.load(f)
+    EVAL_SET = spec.get("retrieval", {})
+    ASK_SET = spec.get("ask", {})
+    TOP_K = spec.get("top_k", TOP_K)
+
+
 def main():
+    global BASE
+    ap_ = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap_.add_argument("--set", metavar="FILE",
+                     help="JSON eval set (default: the built-in Logseq one)")
+    ap_.add_argument("--base", default=BASE, help=f"server base URL (default: {BASE})")
+    ap_.add_argument("--retrieval-only", action="store_true",
+                     help="skip /ask (fast; no chat backend needed)")
+    args = ap_.parse_args()
+
+    BASE = args.base.rstrip("/")
+    if args.set:
+        load_set(args.set)
+
     rp, rf = run_retrieval_eval()
-    ap, af = run_ask_eval()
+    ap, af = (0, 0) if args.retrieval_only else run_ask_eval()
     passed, failed = rp + ap, rf + af
     total = passed + failed
     print(f"total: {passed}/{total} passed", end="")

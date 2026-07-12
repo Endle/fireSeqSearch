@@ -2,12 +2,12 @@
 """Smoke test for the fire_seq_search_server HTTP API.
 
 Hits /server_info once, then either runs a single query passed on the
-command line (`./test_endpoints.py cruise`) or drops into an interactive
+command line (`tests/test_endpoints.py cruise`) or drops into an interactive
 loop. Renders each hit with its title, score, summary, and top_snippet.
 Summaries are generated asynchronously by the server's background
 summarizer; pages that don't have one yet show as "(pending)".
 
-`/ask` (streamed RAG): `./test_endpoints.py --ask "what is softmax?"` POSTs
+`/ask` (streamed RAG): `tests/test_endpoints.py --ask "what is softmax?"` POSTs
 the question, consumes the SSE stream, and prints sources, the streamed
 answer, and the server-side citation-validation summary.
 """
@@ -146,7 +146,7 @@ def main():
 
     if len(sys.argv) > 1 and sys.argv[1] == "--ask":
         if len(sys.argv) < 3:
-            print("usage: test_endpoints.py --ask <question>", file=sys.stderr)
+            print("usage: tests/test_endpoints.py --ask <question>", file=sys.stderr)
             return 2
         try:
             run_ask(" ".join(sys.argv[2:]))
@@ -157,7 +157,7 @@ def main():
 
     if len(sys.argv) > 1:
         # Treat all args as a single query phrase so unquoted multi-word
-        # terms like `./test_endpoints.py air ticket` work as expected.
+        # terms like `tests/test_endpoints.py air ticket` work as expected.
         query_and_render(" ".join(sys.argv[1:]))
         return 0
 

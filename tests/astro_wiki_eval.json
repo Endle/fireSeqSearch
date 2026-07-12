@@ -1,0 +1,72 @@
+{
+  "_comment": [
+    "Gold set for the FULL Obsidian smoke (tests/run_smoke.sh <flavour> full).",
+    "Tuned against AstroWiki_2.0 @ 9ce2e9bc374f1a128a727cc75dca183f5fadf72d (~366 notes).",
+    "Every query below has a near-miss neighbour in the vault — that's the point:",
+    "'compton scattering' must beat Inverse-Compton and Thomson, 'oort cloud' must",
+    "beat Oort Constants. A lite 2-note fixture cannot test any of this.",
+    "max_rank: the expected page must land at least this high; lower but inside",
+    "top_k is a WARN (ranking slip), outside top_k is a FAIL (retrieval broken).",
+    "Baseline at the pinned revision (bge-m3, Qwen3.5-9B chat): 13/13 pass, with",
+    "2 standing WARNs recorded in _baseline below. A THIRD warn is a regression."
+  ],
+  "top_k": 5,
+
+  "retrieval": {
+    "compton scattering": {
+      "expect": ["Compton Scattering"],
+      "max_rank": 1,
+      "_near_miss": "Inverse-Compton Scattering, Thomson Scattering"
+    },
+    "oort cloud": {
+      "expect": ["Oort Cloud"],
+      "max_rank": 1,
+      "_near_miss": "Oort Constants (different topic, same surname)"
+    },
+    "hertzsprung russell diagram": {
+      "expect": ["Hertzsprung-Russell Diagram"],
+      "max_rank": 1
+    },
+    "triple alpha process": {
+      "expect": ["Triple-Alpha Process"],
+      "max_rank": 1,
+      "_near_miss": "Alpha Process, Alpha Decay"
+    },
+    "proton proton chain": {
+      "expect": ["Proton-Proton Chain"],
+      "max_rank": 1,
+      "_near_miss": "Proton Capture, Proton Emission"
+    },
+    "lyman alpha forest": {
+      "expect": ["Lyman-Alpha Forest"],
+      "max_rank": 1,
+      "_baseline": "KNOWN SLIP: rank 4, outranked by Alpha Process / Alpha Decay / Triple-Alpha Process — 'alpha' pulls the nucleosynthesis cluster. Kept at max_rank 1 deliberately: it is the correct expectation, and the standing WARN is the record of a real weakness. A slip past rank 5 would FAIL."
+    },
+    "gravitational lensing": {
+      "expect": ["Gravitational Lensing"],
+      "max_rank": 1,
+      "_baseline": "KNOWN SLIP: rank 3, outranked by Detection Methods / Cosmic Microwave Background (both discuss lensing)."
+    },
+    "cosmic microwave background": {
+      "expect": ["Cosmic Microwave Background"],
+      "max_rank": 1
+    },
+    "maximum mass of a white dwarf": {
+      "expect": ["Chandrasekhar Limit"],
+      "max_rank": 3,
+      "_near_miss": "Schoenberg Chandrasekhar Limit, Degeneracy Pressure, Tolman-Oppenheimer-Volkoff Limit",
+      "_note": "paraphrase, not a title match — this is the query the dense index has to earn"
+    },
+    "how are exoplanets detected": {
+      "expect": ["Detection Methods", "Exoplanets - General"],
+      "max_rank": 3,
+      "_note": "paraphrase; the page title shares no words with the query"
+    }
+  },
+
+  "ask": {
+    "what is the maximum mass of a white dwarf?": ["Chandrasekhar Limit"],
+    "what is compton scattering?": ["Compton Scattering"],
+    "how far from the sun is the oort cloud?": ["Oort Cloud"]
+  }
+}

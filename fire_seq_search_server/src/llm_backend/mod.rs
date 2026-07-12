@@ -35,7 +35,7 @@ pub enum LlmError {
 /// request fields and (for OpenAI) need a Bearer key. Embeddings stay local on
 /// bge-m3 regardless — this only shapes the chat path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, clap::ValueEnum)]
-pub enum LlmFlavor {
+pub enum LlmFlavour {
     /// Local llama.cpp `llama-server` (or our bundled llamafile).
     #[default]
     #[value(name = "llama-server")]
@@ -48,25 +48,25 @@ pub enum LlmFlavor {
     OpenAi,
 }
 
-impl LlmFlavor {
+impl LlmFlavour {
     /// Only llama-server exposes a `/health` endpoint we can poll for readiness.
     /// For the others we skip the probe and let the first real request surface
     /// any error.
     fn has_health_endpoint(self) -> bool {
-        matches!(self, LlmFlavor::LlamaServer)
+        matches!(self, LlmFlavour::LlamaServer)
     }
 
     /// Only llama-server (with `--jinja`) understands `enable_thinking`. Sending
     /// it to Ollama/OpenAI risks a 400 on unknown fields, so omit it there.
     fn supports_enable_thinking(self) -> bool {
-        matches!(self, LlmFlavor::LlamaServer)
+        matches!(self, LlmFlavour::LlamaServer)
     }
 }
 
 pub enum EndpointSource {
     External {
         url: String,
-        flavor: LlmFlavor,
+        flavour: LlmFlavour,
         /// Optional Bearer token, attached to every request when present.
         api_key: Option<String>,
     },
@@ -93,7 +93,7 @@ pub struct LlmBackendConfig {
 pub(crate) struct EndpointHandle {
     pub url: String,
     pub child: Option<std::process::Child>,
-    pub flavor: LlmFlavor,
+    pub flavour: LlmFlavour,
     pub api_key: Option<String>,
 }
 
@@ -125,7 +125,7 @@ struct EmbedDatum {
 struct ChatRequest<'a> {
     model: &'a str,
     messages: Vec<Message>,
-    // Omitted entirely for non-llama-server flavors, which may 400 on the field.
+    // Omitted entirely for non-llama-server flavours, which may 400 on the field.
     #[serde(skip_serializing_if = "Option::is_none")]
     chat_template_kwargs: Option<ChatTemplateKwargs>,
 }
@@ -145,7 +145,7 @@ struct StreamChatRequest<'a> {
     model: &'a str,
     messages: Vec<Message>,
     stream: bool,
-    // Omitted entirely for non-llama-server flavors, which may 400 on the field.
+    // Omitted entirely for non-llama-server flavours, which may 400 on the field.
     #[serde(skip_serializing_if = "Option::is_none")]
     chat_template_kwargs: Option<ChatTemplateKwargs>,
 }
@@ -342,11 +342,11 @@ impl LlmBackend {
         Ok(rx)
     }
 
-    /// The `enable_thinking=false` kwarg, but only for chat flavors that accept
+    /// The `enable_thinking=false` kwarg, but only for chat flavours that accept
     /// it (llama-server). For Ollama/OpenAI we send nothing rather than risk a
     /// 400 on an unknown field.
     fn chat_template_kwargs(&self) -> Option<ChatTemplateKwargs> {
-        if self.chat.flavor.supports_enable_thinking() {
+        if self.chat.flavour.supports_enable_thinking() {
             Some(NO_THINK)
         } else {
             None
@@ -435,11 +435,11 @@ mod tests {
     }
 
     #[test]
-    fn flavor_capabilities() {
+    fn flavour_capabilities() {
         // llama-server is the only one we probe or send enable_thinking to.
-        assert!(LlmFlavor::LlamaServer.has_health_endpoint());
-        assert!(LlmFlavor::LlamaServer.supports_enable_thinking());
-        for f in [LlmFlavor::Ollama, LlmFlavor::OpenAi] {
+        assert!(LlmFlavour::LlamaServer.has_health_endpoint());
+        assert!(LlmFlavour::LlamaServer.supports_enable_thinking());
+        for f in [LlmFlavour::Ollama, LlmFlavour::OpenAi] {
             assert!(!f.has_health_endpoint());
             assert!(!f.supports_enable_thinking());
         }
@@ -471,7 +471,7 @@ mod tests {
     #[test]
     fn stream_request_carries_stream_flag_and_conditional_kwargs() {
         // chat_stream builds a *separate* struct from chat(); guard it too so the
-        // streaming path can't regress the flavor handling independently.
+        // streaming path can't regress the flavour handling independently.
         let with = StreamChatRequest {
             model: "default",
             messages: vec![],
@@ -494,10 +494,10 @@ mod tests {
     }
 
     #[test]
-    fn flavor_default_is_llama_server() {
+    fn flavour_default_is_llama_server() {
         // Load-bearing: the CLI default, spawned backends, and remote embed all
-        // rely on LlamaServer being the default flavor.
-        assert_eq!(LlmFlavor::default(), LlmFlavor::LlamaServer);
+        // rely on LlamaServer being the default flavour.
+        assert_eq!(LlmFlavour::default(), LlmFlavour::LlamaServer);
     }
 
     #[test]

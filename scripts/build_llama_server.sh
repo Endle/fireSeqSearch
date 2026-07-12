@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
-# Build llama-server with Vulkan support inside a Fedora 43 podman container,
-# then copy the binary out to ~/.local/bin so it runs natively on the host.
+#
+# ONE way to get a llama-server, not the required way. fireSeqSearch talks to
+# any OpenAI-compatible endpoint (`--chat-endpoint` / `--embed-endpoint`), so
+# Ollama or a remote server works just as well and needs none of this.
+#
+# This is the maintainer's setup: an AMD GPU on Fedora, where Vulkan is the
+# sane backend and ROCm is not. It builds llama-server with Vulkan support
+# inside a Fedora 43 podman container (see the Containerfile next to this
+# script), then copies the binary out to ~/.local/bin so it runs natively on
+# the host. Adapt or ignore.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_TAG="llamacpp-vulkan-builder"
 DEST="${HOME}/.local/bin/llama-server"
 
 echo "[1/3] building image '${IMAGE_TAG}' (first run takes 5-10 min)"
-podman build -t "${IMAGE_TAG}" -f Containerfile .
+podman build -t "${IMAGE_TAG}" -f "${SCRIPT_DIR}/Containerfile" "${SCRIPT_DIR}"
 
 echo "[2/3] extracting llama-server to ${DEST}"
 mkdir -p "$(dirname "${DEST}")"

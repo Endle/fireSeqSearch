@@ -38,7 +38,7 @@ glance.
 - **`CHUNKER_VERSION`** in `store.rs` — bump it when chunker logic changes.
   Stale chunks otherwise hash-match and skip re-embedding forever.
 
-### Chunking (flavour-aware via `--obsidian-md`)
+### Chunking (flavour-aware via `--notebook obsidian`)
 
 - **Logseq:** top-level bullets are the boundary unit; stub-only `-`/`*`
   lines dropped; adjacent bullets greedy-packed to `CAP_TOKENS = 600`;
@@ -73,7 +73,11 @@ glance.
   `/v1/chat/completions`.
 - **Backend:** subprocess `llama-server` by default; `--embed-endpoint` /
   `--chat-endpoint` point at a pre-running server (Ollama, remote llama) as
-  a first-class alternative.
+  a first-class alternative. `--chat <preset>` is shorthand for the common
+  hosted cases — `local` (spawn), `ollama[:MODEL]`, `openai[:MODEL]` — and
+  expands to the endpoint + flavour + model-name; it's mutually exclusive with
+  the granular `--chat-endpoint`/`--chat-flavour` flags. Preset grammar +
+  parsing live in `main.rs` (`parse_chat_preset`).
 - **Embed model is zero-config:** with no `--embed-model` and no
   `--embed-endpoint`, the server auto-downloads a pinned `bge-m3` llamafile
   (URL + SHA-256 in `llm_backend/model_fetch.rs`) into
@@ -89,7 +93,7 @@ glance.
   512-token ubatch rejects packed chunks with HTTP 500.
 - **GPU:** Vulkan, not ROCm. gfx1102 + ROCm 6.4 on Fedora is rough; Vulkan
   works on stock Mesa 25.3+. We build llama-server in podman/Fedora 43
-  (`Containerfile`, `build_llama_server.sh`).
+  (`scripts/Containerfile`, `scripts/build_llama_server.sh`).
 
 ### Summarization
 
@@ -127,8 +131,8 @@ glance.
   covers the use case.
 - **Server-side HTML rendering** of results. The browser extension renders.
 - **BM25 hybrid / reranker.** Bringing tantivy back doubles complexity for
-  unproven gain. Revisit only if `eval_retrieval.py` shows dense failing on
-  a class of queries.
+  unproven gain. Revisit only if `tests/eval_retrieval.py` shows dense failing
+  on a class of queries.
 - **Per-chunk LLM context blurbs** (Anthropic-style contextual retrieval).
   Page summaries cover most of the same value at a fraction of indexing cost.
 - **Late chunking** (Jina). Requires per-token hidden states that
@@ -145,9 +149,32 @@ glance.
 
 ## Running
 
-- **Logseq:** `bash debug_server.sh`
-- **Obsidian:** `bash debug_obsidian.sh` (points at `~/Documents/AstroWiki_2.0-main`; edit for other vaults)
+- **Logseq:** `bash tests/run_logseq.sh` (defaults to `~/logseq`; override with
+  `FIRE_SEQ_LOGSEQ_PATH`)
 - **Tests:** `cd fire_seq_search_server && cargo test --all-targets`
-- **/query smoke:** `.claude/agents/fsq-smoke.md` (Logseq), `.claude/agents/obsidian-smoke.md` (Obsidian)
+- **/query smoke:** `.claude/agents/fsq-smoke.md` (Logseq, boots
+  `tests/run_logseq.sh` against `~/logseq`). Obsidian is scripted:
+  `bash tests/run_smoke.sh [llamacpp|ollama] [lite|full] [query]` composes a vault
+  provisioner (`tests/vault_*.sh`) + a chat provisioner (`tests/chat_*.sh`, one per
+  flavour) with the flavour-agnostic `tests/obsidian_smoke.sh`.
+  - **lite** — committed `tests/astro-wiki-lite` fixture (2 notes). Fast and hermetic;
+    asserts walker parity, URI integrity, summary health. Proves the plumbing only:
+    with 2 notes there is nothing to outrank, so it says nothing about ranking.
+  - **full** — the real `AstroWiki_2.0` vault (~366 notes), cloned + cached under
+    `~/.cache/fire_seq_search`, pinned to the revision `tests/astro_wiki_eval.json`
+    was tuned against. The **only** mode that can grade score priority and `/ask`
+    answers: every gold query has a near-miss neighbour in the corpus (Compton vs.
+    Inverse-Compton, Oort Cloud vs. Oort Constants). Grading runs through
+    `tests/eval_retrieval.py --set`; a right-page-but-outranked result is a WARN,
+    a right-page-missing result is a FAIL.
+
+  `.claude/agents/obsidian-smoke.md` drives both and judges snippet and summary
+  *quality* — the part the script can't assert.
 - **/ask smoke:** `.claude/agents/ask-smoke.md`
-- **Eval regression set:** `./eval_retrieval.py`
+- **Eval regression set:** `tests/eval_retrieval.py` (built-in set = the author's
+  Logseq corpus; `--set FILE --base URL` runs a portable set, e.g.
+  `tests/astro_wiki_eval.json` for the Obsidian full smoke)
+- **Manual HTTP clients** (both take a live server on `127.0.0.1:3030`):
+  `tests/test_endpoints.py <query>` renders `/query` hits, `--ask <q>` traces the
+  `/ask` SSE stream; `tests/test_ask.py [<q>]` asserts the `/ask` wire contract
+  and server-side invariants, exiting non-zero on any failure.

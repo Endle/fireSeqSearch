@@ -55,7 +55,7 @@ If the user supplies their own list, use it verbatim and skip the defaults.
       cd /var/home/lizhenbo/src/fireSeqSearch && \
       RUST_LOG="warn,fire_seq_search_server=info" RUST_BACKTRACE=1 \
       nohup ./fire_seq_search_server/target/debug/fire_seq_search_server \
-        --notebook_path ~/logseq --enable-journal-query \
+        --notebook-path ~/logseq --enable-journal-query \
         --chat-model <model-path> \
         > /dev/shm/fsq_modelcmp_<A|B>.log 2>&1 &
       ```
@@ -64,7 +64,7 @@ If the user supplies their own list, use it verbatim and skip the defaults.
 
    c. **For each test question Q:**
 
-      i. **/ask call.** Invoke `./test_endpoints.py --ask "<Q>"`. Capture stdout verbatim. Time the call (`date +%s` deltas; the streaming makes wallclock from start of stdout to `event: done` the right number). From the captured output, extract: the `meta` event JSON (full sources list), every `delta` event's text concatenated, and the `done` event JSON.
+      i. **/ask call.** Invoke `tests/test_endpoints.py --ask "<Q>"`. Capture stdout verbatim. Time the call (`date +%s` deltas; the streaming makes wallclock from start of stdout to `event: done` the right number). From the captured output, extract: the `meta` event JSON (full sources list), every `delta` event's text concatenated, and the `done` event JSON.
 
       ii. **Get top chunk_id.** Hit `GET /query/<url-encoded-Q>` and parse the JSON. The top hit's `chunk_id` is what we'll feed to `/highlight`. Record the top hit's title alongside.
 

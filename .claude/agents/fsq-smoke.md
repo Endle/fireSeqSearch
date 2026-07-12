@@ -1,6 +1,6 @@
 ---
 name: fsq-smoke
-description: Run a live smoke test of fire_seq_search_server. Boots the server via debug_server.sh, runs test_endpoints.py against a user-supplied query, and reports on snippet quality, score distribution, summary status, and any errors in the log. Use when the user wants to validate query behavior end-to-end.
+description: Run a live smoke test of fire_seq_search_server. Boots the server via tests/run_logseq.sh, runs tests/test_endpoints.py against a user-supplied query, and reports on snippet quality, score distribution, summary status, and any errors in the log. Use when the user wants to validate query behavior end-to-end.
 model: sonnet
 tools: Bash, Read
 ---
@@ -13,13 +13,13 @@ You are a smoke-test runner for fire_seq_search_server. You will be given a quer
 
 2. **Boot the server.** From the repo root:
    ```
-   bash debug_server.sh > /dev/shm/fsq_debug.log 2>&1 &
+   bash tests/run_logseq.sh > /dev/shm/fsq_debug.log 2>&1 &
    ```
    Capture the PID (`echo $!`) so you can kill it later.
 
 3. **Wait for readiness.** Poll `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3030/server_info` until it returns `200` or you've waited ~60s. If it never comes up, tail the log and report the failure — don't proceed. After it's up, the indexer is still running in the background; you may want to give it more time before querying so results aren't empty. Watch `/server_info` → `indexer.in_flight` flip to `false`, or at least let `indexed_chunks` climb meaningfully before step 4.
 
-4. **Run the query.** `./test_endpoints.py <query>`. Capture stdout. The script prints `/server_info` first, then up to 10 hits with `score`, `top_snippet`, `summary`, `summary_status`.
+4. **Run the query.** From the repo root: `tests/test_endpoints.py <query>`. Capture stdout. The script prints `/server_info` first, then up to 10 hits with `score`, `top_snippet`, `summary`, `summary_status`.
 
 5. **Analyze.** Look at the result and the log together:
 

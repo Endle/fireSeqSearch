@@ -52,10 +52,12 @@ Override the chat model with `--chat-model` if you keep it elsewhere. To use
 your own embedding model instead of the auto-downloaded one, pass
 `--embed-model /path/to/model` (GGUF or llamafile).
 
-By default the server spawns its own `llama-server`; see
-[`build_llama_server.sh`](build_llama_server.sh) and
-[`Containerfile`](Containerfile) for the Vulkan build. To use an existing
-server (Ollama, remote llama), pass `--embed-endpoint` / `--chat-endpoint`.
+By default the server spawns its own `llama-server`. To use an existing server
+(Ollama, remote llama) instead, pass `--embed-endpoint` / `--chat-endpoint`.
+If you need to build `llama-server` yourself,
+[`scripts/build_llama_server.sh`](scripts/build_llama_server.sh) is a worked
+example of one way to do it (Vulkan, on Fedora, via podman) — not a required
+step.
 
 ### 2. Local server
 
@@ -72,18 +74,14 @@ cargo build --release
 #### Logseq
 
 ```
-./target/release/fire_seq_search_server --notebook_path /home/you/logseq_notebook
+./target/release/fire_seq_search_server --notebook-path /home/you/logseq_notebook
 ```
-
-Or use [`debug_server.sh`](debug_server.sh) as a template.
 
 #### Obsidian
 
 ```
-./target/release/fire_seq_search_server --notebook_path /home/you/vault --obsidian-md
+./target/release/fire_seq_search_server --notebook-path /home/you/vault --notebook obsidian
 ```
-
-Or use [`debug_obsidian.sh`](debug_obsidian.sh) as a template.
 
 The server hosts endpoints on `http://127.0.0.1:3030`. The extension talks to
 it from your browser.

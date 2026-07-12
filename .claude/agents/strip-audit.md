@@ -35,7 +35,7 @@ Diffing RAW against PREPROCESSED tells you what the stripper removed. Reading CH
 
 3. **Boot the server with dumping enabled.** From the repo root:
    ```
-   FIRE_SEQ_DUMP_PROCESSED_DIR=/tmp/fsq-stripped bash debug_server.sh > /dev/shm/fsq_strip_debug.log 2>&1 &
+   FIRE_SEQ_DUMP_PROCESSED_DIR=/tmp/fsq-stripped bash tests/run_logseq.sh > /dev/shm/fsq_strip_debug.log 2>&1 &
    ```
    Capture the PID. Confirm in the log that the boot line `FIRE_SEQ_DUMP_PROCESSED_DIR=...` appeared — that's the indexer acknowledging the env var.
 

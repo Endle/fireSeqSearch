@@ -14,17 +14,17 @@ pub(crate) async fn resolve_endpoint(
     is_embedding: bool,
 ) -> Result<EndpointHandle, LlmError> {
     match source {
-        EndpointSource::External { url, flavor, api_key } => {
-            if flavor.has_health_endpoint() {
+        EndpointSource::External { url, flavour, api_key } => {
+            if flavour.has_health_endpoint() {
                 check_health(&url, Duration::from_secs(5)).await?;
             } else {
                 let role = if is_embedding { "embed" } else { "chat" };
                 info!(
-                    "external {} backend at {} ({:?}); skipping /health probe (flavor has none)",
-                    role, url, flavor
+                    "external {} backend at {} ({:?}); skipping /health probe (flavour has none)",
+                    role, url, flavour
                 );
             }
-            Ok(EndpointHandle { url, child: None, flavor, api_key })
+            Ok(EndpointHandle { url, child: None, flavour, api_key })
         }
         EndpointSource::Spawn { model, port, gpu_layers, extra_args } => {
             spawn(llama_server_bin, &model, port, gpu_layers, &extra_args, is_embedding).await
@@ -153,7 +153,7 @@ async fn try_spawn_once(
         Ok(()) => Ok(EndpointHandle {
             url,
             child: Some(child),
-            flavor: super::LlmFlavor::LlamaServer,
+            flavour: super::LlmFlavour::LlamaServer,
             api_key: None,
         }),
         Err(e) => {
