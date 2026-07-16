@@ -1,9 +1,9 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "fireSeqSearch",
-  "version": "1.0.2",
+  "version": "1.1.0",
 
-  "description": "Everytime you use the search engine, this plugin will search against your personal logseq notes.",
+  "description": "When you search the web, fireSeqSearch appends hits from your personal Logseq or Obsidian notes.",
 
   "icons": {
     "32": "icons/notebook_logo_32.png",
@@ -11,9 +11,9 @@
   },
 
   "options_ui": {
-    "page": "options.html",
-    "browser_style": true
+    "page": "options.html"
   },
+
   "content_scripts": [
     {
       "matches": [
@@ -25,18 +25,31 @@
         "*://searx.fmac.xyz/search",
         "*://metager.org/*"
       ],
-      "js": ["main.js"]
+      "js": ["main.js"],
+      "run_at": "document_idle"
     }
   ],
 
-  "permissions": ["*://127.0.0.1/*", "storage"],
+  "permissions": [
+    "storage"
+  ],
 
+  "host_permissions": [
+    "*://127.0.0.1/*",
+    "*://localhost/*",
+    "*://*.bing.com/*",
+    "*://www.google.com/*",
+    "*://www.google.com.hk/*",
+    "*://duckduckgo.com/*",
+    "*://searx.prvcy.eu/*",
+    "*://searx.fmac.xyz/*",
+    "*://metager.org/*"
+  ],
 
   "browser_specific_settings": {
     "gecko": {
       "id": "{293a97e7-c815-4ce2-a537-87af8818cbc0}",
-      "strict_min_version": "99.0"
+      "strict_min_version": "128.0"
     }
   }
-
 }

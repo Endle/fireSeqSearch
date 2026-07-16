@@ -89,7 +89,16 @@ it from your browser.
 
 ### 3. Browser extension
 
-Firefox only: <https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>
+Firefox only (Manifest V3, Firefox 128+):
+<https://addons.mozilla.org/en-US/firefox/addon/fireseqsearch/>
+
+For local development, zip the addon and load it temporarily:
+
+```
+bash fireSeqSearch_addon/pack.sh
+# then about:debugging → This Firefox → Load Temporary Add-on
+# → select fireSeqSearch.zip (or fireSeqSearch_addon/manifest.json)
+```
 
 Example
 -------

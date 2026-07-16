@@ -1,6 +1,10 @@
 // MIT License
 // Copyright (c) 2021-2024 Zhenbo Li
 
+// Local fire_seq_search_server. Listed in manifest host_permissions so the
+// content script can fetch it under MV3.
+const FIRE_SEQ_SERVER = "http://127.0.0.1:3030";
+
 const fireSeqSearchDomId = "fireSeqSearchDom";
 
 
@@ -175,6 +179,14 @@ const fireSeqSearchScriptCSS = `
     }
     .fireSeqSearchAskExtras a:hover {
         text-decoration: underline;
+    }
+    .fireSeqSearchStatus {
+        margin: 0.5em 0;
+        padding: 0.6em 0.8em;
+        border-left: 3px solid #c45c5c;
+        background-color: hsla(0, 40%, 96%, .6);
+        font-size: 0.95em;
+        color: #4d5156;
     }
     `;
 
@@ -376,7 +388,7 @@ async function streamAsk(question, handlers) {
     const { onMeta, onDelta, onDone, onError } = handlers;
     let resp;
     try {
-        resp = await fetch("http://127.0.0.1:3030/ask", {
+        resp = await fetch(FIRE_SEQ_SERVER + "/ask", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ question }),
@@ -639,16 +651,40 @@ function getSearchParameterFromCurrentPage() {
 
 
 
+function showServerStatus(message) {
+    addGlobalStyle(fireSeqSearchScriptCSS);
+    const div = document.createElement("div");
+    div.setAttribute("id", fireSeqSearchDomId);
+    const status = document.createElement("div");
+    status.classList.add("fireSeqSearchStatus");
+    status.textContent = message;
+    div.appendChild(status);
+    insertDivToWebpage(div);
+}
+
 (function() {
     const searchParameter = getSearchParameterFromCurrentPage();
+    if (!searchParameter) {
+        return;
+    }
 
     addGlobalStyle(fireSeqSearchScriptCSS);
 
-    //https://gomakethings.com/waiting-for-multiple-all-api-responses-to-complete-with-the-vanilla-js-promise.all-method/
+    // https://gomakethings.com/waiting-for-multiple-all-api-responses-to-complete-with-the-vanilla-js-promise-all-method/
     Promise.all([
-        fetch("http://127.0.0.1:3030/server_info"),
-        fetch("http://127.0.0.1:3030/query/" + searchParameter)
+        fetch(FIRE_SEQ_SERVER + "/server_info"),
+        fetch(FIRE_SEQ_SERVER + "/query/" + encodeURIComponent(searchParameter))
     ]).then(async function (responses) {
+        if (!responses[0].ok) {
+            throw new Error("server_info HTTP " + responses[0].status);
+        }
+        if (responses[1].status === 503) {
+            showServerStatus("fireSeqSearch: notebook is still indexing…");
+            return;
+        }
+        if (!responses[1].ok) {
+            throw new Error("query HTTP " + responses[1].status);
+        }
         const serverInfo = await responses[0].json();
         const rawSearchResult = await responses[1].json();
         await mainProcess([serverInfo, rawSearchResult], searchParameter);
@@ -657,9 +693,11 @@ function getSearchParameterFromCurrentPage() {
         highlightedItems.forEach((element) => {
             element.style.color = 'red';
         });
-    }).catch(
-        error => {consoleLogForDebug(error)}
-    );
-
-
+    }).catch(function (error) {
+        consoleLogForDebug(error);
+        showServerStatus(
+            "fireSeqSearch: cannot reach " + FIRE_SEQ_SERVER +
+            " (is the local server running?)"
+        );
+    });
 })();
