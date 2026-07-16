@@ -28,7 +28,6 @@ env_logger = "0.11.5"
 # Rust
 clap = { version = "4.0", features = ["derive"] }
 lazy_static = "1.4.0"
-rayon = "1.5"
 futures = "0.3"
 ctrlc = { version = "3.4", features = ["termination"] }
 sysinfo = "0.34.2"
@@ -36,12 +35,7 @@ kill_tree = "0.2.4"
 urlencoding = "2.1.0"
 
 
-# Language Processing
-stopwords = "0.1.1"
-stop-words = "0.7.2"
-
 regex = "1"
-lingua = { version = "1.4.0", default-features = false, features = ["chinese", "english"] }
 shellexpand = "3.1"
 shell-words = "1.1"
 

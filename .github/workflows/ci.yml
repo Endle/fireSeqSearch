@@ -5,8 +5,7 @@ name: Build and Test
 # platform-specific bit is the autocrlf guard below.
 #
 # `cargo test` (not `--all-targets`) is deliberate — there are no bench targets,
-# and --all-targets would silently drop the doctests in post_query/ and
-# language_tools/.
+# and --all-targets would silently drop the doctests in post_query/.
 
 on:
   push:
