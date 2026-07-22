@@ -3,6 +3,19 @@ name = "fire_seq_search_server"
 version = "1.0.1"
 edition = "2021"
 license = "MIT"
+description = "Local semantic search and RAG server over your Logseq or Obsidian notes, surfaced in your search engine via a browser extension."
+repository = "https://github.com/Endle/fireSeqSearch"
+homepage = "https://github.com/Endle/fireSeqSearch"
+readme = "README.md"
+keywords = ["logseq", "obsidian", "search", "semantic", "rag"]
+categories = ["command-line-utilities", "text-processing"]
+# Ship only what `cargo install` needs. Dev scripts, the cargo-deny config,
+# and the test fixture tree (incl. a screenshot PNG) don't belong in the crate.
+exclude = [
+    "tests/",
+    "*.sh",
+    "deny.toml",
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
