@@ -26,12 +26,6 @@
         "*://metager.org/*"
       ],
       "js": ["main.js"]
-    },
-    {
-      "matches": [
-        "*://127.0.0.1/*"
-      ],
-      "js": ["wordcloud_draw.js"]
     }
   ],
 

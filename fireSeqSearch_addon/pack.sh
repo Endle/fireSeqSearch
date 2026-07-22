@@ -14,9 +14,7 @@ rm -f "${OUT}"
 cd "${ADDON_DIR}"
 zip -r -FS "${OUT}" * \
     --exclude '*.git*' \
-    --exclude 'pack.sh' \
-    --exclude 'monkeyscript.user.js' \
-    --exclude 'violentmonkeyscript.user.js'
+    --exclude 'pack.sh'
 
 if [ $# -ge 1 ]; then
     cp -f "${OUT}" "$1"
