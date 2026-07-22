@@ -2,7 +2,6 @@ pub mod app_state;
 pub mod config;
 pub mod http_client;
 pub mod indexer;
-pub mod language_tools;
 pub mod llm_backend;
 pub mod note_intake;
 pub mod post_query;
