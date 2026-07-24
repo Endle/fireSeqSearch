@@ -100,9 +100,22 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install ollama
 
+      # Concurrency is pinned on the *server*, not on the test process: these vars
+      # are read by `ollama serve`, so setting them on the cargo step would do
+      # nothing. One loaded model and one in-flight request at a time is what the
+      # tests need, and it keeps Ollama from juggling two runners on a 4-core box.
       - name: Start Ollama and wait for readiness
+        env:
+          OLLAMA_MAX_LOADED_MODELS: "1"
+          OLLAMA_NUM_PARALLEL: "1"
         run: |
-          ollama serve &
+          # The Linux install script registers and starts a systemd unit, so
+          # :11434 is already taken by an instance that never saw the env above
+          # (the old `ollama serve &` here just lost the bind and the job passed
+          # on the systemd one by accident). Stop it so the server under test is
+          # the one we configure. No-op on macOS, where brew starts nothing.
+          sudo systemctl stop ollama 2>/dev/null || true
+          ollama serve > "$RUNNER_TEMP/ollama.log" 2>&1 &
           for i in $(seq 1 30); do
             if curl -sf http://localhost:11434/api/version >/dev/null; then
               echo "Ollama is up"; exit 0
@@ -125,4 +138,15 @@ jobs:
           FIRE_SEQ_LIVE_CHAT_MODEL: qwen2.5:0.5b
           FIRE_SEQ_LIVE_EMBED_MODEL: all-minilm
         working-directory: fire_seq_search_server
-        run: cargo test --locked --test llm_backend_live -- --nocapture
+        # --test-threads=1: the three tests otherwise run concurrently, putting two
+        # simultaneous chat requests on one qwen runner. That is the shape in which
+        # Ollama's bundled llama-server has segfaulted (3 of 12 runs, ubuntu only,
+        # macOS never) — always taking both chat tests down while embed passed.
+        run: cargo test --locked --test llm_backend_live -- --nocapture --test-threads=1
+
+      # A segfault surfaces to the test as a bare HTTP 500 with no body, which is
+      # why this recurred three times undiagnosed. The server-side log is the only
+      # place the actual crash is recorded.
+      - name: Dump Ollama log on failure
+        if: failure()
+        run: cat "$RUNNER_TEMP/ollama.log" || true
