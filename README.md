@@ -67,25 +67,40 @@ Built and tested against current Rust stable; see
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ```
-git clone https://github.com/Endle/fireSeqSearch
-cd fireSeqSearch/fire_seq_search_server
-cargo build --release
+cargo install fire_seq_search_server
 ```
+
+This puts `fire_seq_search_server` on your `PATH` (in `~/.cargo/bin`). The
+first install builds a bundled SQLite from source, so expect it to take a few
+minutes.
 
 #### Logseq
 
 ```
-./target/release/fire_seq_search_server --notebook-path /home/you/logseq_notebook
+fire_seq_search_server --notebook-path /home/you/logseq_notebook
 ```
 
 #### Obsidian
 
 ```
-./target/release/fire_seq_search_server --notebook-path /home/you/vault --notebook obsidian
+fire_seq_search_server --notebook-path /home/you/vault --notebook obsidian
 ```
 
 The server hosts endpoints on `http://127.0.0.1:3030`. The extension talks to
 it from your browser.
+
+#### Building from source instead
+
+For development, or to run an unreleased revision:
+
+```
+git clone https://github.com/Endle/fireSeqSearch
+cd fireSeqSearch/fire_seq_search_server
+cargo build --release
+```
+
+The binary lands at `target/release/fire_seq_search_server` — use that path in
+place of the bare command above.
 
 ### 3. Browser extension
 
