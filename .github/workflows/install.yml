@@ -1,0 +1,71 @@
+name: Install
+
+# Verifies the `cargo install fire_seq_search_server` path end to end: that the
+# crate tarball installs, and that the resulting binary is on PATH and runs.
+#
+# Master + manual only, deliberately. This is a release-profile build with a
+# bundled SQLite compiled from C, so it costs minutes rather than seconds, and
+# ci.yml's `cargo test` + `cargo package` already gate every PR.
+#
+# Linux + macOS, because the bundled-SQLite C build and the ~/.cargo/bin PATH
+# setup are the platform-specific parts, and those are the two platforms users
+# actually `cargo install` on.
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+concurrency:
+  # Never cancel a master run mid-flight; github.run_id gives each commit its
+  # own group. Matches ci.yml.
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_id || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  install:
+    name: cargo install (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One platform failing shouldn't hide the other's result.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
+    defaults:
+      run:
+        working-directory: fire_seq_search_server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fire_seq_search_server
+
+      # --no-verify because the install below compiles the same tree anyway;
+      # ci.yml runs the verifying `cargo package` on every PR.
+      - name: Package
+        run: cargo package --locked --no-verify
+
+      # Install from the *extracted tarball*, not `--path .`. `cargo install
+      # --path` ignores Cargo.toml's `exclude`, so it would happily build
+      # against files that never ship to crates.io — exactly the breakage this
+      # job exists to catch. The tarball is what users actually get.
+      - name: Install from the packaged tarball
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          cargo install --locked --path "target/package/fire_seq_search_server-${version}"
+
+      # Bare command, no ./target path: proves ~/.cargo/bin is on PATH and the
+      # binary starts. --version is clap-derived from CARGO_PKG_VERSION.
+      - name: Verify the installed binary
+        working-directory: .
+        run: fire_seq_search_server --version
