@@ -14,8 +14,17 @@ pub struct Message {
 
 #[derive(thiserror::Error, Debug)]
 pub enum LlmError {
-    #[error("failed to spawn llama-server: {0}")]
-    Spawn(String),
+    /// The backend process could not be started at all: the binary is missing
+    /// or not executable, a log file was uncreatable, `exec` refused. Kept
+    /// distinct from `EarlyExit` because none of these get better when retried
+    /// with a different `-ngl`.
+    #[error("failed to launch llama-server: {0}")]
+    Launch(String),
+    /// The child started but died before it ever served `/health` — the classic
+    /// "GPU backend won't initialize" signature, and the trigger for the CPU
+    /// fallback.
+    #[error("llama-server exited early: {0}")]
+    EarlyExit(String),
     #[error("backend not healthy: {0}")]
     HealthCheck(String),
     #[error("http error: {0}")]

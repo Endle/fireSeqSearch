@@ -32,6 +32,88 @@ pub(crate) async fn resolve_endpoint(
     }
 }
 
+/// A `.llamafile` model is a self-contained APE binary — it *is* the server, so
+/// `--llama-server-bin` is never consulted for one.
+fn is_llamafile(model_path: &Path) -> bool {
+    model_path
+        .extension()
+        .and_then(|s| s.to_str())
+        .map(|ext| ext == "llamafile")
+        .unwrap_or(false)
+}
+
+fn is_executable_file(path: &Path) -> bool {
+    match std::fs::metadata(path) {
+        Ok(m) if m.is_file() => {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                m.permissions().mode() & 0o111 != 0
+            }
+            #[cfg(not(unix))]
+            {
+                true
+            }
+        }
+        _ => false,
+    }
+}
+
+/// Search `path_var` for an executable named `name`, tilde-expanding each entry.
+///
+/// The tilde expansion is the point. `execvp` does none, but bash expands PATH
+/// elements itself during command lookup — so a profile line like
+/// `export PATH="~/bin:$PATH"` (quoted, therefore a *literal* tilde) works for
+/// everything typed at a prompt and then fails with ENOENT for every process
+/// spawned from a program. Resolving the binary ourselves keeps us working on
+/// those shells instead of reporting a missing llama-server that is plainly
+/// there.
+fn find_in_path(name: &str, path_var: &str) -> Option<PathBuf> {
+    std::env::split_paths(path_var)
+        .filter(|entry| !entry.as_os_str().is_empty())
+        .map(|entry| PathBuf::from(tilde(entry.to_string_lossy().as_ref()).into_owned()))
+        .map(|dir| dir.join(name))
+        .find(|candidate| is_executable_file(candidate))
+}
+
+/// Resolve `--llama-server-bin` to a concrete executable *before* the first
+/// spawn attempt, so a missing binary is reported as itself instead of as a
+/// failed GPU attempt. Mirrors `execvp`: a name containing a separator is a
+/// path, anything else is looked up in PATH.
+fn resolve_llama_server_bin(bin: &Path) -> Result<PathBuf, LlmError> {
+    let expanded = PathBuf::from(tilde(bin.to_string_lossy().as_ref()).into_owned());
+    let name = expanded.to_string_lossy().into_owned();
+
+    if name.contains(std::path::MAIN_SEPARATOR) {
+        return if is_executable_file(&expanded) {
+            Ok(expanded)
+        } else {
+            Err(LlmError::Launch(format!(
+                "llama-server not found (or not executable) at {}",
+                expanded.display()
+            )))
+        };
+    }
+
+    let path_var = std::env::var("PATH").unwrap_or_default();
+    find_in_path(&name, &path_var).ok_or_else(|| {
+        LlmError::Launch(format!(
+            "{} not found in PATH. Install llama.cpp's llama-server and put it \
+             on PATH, pass --llama-server-bin /path/to/llama-server, or point \
+             --chat-endpoint at an already-running server. PATH={}",
+            name, path_var
+        ))
+    })
+}
+
+/// Which failures are worth a second attempt on CPU. Only "the process ran and
+/// died" qualifies: a launch failure (missing binary, bad permissions) or a bad
+/// config reproduces identically at `-ngl 0`, and retrying it just prints a
+/// misleading "falling back to CPU" ahead of the very same error.
+fn worth_cpu_retry(err: &LlmError) -> bool {
+    matches!(err, LlmError::EarlyExit(_) | LlmError::HealthCheck(_))
+}
+
 /// Decide the `-ngl` values to try, in order. A non-zero `gpu_layers` (the
 /// default `99`) means "attempt GPU, then fall back to CPU"; `0` means the user
 /// forced CPU, so skip the doomed GPU attempt entirely.
@@ -82,11 +164,19 @@ async fn spawn(
     // ROCm backend won't initialize — errors out instead, so we own the retry
     // here. try_spawn_once kills+reaps a failed child before returning, so the
     // port is free to rebind on the CPU attempt (otherwise EADDRINUSE).
+    // Resolve up front — one clear error for a missing binary, instead of two
+    // spawn attempts that both fail the same way.
+    let bin = if is_llamafile(&model_path) {
+        llama_server_bin.to_path_buf()
+    } else {
+        resolve_llama_server_bin(llama_server_bin)?
+    };
+
     let attempts = spawn_attempts(gpu_layers);
     let last = attempts.len() - 1;
     for (i, ngl) in attempts.iter().enumerate() {
         match try_spawn_once(
-            llama_server_bin,
+            &bin,
             &model_path,
             port,
             *ngl,
@@ -102,7 +192,7 @@ async fn spawn(
                 info!("{} backend ready at {} (-ngl {})", role, handle.url, ngl);
                 return Ok(handle);
             }
-            Err(e) if i < last => {
+            Err(e) if i < last && worth_cpu_retry(&e) => {
                 warn!(
                     "{} backend failed to start with -ngl {} ({}); falling back to CPU (-ngl 0)",
                     role, ngl, e
@@ -136,15 +226,15 @@ async fn try_spawn_once(
     );
 
     let stdout = File::create(stdout_path)
-        .map_err(|e| LlmError::Spawn(format!("create {}: {}", stdout_path, e)))?;
+        .map_err(|e| LlmError::Launch(format!("create {}: {}", stdout_path, e)))?;
     let stderr = File::create(stderr_path)
-        .map_err(|e| LlmError::Spawn(format!("create {}: {}", stderr_path, e)))?;
+        .map_err(|e| LlmError::Launch(format!("create {}: {}", stderr_path, e)))?;
     cmd.stdout(Stdio::from(stdout)).stderr(Stdio::from(stderr));
 
     info!("spawning {} backend on port {}: {:?}", role, port, cmd);
     let mut child = cmd
         .spawn()
-        .map_err(|e| LlmError::Spawn(format!("spawn {} backend: {}", role, e)))?;
+        .map_err(|e| LlmError::Launch(format!("spawn {} backend: {}", role, e)))?;
 
     let url = format!("http://127.0.0.1:{}", port);
     match check_health_with_child(&url, Duration::from_secs(60), &mut child).await {
@@ -175,13 +265,7 @@ fn build_command(
     extra_args: &[String],
     is_embedding: bool,
 ) -> Command {
-    let is_llamafile = model_path
-        .extension()
-        .and_then(|s| s.to_str())
-        .map(|ext| ext == "llamafile")
-        .unwrap_or(false);
-
-    let mut cmd = if is_llamafile {
+    let mut cmd = if is_llamafile(model_path) {
         // .llamafile is a polyglot APE binary. On Linux the kernel often refuses
         // to exec it directly ("Exec format error") unless binfmt_misc is set up,
         // so we hand it to /bin/sh — the file's shell prelude bootstraps APE.
@@ -222,8 +306,9 @@ fn build_command(
         }
         c
     } else {
-        let bin_str = tilde(llama_server_bin.to_string_lossy().as_ref()).into_owned();
-        let mut c = Command::new(&bin_str);
+        // Already tilde-expanded and resolved to an absolute path by
+        // `resolve_llama_server_bin`.
+        let mut c = Command::new(llama_server_bin);
         c.arg("--port")
             .arg(port.to_string())
             .arg("--model")
@@ -299,7 +384,7 @@ async fn check_health_with_child(
     loop {
         // Early-exit is the reliable fallback trigger; check it before the probe.
         if let Ok(Some(status)) = child.try_wait() {
-            return Err(LlmError::Spawn(format!(
+            return Err(LlmError::EarlyExit(format!(
                 "{} exited early before becoming healthy ({})",
                 url, status
             )));
@@ -334,5 +419,88 @@ mod tests {
     fn attempts_force_cpu_skips_gpu() {
         // `0` is the escape hatch: skip the doomed GPU attempt entirely.
         assert_eq!(spawn_attempts(0), vec![0]);
+    }
+
+    #[test]
+    fn only_runtime_failures_fall_back_to_cpu() {
+        // The GPU-init signature: child came up, then died.
+        assert!(worth_cpu_retry(&LlmError::EarlyExit("died".into())));
+        assert!(worth_cpu_retry(&LlmError::HealthCheck("timeout".into())));
+        // These reproduce identically at -ngl 0; retrying only prints a
+        // misleading "falling back to CPU" before the same error.
+        assert!(!worth_cpu_retry(&LlmError::Launch("no such file".into())));
+        assert!(!worth_cpu_retry(&LlmError::Config("bad model".into())));
+    }
+
+    fn write_exe(dir: &Path, name: &str) -> PathBuf {
+        let path = dir.join(name);
+        std::fs::write(&path, b"#!/bin/sh\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        path
+    }
+
+    #[test]
+    fn find_in_path_picks_first_executable_match() {
+        let a = tempfile::tempdir().unwrap();
+        let b = tempfile::tempdir().unwrap();
+        let wanted = write_exe(a.path(), "llama-server");
+        write_exe(b.path(), "llama-server");
+        let path_var = format!("{}:{}", a.path().display(), b.path().display());
+        assert_eq!(find_in_path("llama-server", &path_var), Some(wanted));
+    }
+
+    #[test]
+    fn find_in_path_skips_non_executable_and_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        // Present but not executable: `execvp` would skip it, so do we.
+        std::fs::write(dir.path().join("llama-server"), b"not a program").unwrap();
+        let path_var = format!("{}:/definitely/not/here", dir.path().display());
+        #[cfg(unix)]
+        assert_eq!(find_in_path("llama-server", &path_var), None);
+        assert_eq!(find_in_path("nope", &path_var), None);
+    }
+
+    #[test]
+    fn find_in_path_expands_a_literal_tilde_entry() {
+        // The bug this guards: `export PATH="~/bin:$PATH"` leaves a literal
+        // tilde that bash resolves during lookup and `execvp` does not.
+        // Needs a scratch dir *under* $HOME, since that is the only prefix a
+        // tilde can name. Skip rather than fail where that isn't possible.
+        let Ok(home) = std::env::var("HOME") else {
+            return;
+        };
+        let Ok(dir) = tempfile::tempdir_in(&home) else {
+            return;
+        };
+        let wanted = write_exe(dir.path(), "llama-server");
+        let leaf = dir.path().file_name().unwrap().to_string_lossy().into_owned();
+        assert_eq!(
+            find_in_path("llama-server", &format!("~/{}", leaf)),
+            Some(wanted)
+        );
+    }
+
+    #[test]
+    fn resolve_rejects_a_path_that_is_not_there() {
+        let err = resolve_llama_server_bin(Path::new("/definitely/not/here/llama-server"))
+            .unwrap_err();
+        assert!(matches!(err, LlmError::Launch(_)), "got {:?}", err);
+    }
+
+    #[test]
+    fn resolve_accepts_an_explicit_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = write_exe(dir.path(), "llama-server");
+        assert_eq!(resolve_llama_server_bin(&bin).unwrap(), bin);
+    }
+
+    #[test]
+    fn llamafile_detection_keys_on_the_extension() {
+        assert!(is_llamafile(Path::new("/x/bge-m3.llamafile")));
+        assert!(!is_llamafile(Path::new("/x/Qwen3.5-9B-UD-Q4_K_XL.gguf")));
     }
 }
